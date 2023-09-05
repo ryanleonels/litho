@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -27,7 +27,6 @@ import com.google.testing.compile.JavaSourcesSubjectFactory;
 import java.io.IOException;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardLocation;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -37,7 +36,6 @@ public class ProcessorIntegrationTest {
   public static String RES_PREFIX = "/processor/";
   public static String RES_PACKAGE = "com.facebook.litho.processor.integration.resources";
 
-  @Ignore("T41117446") // Starts failing after updating gradle plugin to 3.3.1
   @Test
   public void failsToCompileWithWrongContext() throws IOException {
     final JavaFileObject javaFileObject =
@@ -50,14 +48,14 @@ public class ProcessorIntegrationTest {
         .failsToCompile()
         .withErrorCount(1)
         .withErrorContaining(
-            "Parameter in position 0 of a method annotated with interface "
-                + "com.facebook.litho.annotations.OnCreateLayout should be of type "
-                + "com.facebook.litho.ComponentContext")
+            "Argument at index 0 is not a valid parameter, should be one of the "
+                + "following: @Prop T somePropName. @TreeProp T someTreePropName. "
+                + "@State T someStateName. @InjectProp T someInjectPropName. @CachedValue T value, "
+                + "where the cached value has a corresponding @OnCalculateCachedValue method.")
         .in(javaFileObject)
         .onLine(28);
   }
 
-  @Ignore("T41117446") //  Enable them after switching target to AndroidX
   @Test
   public void compilesTestLayoutSpecWithoutError() {
     final JavaFileObject javaFileObject =
@@ -98,51 +96,6 @@ public class ProcessorIntegrationTest {
         .generatesSources(expectedOutput);
   }
 
-  @Ignore("T41117446") //  Enable them after switching target to AndroidX
-  @Test
-  public void compilesHotswapTestLayoutSpecWithoutError() {
-    final ComponentsProcessor processor = new ComponentsProcessor();
-    processor.forceHotswapMode();
-
-    final JavaFileObject javaFileObject =
-        JavaFileObjects.forResource(
-            Resources.getResource(getClass(), RES_PREFIX + "TestLayoutSpec.java"));
-
-    final JavaFileObject testTreePropFileObject =
-        JavaFileObjects.forResource(
-            Resources.getResource(getClass(), RES_PREFIX + "TestTreeProp.java"));
-
-    final JavaFileObject testEventFileObject =
-        JavaFileObjects.forResource(
-            Resources.getResource(getClass(), RES_PREFIX + "TestEvent.java"));
-
-    final JavaFileObject testTagFileObject =
-        JavaFileObjects.forResource(Resources.getResource(getClass(), RES_PREFIX + "TestTag.java"));
-
-    final JavaFileObject expectedOutput =
-        JavaFileObjects.forResource(
-            Resources.getResource(getClass(), RES_PREFIX + "TestHotswapLayout.java"));
-
-    Truth.assertAbout(JavaSourcesSubjectFactory.javaSources())
-        .that(
-            ImmutableList.of(
-                javaFileObject, testTreePropFileObject, testEventFileObject, testTagFileObject))
-        .processedWith(processor)
-        .compilesWithoutError()
-        .and()
-        .generatesFileNamed(StandardLocation.CLASS_OUTPUT, RES_PACKAGE, "TestLayout.class")
-        .and()
-        .generatesFileNamed(
-            StandardLocation.CLASS_OUTPUT, RES_PACKAGE, "TestLayout$TestLayoutStateContainer.class")
-        .and()
-        .generatesFileNamed(StandardLocation.CLASS_OUTPUT, RES_PACKAGE, "TestLayout$Builder.class")
-        .and()
-        .generatesFileNamed(StandardLocation.CLASS_OUTPUT, RES_PACKAGE, "TestLayoutSpec.class")
-        .and()
-        .generatesSources(expectedOutput);
-  }
-
-  @Ignore("T41117446") //  Enable them after switching target to AndroidX
   @Test
   public void compilesTestMountSpec() {
     final JavaFileObject javaFileObject =
@@ -176,8 +129,6 @@ public class ProcessorIntegrationTest {
         .generatesFileNamed(
             StandardLocation.CLASS_OUTPUT, RES_PACKAGE, "TestMount$TestMountStateContainer.class")
         .and()
-        .generatesFileNamed(StandardLocation.CLASS_OUTPUT, RES_PACKAGE, "TestMount$1.class")
-        .and()
         .generatesFileNamed(StandardLocation.CLASS_OUTPUT, RES_PACKAGE, "TestMount$Builder.class")
         .and()
         .generatesFileNamed(StandardLocation.CLASS_OUTPUT, RES_PACKAGE, "TestMountSpec.class")
@@ -185,7 +136,6 @@ public class ProcessorIntegrationTest {
         .generatesSources(expectedOutput);
   }
 
-  @Ignore("T41117446") //  Enable them after switching target to AndroidX
   @Test
   public void compilesBasicTestSampleSpec() {
     final JavaFileObject testSpecObject =
@@ -217,7 +167,6 @@ public class ProcessorIntegrationTest {
         .generatesSources(expectedOutput);
   }
 
-  @Ignore("T41117446") // Starts failing after updating gradle plugin to 3.3.1
   @Test
   public void failsToCompileClassBasedTestSpec() throws IOException {
     final JavaFileObject javaFileObject =
@@ -238,7 +187,6 @@ public class ProcessorIntegrationTest {
         .onLine(23);
   }
 
-  @Ignore("T41117446") // Starts failing after updating gradle plugin to 3.3.1
   @Test
   public void failsToCompileNonEmptyTestSpecInterface() throws IOException {
     final JavaFileObject javaFileObject =

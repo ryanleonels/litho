@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -103,6 +103,9 @@ public interface SpecModel {
   /** @return the set of inter-stage inputs that are defined by the spec. */
   ImmutableList<InterStageInputParamModel> getInterStageInputs();
 
+  /** @return the set of inter-stage inputs that are defined by the spec. */
+  ImmutableList<PrepareInterStageInputParamModel> getPrepareInterStageInputs();
+
   /** @return the set of tree props that are defined by the spec. */
   ImmutableList<TreePropModel> getTreeProps();
 
@@ -167,6 +170,12 @@ public interface SpecModel {
 
   /** @return whether or not to generate a hasState method. */
   boolean shouldGenerateHasState();
+
+  /** @return whether or not to generate a transferState method. */
+  boolean shouldGenerateTransferState();
+
+  /** @return whether or not this component is stateful. */
+  boolean isStateful();
 
   /**
    * @return null if this spec does not use dependency injection, otherwise return the generator

@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,11 +16,13 @@
 
 package com.facebook.litho;
 
+import androidx.annotation.Nullable;
+import com.facebook.rendercore.primitives.Equivalence;
 import com.facebook.yoga.YogaConstants;
 import com.facebook.yoga.YogaEdge;
 import java.util.Arrays;
 
-public class Edges {
+public class Edges implements Equivalence<Edges> {
 
   public static final int EDGES_LENGTH = YogaEdge.values().length;
 
@@ -34,9 +36,9 @@ public class Edges {
   private static final int ALIASES_MASK = 0xFFF;
   private static final int ALIASES_RIGHT_SHIFT = 6 * 4;
 
-  private static final int ALL_INTVALUT = YogaEdge.ALL.intValue();
+  private static final int ALL_INTVALUE = YogaEdge.ALL.intValue();
   private static final int HORIZONTAL_INTVALUE = YogaEdge.HORIZONTAL.intValue();
-  private static final int VERTICAL_INTVALUT = YogaEdge.VERTICAL.intValue();
+  private static final int VERTICAL_INTVALUE = YogaEdge.VERTICAL.intValue();
 
   // This long maps the indexes of the YogaEdges within the mValue array.
   // Each group of 4 bits represent an index and the position of these 4 bits is related to the
@@ -112,14 +114,14 @@ public class Edges {
 
     if (mHasAliasesSet) {
       final int secondTypeEdgeValue =
-          edge == YogaEdge.TOP || edge == YogaEdge.BOTTOM ? VERTICAL_INTVALUT : HORIZONTAL_INTVALUE;
+          edge == YogaEdge.TOP || edge == YogaEdge.BOTTOM ? VERTICAL_INTVALUE : HORIZONTAL_INTVALUE;
       final byte secondTypeEdgeIndex = getIndex(secondTypeEdgeValue);
 
       if (secondTypeEdgeIndex != UNDEFINED_INDEX) {
         return mValues[secondTypeEdgeIndex];
 
-      } else if (getIndex(ALL_INTVALUT) != UNDEFINED_INDEX) {
-        return mValues[getIndex(ALL_INTVALUT)];
+      } else if (getIndex(ALL_INTVALUE) != UNDEFINED_INDEX) {
+        return mValues[getIndex(ALL_INTVALUE)];
       }
     }
 
@@ -176,5 +178,20 @@ public class Edges {
       return Float.isNaN(f1) && Float.isNaN(f2);
     }
     return Math.abs(f2 - f1) < .00001f;
+  }
+
+  @Override
+  public boolean isEquivalentTo(@Nullable Edges other) {
+    if (this == other) {
+      return true;
+    }
+
+    if (other == null) {
+      return false;
+    }
+
+    return mEdgesToValuesIndex == other.mEdgesToValuesIndex
+        && mHasAliasesSet == other.mHasAliasesSet
+        && Arrays.equals(mValues, other.mValues);
   }
 }

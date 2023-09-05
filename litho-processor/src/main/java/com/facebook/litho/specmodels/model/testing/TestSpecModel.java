@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,6 +30,7 @@ import com.facebook.litho.specmodels.model.FieldModel;
 import com.facebook.litho.specmodels.model.HasEnclosedSpecModel;
 import com.facebook.litho.specmodels.model.InjectPropModel;
 import com.facebook.litho.specmodels.model.InterStageInputParamModel;
+import com.facebook.litho.specmodels.model.PrepareInterStageInputParamModel;
 import com.facebook.litho.specmodels.model.PropDefaultModel;
 import com.facebook.litho.specmodels.model.PropJavadocModel;
 import com.facebook.litho.specmodels.model.PropModel;
@@ -207,6 +208,11 @@ public class TestSpecModel implements SpecModel, HasEnclosedSpecModel {
   }
 
   @Override
+  public ImmutableList<PrepareInterStageInputParamModel> getPrepareInterStageInputs() {
+    return mSpecModel.getPrepareInterStageInputs();
+  }
+
+  @Override
   public ImmutableList<TreePropModel> getTreeProps() {
     return mSpecModel.getTreeProps();
   }
@@ -307,8 +313,18 @@ public class TestSpecModel implements SpecModel, HasEnclosedSpecModel {
   }
 
   @Override
+  public boolean shouldGenerateTransferState() {
+    return mSpecModel.shouldGenerateTransferState();
+  }
+
+  @Override
   public boolean shouldGenerateCopyMethod() {
     return true;
+  }
+
+  @Override
+  public boolean isStateful() {
+    return mSpecModel.isStateful();
   }
 
   @Override

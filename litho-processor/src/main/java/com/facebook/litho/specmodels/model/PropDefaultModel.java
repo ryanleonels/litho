@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,23 +24,34 @@ import javax.annotation.concurrent.Immutable;
 import javax.lang.model.element.Modifier;
 
 /**
- * Model that is a simple base representation of a
- * {@link com.facebook.litho.annotations.PropDefault}.
+ * Model that is a simple base representation of a {@link
+ * com.facebook.litho.annotations.PropDefault}.
  */
 @Immutable
 public class PropDefaultModel {
+
+  /**
+   * There are two ways to access a PropDefault: either via a field or a method.
+   *
+   * <p>For Java, you always access the PropDefault via the static final field. For Kotlin,
+   * depending on how the PropDefault annotation is applied, you either access it via the generated
+   * method or via the field.
+   */
+  public enum AccessorType {
+    GETTER_METHOD,
+    FIELD;
+  }
+
   public final TypeName mType;
   public final ImmutableList<Modifier> mModifiers;
   public final Object mRepresentedObject;
   public final String mName;
   @Nullable private ResType mResType;
   private int mResId;
+  private AccessorType mAccessorType = AccessorType.FIELD;
 
   public PropDefaultModel(
-      TypeName type,
-      String name,
-      ImmutableList<Modifier> modifiers,
-      Object representedObject) {
+      TypeName type, String name, ImmutableList<Modifier> modifiers, Object representedObject) {
     mType = type;
     mName = name;
     mModifiers = modifiers;
@@ -53,13 +64,15 @@ public class PropDefaultModel {
       ImmutableList<Modifier> modifiers,
       Object representedObject,
       ResType resType,
-      int resId) {
+      int resId,
+      AccessorType accessorType) {
     mType = type;
     mName = name;
     mModifiers = modifiers;
     mRepresentedObject = representedObject;
     mResType = resType;
     mResId = resId;
+    mAccessorType = accessorType;
   }
 
   public String getName() {
@@ -77,6 +90,10 @@ public class PropDefaultModel {
 
   public boolean isResResolvable() {
     return hasResType() && hasResId();
+  }
+
+  public boolean isGetterMethodAccessor() {
+    return mAccessorType == AccessorType.GETTER_METHOD;
   }
 
   private boolean hasResType() {

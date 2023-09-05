@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.litho.fresco;
 
 import static com.facebook.litho.annotations.ResType.DRAWABLE;
@@ -20,6 +21,7 @@ import static com.facebook.litho.annotations.ResType.DRAWABLE;
 import android.graphics.ColorFilter;
 import android.graphics.PointF;
 import android.graphics.drawable.Drawable;
+import androidx.annotation.Nullable;
 import com.facebook.drawee.drawable.ScalingUtils;
 import com.facebook.drawee.generic.GenericDraweeHierarchy;
 import com.facebook.drawee.generic.RoundingParams;
@@ -29,6 +31,7 @@ public class FrescoImageHierarchyTools {
 
   public static void setupHierarchy(
       @Prop(optional = true) ScalingUtils.ScaleType actualImageScaleType,
+      @Prop(optional = true) PointF actualImageFocusPoint,
       @Prop(optional = true) int fadeDuration,
       @Prop(optional = true, resType = DRAWABLE) Drawable failureImage,
       @Prop(optional = true) ScalingUtils.ScaleType failureImageScaleType,
@@ -39,7 +42,7 @@ public class FrescoImageHierarchyTools {
       @Prop(optional = true) ScalingUtils.ScaleType progressBarImageScaleType,
       @Prop(optional = true, resType = DRAWABLE) Drawable retryImage,
       @Prop(optional = true) ScalingUtils.ScaleType retryImageScaleType,
-      @Prop(optional = true) RoundingParams roundingParams,
+      @Prop(optional = true) @Nullable RoundingParams roundingParams,
       @Prop(optional = true) ColorFilter colorFilter,
       GenericDraweeHierarchy draweeHierarchy) {
 
@@ -54,6 +57,10 @@ public class FrescoImageHierarchyTools {
     }
 
     draweeHierarchy.setActualImageScaleType(actualImageScaleType);
+    if (actualImageFocusPoint != null
+        && actualImageScaleType == ScalingUtils.ScaleType.FOCUS_CROP) {
+      draweeHierarchy.setActualImageFocusPoint(actualImageFocusPoint);
+    }
     draweeHierarchy.setFadeDuration(fadeDuration);
 
     if (failureImage == null) {

@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,9 +19,15 @@ package com.facebook.litho.testing;
 import com.facebook.litho.Column;
 import com.facebook.litho.Component;
 import com.facebook.litho.ComponentContext;
+import com.facebook.litho.SpecGeneratedComponent;
 import com.facebook.yoga.YogaEdge;
 
-public class TestSizeDependentComponent extends Component {
+/**
+ * @deprecated Component should not be directly subclassed, write a layout spec or mount spec
+ *     instead
+ */
+@Deprecated
+public class TestSizeDependentComponent extends SpecGeneratedComponent {
 
   private TestSizeDependentComponent() {
     super("TestSizeDependentComponent");
@@ -32,34 +38,26 @@ public class TestSizeDependentComponent extends Component {
       ComponentContext c, int widthSpec, int heightSpec) {
 
     final Component.Builder builder1 =
-        TestDrawableComponent.create(c, false, true, true, false, false)
+        TestDrawableComponent.create(c, true, true, false)
             .flexShrink(0)
             .backgroundColor(0xFFFF0000);
-    final Component.Builder builder2 = TestViewComponent.create(c, false, true, true, false)
-        .flexShrink(0)
-        .marginPx(YogaEdge.ALL, 3);
+    final Component.Builder builder2 =
+        TestViewComponent.create(c, true, true, false).flexShrink(0).marginPx(YogaEdge.ALL, 3);
 
     if (hasFixedSizes) {
-      builder1
-          .widthPx(50)
-          .heightPx(50);
-      builder2
-          .heightPx(20);
+      builder1.widthPx(50).heightPx(50);
+      builder2.heightPx(20);
     }
 
     if (isDelegate) {
       return builder1.build();
     }
 
-    return Column.create(c)
-        .paddingPx(YogaEdge.ALL, 5)
-        .child(builder1)
-        .child(builder2)
-        .build();
+    return Column.create(c).paddingPx(YogaEdge.ALL, 5).child(builder1).child(builder2).build();
   }
 
   @Override
-  public boolean isEquivalentTo(Component other) {
+  public boolean isEquivalentProps(Component other, boolean shouldCompareCommonProps) {
     return this == other;
   }
 
@@ -74,37 +72,24 @@ public class TestSizeDependentComponent extends Component {
   }
 
   public static Builder create(ComponentContext context) {
-    final Builder builder = new Builder();
-    builder.init(context, new TestSizeDependentComponent());
-    return builder;
+    return new Builder(context, new TestSizeDependentComponent());
   }
 
   boolean hasFixedSizes;
   boolean isDelegate;
 
-  @Override
-  public boolean equals(Object other) {
-    if (this == other) {
-      return true;
-    }
-    if (other == null || getClass() != other.getClass()) {
-      return false;
-    }
-    TestSizeDependentComponent state = (TestSizeDependentComponent) other;
-    if (this.getId() == state.getId()) {
-      return true;
-    }
-
-    return true;
-  }
-
   public static class Builder extends com.facebook.litho.Component.Builder<Builder> {
 
     TestSizeDependentComponent mTestSizeDependentComponent;
 
-    private void init(ComponentContext context, TestSizeDependentComponent state) {
-      super.init(context, 0, 0, state);
+    private Builder(ComponentContext context, TestSizeDependentComponent state) {
+      super(context, 0, 0, state);
       mTestSizeDependentComponent = state;
+    }
+
+    @Override
+    protected void setComponent(Component component) {
+      mTestSizeDependentComponent = (TestSizeDependentComponent) component;
     }
 
     public Builder setFixSizes(boolean hasFixSizes) {

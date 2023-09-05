@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,7 +15,9 @@
  */
 
 apply plugin: 'com.android.library'
-apply plugin: 'maven'
+apply plugin: 'kotlin-android'
+apply plugin: 'org.jetbrains.dokka'
+apply plugin: 'com.facebook.kotlin.compilerplugins.dataclassgenerate'
 
 project.group = GROUP
 version = VERSION_NAME
@@ -23,9 +25,6 @@ version = VERSION_NAME
 android {
     compileSdkVersion rootProject.compileSdkVersion
     buildToolsVersion rootProject.buildToolsVersion
-
-    // We're on an old version of Robolectric which requires this, sadly.
-    useLibrary 'org.apache.http.legacy'
 
     defaultConfig {
         minSdkVersion rootProject.minSdkVersion
@@ -41,7 +40,7 @@ android {
         }
 
         release {
-            buildConfigField 'boolean', internalBuildField, 'false';
+            buildConfigField 'boolean', internalBuildField, 'false'
             buildConfigField 'boolean', useIncrementalMountHelper, 'true'
         }
     }
@@ -55,12 +54,20 @@ android {
 dependencies {
     // Project dependencies
     api project(':litho-annotations')
+    api project(':litho-perf-logger')
+    api project(':litho-rendercore')
+    api project(':litho-rendercore-incremental-mount')
+    api project(':litho-rendercore-primitives')
+    api project(':litho-rendercore-transitions')
+    api project(':litho-rendercore-visibility')
 
     // Annotations
     compileOnly deps.jsr305
     // Infer annotations is partially class-retained and need to be part
     // of the POM.
     implementation deps.inferAnnotations
+
+    compileOnly deps.proguardAnnotations
 
     // Android Support Library
     compileOnly deps.supportAnnotations
@@ -74,12 +81,11 @@ dependencies {
     } else {
         api project(':yogajni')
     }
+
+    testImplementation deps.assertjCore
+    testImplementation deps.junit
+    testImplementation deps.robolectric
+    testImplementation deps.mockitokotlin
 }
 
-apply from: rootProject.file('gradle/release.gradle')
-
-task sourcesJar(type: Jar) {
-    from android.sourceSets.main.java.srcDirs
-    archiveClassifier.set('sources')
-}
-artifacts.add('archives', sourcesJar)
+apply plugin: "com.vanniktech.maven.publish"

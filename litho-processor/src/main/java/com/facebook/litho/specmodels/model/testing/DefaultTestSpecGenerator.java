@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,7 @@
 
 package com.facebook.litho.specmodels.model.testing;
 
+import com.facebook.litho.annotations.Generated;
 import com.facebook.litho.specmodels.generator.JavadocGenerator;
 import com.facebook.litho.specmodels.generator.TypeSpecDataHolder;
 import com.facebook.litho.specmodels.generator.testing.MatcherGenerator;
@@ -31,6 +32,7 @@ public class DefaultTestSpecGenerator implements TestSpecGenerator {
     final TypeSpec.Builder typeSpec =
         TypeSpec.classBuilder(specModel.getComponentName())
             .addSuperinterface(specModel.getSpecTypeName())
+            .addAnnotation(Generated.class)
             .addModifiers(Modifier.FINAL);
 
     if (!specModel.getTypeVariables().isEmpty()) {

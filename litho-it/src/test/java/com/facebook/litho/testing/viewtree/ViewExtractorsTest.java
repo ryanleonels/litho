@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +16,7 @@
 
 package com.facebook.litho.testing.viewtree;
 
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import android.app.Activity;
 import android.graphics.drawable.Drawable;
@@ -24,16 +24,16 @@ import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
 import com.facebook.litho.it.R;
-import com.facebook.litho.testing.testrunner.ComponentsTestRunner;
+import com.facebook.litho.testing.testrunner.LithoTestRunner;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
+import org.robolectric.annotation.LooperMode;
 
-/**
- * Tests {@link ViewExtractors}
- */
-@RunWith(ComponentsTestRunner.class)
+/** Tests {@link ViewExtractors} */
+@LooperMode(LooperMode.Mode.LEGACY)
+@RunWith(LithoTestRunner.class)
 public class ViewExtractorsTest {
 
   private View mView;
@@ -73,16 +73,14 @@ public class ViewExtractorsTest {
 
   @Test
   public void testGetTextPrintsVisibity() {
-    assertThat(ViewExtractors.GET_TEXT_FUNCTION.apply(mTextView))
-        .contains("view is visible");
+    assertThat(ViewExtractors.GET_TEXT_FUNCTION.apply(mTextView)).contains("view is visible");
     assertThat(ViewExtractors.GET_TEXT_FUNCTION.apply(mGoneTextView))
         .contains("view is not visible");
   }
 
   @Test
   public void testViewWithoutText() {
-    assertThat(ViewExtractors.GET_TEXT_FUNCTION.apply(mView))
-        .contains("No text found");
+    assertThat(ViewExtractors.GET_TEXT_FUNCTION.apply(mView)).contains("No text found");
   }
 
   @Test
@@ -93,10 +91,8 @@ public class ViewExtractorsTest {
 
   @Test
   public void testGetDrawablePrintsVisibity() {
-    assertThat(ViewExtractors.GET_DRAWABLE_FUNCTION.apply(mImageView))
-        .contains("view is visible");
+    assertThat(ViewExtractors.GET_DRAWABLE_FUNCTION.apply(mImageView)).contains("view is visible");
     assertThat(ViewExtractors.GET_DRAWABLE_FUNCTION.apply(mGoneImageView))
         .contains("view is not visible");
   }
-
 }

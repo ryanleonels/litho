@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,8 +23,9 @@ import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.recyclerview.widget.RecyclerView;
 import com.facebook.litho.ComponentTree;
-import com.facebook.litho.ComponentsLogger;
+import com.facebook.litho.ComponentsReporter;
 import com.facebook.litho.LithoView;
+import com.facebook.litho.config.ComponentsConfiguration;
 
 /**
  * Controller that handles sticky header logic. Depending on where the sticky item is located in the
@@ -35,9 +36,11 @@ import com.facebook.litho.LithoView;
 class StickyHeaderControllerImpl extends RecyclerView.OnScrollListener
     implements StickyHeaderController {
 
+  private static final String FIRST_VISIBLE_STICKY_HEADER_NULL =
+      "StickyHeaderControllerImpl:FirstVisibleStickyHeaderNull";
   static final String RECYCLER_ARGUMENT_NULL = "Cannot initialize with null SectionsRecyclerView.";
   static final String RECYCLER_ALREADY_INITIALIZED =
-          "SectionsRecyclerView has already been initialized but never reset.";
+      "SectionsRecyclerView has already been initialized but never reset.";
   static final String RECYCLER_NOT_INITIALIZED = "SectionsRecyclerView has not been set yet.";
   static final String LAYOUTMANAGER_NOT_INITIALIZED =
       "LayoutManager of RecyclerView is not initialized yet.";
@@ -107,6 +110,7 @@ class StickyHeaderControllerImpl extends RecyclerView.OnScrollListener
     if (stickyHeaderPosition == RecyclerView.NO_POSITION || firstVisibleItemComponentTree == null) {
       // no sticky header above first visible position, reset the state
       mSectionsRecyclerView.hideStickyHeader();
+      mSectionsRecyclerView.maybeRestoreDetachedComponentTree(previousStickyHeaderPosition);
       previousStickyHeaderPosition = RecyclerView.NO_POSITION;
       return;
     }
@@ -118,20 +122,18 @@ class StickyHeaderControllerImpl extends RecyclerView.OnScrollListener
       if (firstVisibleView == null) {
         // When RV has pending updates adapter position and layout position might not match
         // and firstVisibleView might be null.
-        final ComponentsLogger logger = firstVisibleItemComponentTree.getContext().getLogger();
-        if (logger != null) {
-          logger.emitMessage(
-              ComponentsLogger.LogLevel.ERROR,
-              "First visible sticky header item is null"
-                  + ", RV.hasPendingAdapterUpdates: "
-                  + mSectionsRecyclerView.getRecyclerView().hasPendingAdapterUpdates()
-                  + ", first visible component: "
-                  + firstVisibleItemComponentTree.getSimpleName()
-                  + ", hasMounted: "
-                  + firstVisibleItemComponentTree.hasMounted()
-                  + ", isReleased: "
-                  + firstVisibleItemComponentTree.isReleased());
-        }
+        ComponentsReporter.emitMessage(
+            ComponentsReporter.LogLevel.ERROR,
+            FIRST_VISIBLE_STICKY_HEADER_NULL,
+            "First visible sticky header item is null"
+                + ", RV.hasPendingAdapterUpdates: "
+                + mSectionsRecyclerView.getRecyclerView().hasPendingAdapterUpdates()
+                + ", first visible component: "
+                + firstVisibleItemComponentTree.getSimpleName()
+                + ", hasMounted: "
+                + firstVisibleItemComponentTree.hasMounted()
+                + ", isReleased: "
+                + firstVisibleItemComponentTree.isReleased());
       } else {
 
         // Translate first child, no need for sticky header.
@@ -147,11 +149,19 @@ class StickyHeaderControllerImpl extends RecyclerView.OnScrollListener
 
       lastTranslatedView = firstVisibleView;
       mSectionsRecyclerView.hideStickyHeader();
+      mSectionsRecyclerView.maybeRestoreDetachedComponentTree(stickyHeaderPosition);
       previousStickyHeaderPosition = RecyclerView.NO_POSITION;
     } else {
 
       if (mSectionsRecyclerView.isStickyHeaderHidden()
-          || stickyHeaderPosition != previousStickyHeaderPosition) {
+          || stickyHeaderPosition != previousStickyHeaderPosition
+          || (ComponentsConfiguration.initStickyHeaderInLayoutWhenComponentTreeIsNull
+              && mSectionsRecyclerView.getStickyHeader().getComponentTree() == null
+              // RecyclerView can cause a relayout without any scroll changes, check for that here
+              && dx == 0
+              && dy == 0
+              && mSectionsRecyclerView.getRecyclerView().getScrollState()
+                  == RecyclerView.SCROLL_STATE_IDLE)) {
         initStickyHeader(stickyHeaderPosition);
         mSectionsRecyclerView.showStickyHeader();
       }
@@ -162,9 +172,10 @@ class StickyHeaderControllerImpl extends RecyclerView.OnScrollListener
       for (int i = firstVisiblePosition; i <= lastVisiblePosition; i++) {
         if (mHasStickyHeader.isSticky(i)) {
           final View nextStickyHeader = mLayoutManager.findViewByPosition(i);
-          final int offsetBetweenStickyHeaders = nextStickyHeader.getTop()
-              - mSectionsRecyclerView.getStickyHeader().getBottom()
-              + mSectionsRecyclerView.getPaddingTop();
+          final int offsetBetweenStickyHeaders =
+              nextStickyHeader.getTop()
+                  - mSectionsRecyclerView.getStickyHeader().getBottom()
+                  + mSectionsRecyclerView.getPaddingTop();
           translationY = Math.min(offsetBetweenStickyHeaders, 0);
           break;
         }
@@ -177,22 +188,7 @@ class StickyHeaderControllerImpl extends RecyclerView.OnScrollListener
   private void initStickyHeader(int stickyHeaderPosition) {
     final ComponentTree componentTree =
         mHasStickyHeader.getComponentForStickyHeaderAt(stickyHeaderPosition);
-    // RecyclerView might not have yet detached the view that this componentTree bound to,
-    // so detach it if that is the case.
-    detachLithoViewIfNeeded(componentTree.getLithoView());
     mSectionsRecyclerView.setStickyComponent(componentTree);
-  }
-
-  private static void detachLithoViewIfNeeded(LithoView view) {
-    if (view == null) {
-      return;
-    }
-    // This is equivalent of calling view.isAttachedToWindow(),
-    // however, that method is available only from API19
-    final boolean isAttachedToWindow = view.getWindowToken() != null;
-    if (isAttachedToWindow) {
-        view.onStartTemporaryDetach();
-    }
   }
 
   @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)

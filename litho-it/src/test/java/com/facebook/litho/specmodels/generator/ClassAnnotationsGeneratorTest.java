@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,8 +16,9 @@
 
 package com.facebook.litho.specmodels.generator;
 
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
+import com.facebook.litho.annotations.Generated;
 import com.facebook.litho.annotations.OnEvent;
 import com.facebook.litho.specmodels.internal.ImmutableList;
 import com.facebook.litho.specmodels.model.DelegateMethod;
@@ -49,7 +50,8 @@ public class ClassAnnotationsGeneratorTest {
     final TypeSpecDataHolder dataHolder = ClassAnnotationsGenerator.generate(specModel);
 
     assertThat(dataHolder.getAnnotationSpecs())
-        .hasSize(2)
+        .hasSize(3)
+        .contains(AnnotationSpec.builder(Generated.class).build())
         .contains(AnnotationSpec.builder(Deprecated.class).build())
         .contains(AnnotationSpec.builder(OnEvent.class).build());
   }

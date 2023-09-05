@@ -1,11 +1,11 @@
 /*
- * Copyright 2018-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.litho.sections.processor.integration.resources;
 
 import android.view.View;
@@ -130,10 +131,8 @@ public final class FullDiffSection<T> extends Section implements TestTag {
   }
 
   public static <T> Builder<T> create(SectionContext context) {
-    final Builder builder = new Builder();
     FullDiffSection instance = new FullDiffSection();
-    builder.init(context, instance);
-    return builder;
+    return new Builder(context, instance);
   }
 
   @Override
@@ -186,8 +185,9 @@ public final class FullDiffSection<T> extends Section implements TestTag {
   static boolean dispatchTestEvent(EventHandler _eventHandler, Object object) {
     final TestEvent _eventState = new TestEvent();
     _eventState.object = object;
-    EventDispatcher _lifecycle = _eventHandler.mHasEventDispatcher.getEventDispatcher();
-    return (boolean) _lifecycle.dispatchOnEvent(_eventHandler, _eventState);
+    EventDispatcher _dispatcher =
+        _eventHandler.dispatchInfo.hasEventDispatcher.getEventDispatcher();
+    return (boolean) _dispatcher.dispatchOnEvent(_eventHandler, _eventState);
   }
 
   private void testEvent(HasEventDispatcher _abstract, SectionContext c, View view, int someParam) {
@@ -212,10 +212,10 @@ public final class FullDiffSection<T> extends Section implements TestTag {
         {
           ClickEvent _event = (ClickEvent) eventState;
           testEvent(
-              eventHandler.mHasEventDispatcher,
-              (SectionContext) eventHandler.params[0],
+              eventHandler.dispatchInfo.hasEventDispatcher,
+              eventHandler.dispatchInfo.componentContext,
               (View) _event.view,
-              (int) eventHandler.params[1]);
+              (int) eventHandler.params[0]);
           return null;
         }
       default:
@@ -237,17 +237,15 @@ public final class FullDiffSection<T> extends Section implements TestTag {
     FullDiffSection _prevImpl = (FullDiffSection) _prevAbstractImpl;
     FullDiffSection _nextImpl = (FullDiffSection) _nextAbstractImpl;
     Diff<List<T>> data =
-            new Diff<List<T>>(
-                _prevImpl == null ? null : _prevImpl.data,
-                _nextImpl == null ? null : _nextImpl.data);
+        new Diff<List<T>>(
+            _prevImpl == null ? null : _prevImpl.data, _nextImpl == null ? null : _nextImpl.data);
     Diff<Component> prop3 =
-            new Diff<Component>(
-                _prevImpl == null ? null : _prevImpl.prop3,
-                _nextImpl == null ? null : _nextImpl.prop3);
+        new Diff<Component>(
+            _prevImpl == null ? null : _prevImpl.prop3, _nextImpl == null ? null : _nextImpl.prop3);
     Diff<Object> state1 =
-            new Diff<Object>(
-                _prevImpl == null ? null : _prevImpl.mStateContainer.state1,
-                _nextImpl == null ? null : _nextImpl.mStateContainer.state1);
+        new Diff<Object>(
+            _prevImpl == null ? null : _prevImpl.mStateContainer.state1,
+            _nextImpl == null ? null : _nextImpl.mStateContainer.state1);
     FullDiffSectionSpec.onDiff(
         (SectionContext) c,
         (ChangeSet) changeSet,
@@ -311,8 +309,7 @@ public final class FullDiffSection<T> extends Section implements TestTag {
     boolean _result;
     Diff<Integer> prop1 =
         new Diff<Integer>(
-            _prevImpl == null ? null : _prevImpl.prop1,
-            _nextImpl == null ? null : _nextImpl.prop1);
+            _prevImpl == null ? null : _prevImpl.prop1, _nextImpl == null ? null : _nextImpl.prop1);
     _result = (boolean) FullDiffSectionSpec.shouldUpdate((Diff<Integer>) prop1);
     return _result;
   }
@@ -384,8 +381,8 @@ public final class FullDiffSection<T> extends Section implements TestTag {
 
     private final BitSet mRequired = new BitSet(REQUIRED_PROPS_COUNT);
 
-    private void init(SectionContext context, FullDiffSection fullDiffSectionRef) {
-      super.init(context, fullDiffSectionRef);
+    private Builder(SectionContext context, FullDiffSection fullDiffSectionRef) {
+      super(context, fullDiffSectionRef);
       mFullDiffSection = fullDiffSectionRef;
       mContext = context;
       mRequired.clear();

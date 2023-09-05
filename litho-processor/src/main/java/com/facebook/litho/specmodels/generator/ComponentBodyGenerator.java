@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,25 +16,37 @@
 
 package com.facebook.litho.specmodels.generator;
 
+import static com.facebook.litho.specmodels.generator.DelegateMethodGenerator.isOutputType;
 import static com.facebook.litho.specmodels.generator.GeneratorConstants.DYNAMIC_PROPS;
 import static com.facebook.litho.specmodels.generator.GeneratorConstants.PREVIOUS_RENDER_DATA_FIELD_NAME;
-import static com.facebook.litho.specmodels.generator.GeneratorConstants.STATE_CONTAINER_FIELD_NAME;
+import static com.facebook.litho.specmodels.generator.GeneratorConstants.STATE_CONTAINER_GETTER;
+import static com.facebook.litho.specmodels.generator.GeneratorConstants.STATE_CONTAINER_IMPL_GETTER;
+import static com.facebook.litho.specmodels.generator.InterStagePropsContainerGenerator.getInterStagePropsContainerClassName;
+import static com.facebook.litho.specmodels.generator.PrepareInterStagePropsContainerGenerator.getPrepareInterStagePropsContainerClassName;
 import static com.facebook.litho.specmodels.generator.StateContainerGenerator.getStateContainerClassName;
+import static com.facebook.litho.specmodels.model.MethodParamModelUtils.isAnnotatedWith;
 
+import androidx.annotation.Nullable;
 import com.facebook.litho.annotations.Comparable;
-import com.facebook.litho.annotations.Param;
+import com.facebook.litho.annotations.Generated;
 import com.facebook.litho.annotations.Prop;
 import com.facebook.litho.annotations.ResType;
 import com.facebook.litho.annotations.State;
 import com.facebook.litho.annotations.TreeProp;
 import com.facebook.litho.specmodels.internal.ImmutableList;
+import com.facebook.litho.specmodels.internal.RunMode;
 import com.facebook.litho.specmodels.model.BindDynamicValueMethod;
 import com.facebook.litho.specmodels.model.CachedValueParamModel;
 import com.facebook.litho.specmodels.model.ClassNames;
+import com.facebook.litho.specmodels.model.DelegateMethodDescription;
+import com.facebook.litho.specmodels.model.DependencyInjectionHelper;
 import com.facebook.litho.specmodels.model.EventDeclarationModel;
 import com.facebook.litho.specmodels.model.EventMethod;
+import com.facebook.litho.specmodels.model.InjectPropModel;
 import com.facebook.litho.specmodels.model.InterStageInputParamModel;
 import com.facebook.litho.specmodels.model.MethodParamModel;
+import com.facebook.litho.specmodels.model.PrepareInterStageInputParamModel;
+import com.facebook.litho.specmodels.model.PropDefaultModel;
 import com.facebook.litho.specmodels.model.PropModel;
 import com.facebook.litho.specmodels.model.RenderDataDiffModel;
 import com.facebook.litho.specmodels.model.SpecElementType;
@@ -45,6 +57,7 @@ import com.facebook.litho.specmodels.model.StateParamModel;
 import com.facebook.litho.specmodels.model.TreePropModel;
 import com.facebook.litho.specmodels.model.TypeSpec.DeclaredTypeSpec;
 import com.facebook.litho.specmodels.model.UpdateStateMethod;
+import com.google.common.base.Preconditions;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;
@@ -55,39 +68,72 @@ import com.squareup.javapoet.ParameterSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
-import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 import javax.lang.model.element.Modifier;
 
 /** Class that generates the implementation of a Component. */
 public class ComponentBodyGenerator {
 
+  public static final String STATE_CONTAINER_ARGUMENT_NAME = "_stateContainer";
+  static final String LOCAL_STATE_CONTAINER_NAME = "_state";
+  static final String LOCAL_INTER_STAGE_PROPS_CONTAINER_NAME = "_interStageProps";
+  static final String LIFECYCLE_CREATE_INITIAL_STATE = "createInitialState";
+
+  static final Predicate<MethodParamModel> PREDICATE_NEEDS_STATE =
+      param -> param instanceof StateParamModel || isAnnotatedWith(param, State.class);
+
+  static final Predicate<DelegateMethodDescription.OptionalParameterType>
+      PREDICATE_ALLOWS_INTERSTAGE_OUTPUTS =
+          type -> type.equals(DelegateMethodDescription.OptionalParameterType.INTER_STAGE_OUTPUT);
+
   private ComponentBodyGenerator() {}
 
   public static TypeSpecDataHolder generate(
-      SpecModel specModel,
-      @Nullable MethodParamModel optionalField) {
+      SpecModel specModel, @Nullable MethodParamModel optionalField, EnumSet<RunMode> runMode) {
     final TypeSpecDataHolder.Builder builder = TypeSpecDataHolder.newBuilder();
 
     final boolean hasState = !specModel.getStateValues().isEmpty();
     if (hasState) {
       final ClassName stateContainerClass =
           ClassName.bestGuess(getStateContainerClassName(specModel));
-      builder.addField(
-          FieldSpec.builder(stateContainerClass, STATE_CONTAINER_FIELD_NAME, Modifier.PRIVATE)
-              .addAnnotation(
-                  AnnotationSpec.builder(Comparable.class)
-                      .addMember("type", "$L", Comparable.STATE_CONTAINER)
-                      .build())
-              .build());
-      builder.addMethod(generateStateContainerGetter(specModel.getStateContainerClass()));
+      builder.addMethod(generateStateContainerImplGetter(specModel, stateContainerClass));
+      builder.addMethod(generateStateContainerCreator(stateContainerClass));
+    }
+
+    boolean hasInterstageProps =
+        specModel.getInterStageInputs() != null && !specModel.getInterStageInputs().isEmpty();
+
+    final ClassName interstagepropsContainerClass =
+        ClassName.bestGuess(getInterStagePropsContainerClassName(specModel));
+    if (hasInterstageProps) {
+      builder.addType(InterStagePropsContainerGenerator.generate(specModel));
+      builder.addMethod(generateInterStagePropsContainerCreator(interstagepropsContainerClass));
+      builder.addMethod(
+          generateInterstagePropsContainerImplGetter(specModel, interstagepropsContainerClass));
+    }
+
+    boolean hasPrepareInterstageProps =
+        specModel.getPrepareInterStageInputs() != null
+            && !specModel.getPrepareInterStageInputs().isEmpty();
+
+    if (hasPrepareInterstageProps) {
+      final ClassName prepareInterStagePropContainerClassName =
+          ClassName.bestGuess(getPrepareInterStagePropsContainerClassName(specModel));
+      builder.addType(PrepareInterStagePropsContainerGenerator.generate(specModel));
+      builder.addMethod(
+          generatePrepareInterStagePropsContainerCreator(prepareInterStagePropContainerClassName));
+      builder.addMethod(
+          generatePrepareInterstagePropsContainerImplGetter(
+              specModel, prepareInterStagePropContainerClassName));
     }
 
     final boolean needsRenderDataInfra = !specModel.getRenderDataDiffs().isEmpty();
@@ -99,24 +145,39 @@ public class ComponentBodyGenerator {
 
     builder
         .addTypeSpecDataHolder(generateInjectedFields(specModel))
-        .addTypeSpecDataHolder(generateProps(specModel))
-        .addTypeSpecDataHolder(generateTreeProps(specModel))
-        .addTypeSpecDataHolder(generateInterStageInputs(specModel))
+        .addTypeSpecDataHolder(generateProps(specModel, runMode))
+        .addTypeSpecDataHolder(generateTreeProps(specModel, runMode))
         .addTypeSpecDataHolder(generateOptionalField(optionalField))
         .addTypeSpecDataHolder(generateEventHandlers(specModel))
         .addTypeSpecDataHolder(generateEventTriggers(specModel));
 
     if (specModel.shouldGenerateIsEquivalentTo()) {
-      builder.addMethod(generateIsEquivalentMethod(specModel));
+      builder.addMethod(generateIsEquivalentPropsMethod(specModel, runMode));
     }
 
-    builder.addTypeSpecDataHolder(generateCopyInterStageImpl(specModel));
+    if (specModel.shouldGenerateIsEquivalentTo()
+        && specModel.getTreeProps() != null
+        && !specModel.getTreeProps().isEmpty()
+        && specModel.getContextClass().equals(ClassNames.COMPONENT_CONTEXT)) {
+      builder.addMethod(generateIsEqualivalentTreePropsMethod(specModel, runMode));
+    }
+
+    if (hasInterstageProps) {
+      builder.addTypeSpecDataHolder(
+          generateCopyInterStageImpl(specModel, interstagepropsContainerClass));
+    }
+
+    if (hasPrepareInterstageProps) {
+      builder.addTypeSpecDataHolder(
+          generateCopyPrepareInterStageImpl(specModel, interstagepropsContainerClass));
+    }
+
     builder.addTypeSpecDataHolder(generateMakeShallowCopy(specModel, hasState));
     builder.addTypeSpecDataHolder(generateGetDynamicProps(specModel));
     builder.addTypeSpecDataHolder(generateBindDynamicProp(specModel));
 
     if (hasState) {
-      builder.addType(StateContainerGenerator.generate(specModel));
+      builder.addType(StateContainerGenerator.generate(specModel, runMode));
     }
     if (needsRenderDataInfra) {
       builder.addType(generatePreviousRenderDataContainerImpl(specModel));
@@ -139,7 +200,9 @@ public class ComponentBodyGenerator {
   static TypeSpec generatePreviousRenderDataContainerImpl(SpecModel specModel) {
     final String className = RenderDataGenerator.getRenderDataImplClassName(specModel);
     final TypeSpec.Builder renderInfoClassBuilder =
-        TypeSpec.classBuilder(className).addSuperinterface(ClassNames.RENDER_DATA);
+        TypeSpec.classBuilder(className)
+            .addSuperinterface(ClassNames.RENDER_DATA)
+            .addAnnotation(Generated.class);
 
     if (!specModel.hasInjectedDependencies()) {
       renderInfoClassBuilder.addModifiers(Modifier.STATIC, Modifier.PRIVATE);
@@ -148,10 +211,12 @@ public class ComponentBodyGenerator {
 
     final String copyParamName = "info";
     final String recordParamName = "component";
-    final MethodSpec.Builder copyBuilder = MethodSpec.methodBuilder("copy")
-        .addParameter(ClassName.bestGuess(className), copyParamName);
+    final MethodSpec.Builder copyBuilder =
+        MethodSpec.methodBuilder("copy")
+            .addParameter(ClassName.bestGuess(className), copyParamName);
     final MethodSpec.Builder recordBuilder =
         MethodSpec.methodBuilder("record")
+            .addParameter(specModel.getContextClass(), "c")
             .addParameter(specModel.getComponentTypeName(), recordParamName);
 
     for (RenderDataDiffModel diff : specModel.getRenderDataDiffs()) {
@@ -160,26 +225,31 @@ public class ComponentBodyGenerator {
 
       if (modelToDiff == null) {
         throw new RuntimeException(
-            "Got Diff of a param that doesn't seem to exist: " + diff.getName() + ". This should " +
-                "have been caught in the validation pass.");
+            "Got Diff of a param that doesn't seem to exist: "
+                + diff.getName()
+                + ". This should "
+                + "have been caught in the validation pass.");
       }
 
       if (!(modelToDiff instanceof PropModel || modelToDiff instanceof StateParamModel)) {
         throw new RuntimeException(
-            "Got Diff of a param that is not a @Prop or @State! (" + diff.getName() + ", a " +
-                modelToDiff.getClass().getSimpleName() + "). This should have been caught in the " +
-                "validation pass.");
+            "Got Diff of a param that is not a @Prop or @State! ("
+                + diff.getName()
+                + ", a "
+                + modelToDiff.getClass().getSimpleName()
+                + "). This should have been caught in the "
+                + "validation pass.");
       }
 
       final String name = modelToDiff.getName();
       if (modelToDiff instanceof PropModel) {
-        renderInfoClassBuilder.addField(FieldSpec.builder(
-            modelToDiff.getTypeName(),
-            name).addAnnotation(Prop.class).build());
+        renderInfoClassBuilder.addField(
+            FieldSpec.builder(modelToDiff.getTypeName(), name).addAnnotation(Prop.class).build());
       } else {
-        renderInfoClassBuilder.addField(FieldSpec.builder(
-            modelToDiff.getTypeName(),
-            modelToDiff.getName()).addAnnotation(State.class).build());
+        renderInfoClassBuilder.addField(
+            FieldSpec.builder(modelToDiff.getTypeName(), modelToDiff.getName())
+                .addAnnotation(State.class)
+                .build());
       }
 
       copyBuilder.addStatement("$L = $L.$L", name, copyParamName, name);
@@ -187,7 +257,7 @@ public class ComponentBodyGenerator {
           "$L = $L.$L",
           name,
           recordParamName,
-          getImplAccessor(specModel, modelToDiff));
+          getImplAccessor("record", specModel, modelToDiff, "c"));
     }
 
     return renderInfoClassBuilder
@@ -201,16 +271,37 @@ public class ComponentBodyGenerator {
     return refClassName.substring(0, 1).toLowerCase(Locale.ROOT) + refClassName.substring(1);
   }
 
-  static MethodSpec generateStateContainerGetter(TypeName stateContainerClassName) {
-    return MethodSpec.methodBuilder("getStateContainer")
+  static MethodSpec generateStateContainerImplGetter(
+      SpecModel specModel, TypeName stateContainerImplClassName) {
+    MethodSpec.Builder builder =
+        MethodSpec.methodBuilder(STATE_CONTAINER_IMPL_GETTER)
+            .addModifiers(Modifier.PRIVATE)
+            .addParameter(specModel.getContextClass(), "c")
+            .returns(stateContainerImplClassName);
+
+    if (specModel.isStateful()) {
+      builder.addStatement(
+          "return ($T) $T." + STATE_CONTAINER_GETTER + "(c, this)",
+          stateContainerImplClassName,
+          StateGenerator.getStateContainerGetterClassName(specModel));
+    } else {
+      builder.addStatement(
+          "return ($T) c.getScopedComponentInfo().getStateContainer()",
+          stateContainerImplClassName);
+    }
+    return builder.build();
+  }
+
+  static MethodSpec generateStateContainerCreator(ClassName stateContainerImplClassName) {
+    return MethodSpec.methodBuilder("createStateContainer")
         .addModifiers(Modifier.PROTECTED)
         .addAnnotation(Override.class)
-        .returns(stateContainerClassName)
-        .addStatement("return $N", STATE_CONTAINER_FIELD_NAME)
+        .returns(stateContainerImplClassName)
+        .addStatement("return new $T()", stateContainerImplClassName)
         .build();
   }
 
-  public static TypeSpecDataHolder generateProps(SpecModel specModel) {
+  public static TypeSpecDataHolder generateProps(SpecModel specModel, EnumSet<RunMode> runMode) {
     final TypeSpecDataHolder.Builder typeSpecDataHolder = TypeSpecDataHolder.newBuilder();
     final ImmutableList<PropModel> props = specModel.getProps();
 
@@ -222,24 +313,43 @@ public class ComponentBodyGenerator {
               ? propTypeName
               : ParameterizedTypeName.get(ClassNames.DYNAMIC_VALUE, propTypeName.box());
 
+      AnnotationSpec.Builder propAnnotationBuilder =
+          AnnotationSpec.builder(Prop.class)
+              .addMember("resType", "$T.$L", ResType.class, prop.getResType())
+              .addMember("optional", "$L", prop.isOptional());
+      TypeName propFieldTypeName = fieldTypeName;
+      if (prop.hasVarArgs()) {
+        propAnnotationBuilder.addMember("varArg", "$S", prop.getVarArgsSingleName());
+        propFieldTypeName =
+            KotlinSpecHelper.maybeRemoveWildcardFromVarArgsIfKotlinSpec(specModel, fieldTypeName);
+      }
       final FieldSpec.Builder fieldBuilder =
-          FieldSpec.builder(
-                  KotlinSpecUtils.getFieldTypeName(specModel, fieldTypeName), prop.getName())
+          FieldSpec.builder(propFieldTypeName, prop.getName())
               .addAnnotations(prop.getExternalAnnotations())
-              .addAnnotation(
-                  AnnotationSpec.builder(Prop.class)
-                      .addMember("resType", "$T.$L", ResType.class, prop.getResType())
-                      .addMember("optional", "$L", prop.isOptional())
-                      .build())
+              .addAnnotation(propAnnotationBuilder.build())
               .addAnnotation(
                   AnnotationSpec.builder(Comparable.class)
-                      .addMember("type", "$L", getComparableType(fieldTypeName, prop.getTypeSpec()))
+                      .addMember("type", "$L", getComparableType(prop, runMode))
                       .build());
       if (prop.hasDefault(specModel.getPropDefaults())) {
-        assignInitializer(fieldBuilder, specModel, prop);
+        final PropDefaultModel propDefault =
+            Preconditions.checkNotNull(prop.getDefault(specModel.getPropDefaults()));
+        assignInitializer(fieldBuilder, specModel, prop, propDefault);
+      } else if (prop.hasVarArgs()) {
+        fieldBuilder.initializer("$T.emptyList()", ClassName.get(Collections.class));
       }
 
-      typeSpecDataHolder.addField(fieldBuilder.build());
+      FieldSpec field = fieldBuilder.build();
+      typeSpecDataHolder.addField(field);
+
+      if (runMode.contains(RunMode.TESTING)) {
+        MethodSpec getter =
+            GeneratorUtils.getter(field)
+                .addModifiers(Modifier.PUBLIC)
+                .addAnnotations(field.annotations)
+                .build();
+        typeSpecDataHolder.addMethod(getter);
+      }
 
       if (prop.isDynamic()) {
         hasDynamicProps = true;
@@ -259,17 +369,44 @@ public class ComponentBodyGenerator {
   }
 
   private static void assignInitializer(
-      FieldSpec.Builder fieldBuilder, SpecModel specModel, PropModel prop) {
+      FieldSpec.Builder fieldBuilder,
+      SpecModel specModel,
+      PropModel prop,
+      PropDefaultModel propDefault) {
 
-    if (specModel.getSpecElementType() == SpecElementType.KOTLIN_SINGLETON) {
+    SpecElementType type = specModel.getSpecElementType();
+
+    if (isKotlinPropDefaultWithGetterMethod(specModel, propDefault)) {
       final String propName = prop.getName();
+      final boolean needGetter = !propName.startsWith("is");
       final String propAccessor =
-          "get" + propName.substring(0, 1).toUpperCase() + propName.substring(1) + "()";
+          (needGetter ? "get" + propName.substring(0, 1).toUpperCase() : propName.substring(0, 1))
+              + propName.substring(1)
+              + "()";
 
-      fieldBuilder.initializer("$L.$L.$L", specModel.getSpecName(), "INSTANCE", propAccessor);
+      fieldBuilder.initializer(
+          "$L.$L.$L",
+          specModel.getSpecName(),
+          type == SpecElementType.KOTLIN_SINGLETON ? "INSTANCE" : "Companion",
+          propAccessor);
+
     } else {
       fieldBuilder.initializer("$L.$L", specModel.getSpecName(), prop.getName());
     }
+  }
+
+  /**
+   * When the spec is written in Kotlin, the generated code will at times require that we need to
+   * access the field via a getter method. This is always the case when an the spec is a Kotlin
+   * object but only sometimes the case when it's a Kotlin class.
+   *
+   * @return true when we need to access the PropDefault via a getter method such as <code>
+   *     getSomePropDefault()</code>. Otherwise, false as we want to access the field via <code>
+   *     somePropDefault</code>
+   */
+  private static boolean isKotlinPropDefaultWithGetterMethod(
+      final SpecModel specModel, final PropDefaultModel propDefault) {
+    return KotlinSpecHelper.isKotlinSpec(specModel) && propDefault.isGetterMethodAccessor();
   }
 
   public static TypeSpecDataHolder generateInjectedFields(SpecModel specModel) {
@@ -279,13 +416,15 @@ public class ComponentBodyGenerator {
       typeSpecDataHolder.addTypeSpecDataHolder(
           specModel
               .getDependencyInjectionHelper()
-              .generateInjectedFields(specModel.getInjectProps()));
+              .generateInjectedFields(specModel, specModel.getInjectProps()));
 
       final List<MethodSpec> testAccessors =
-          specModel
-              .getInjectProps()
-              .stream()
-              .map(p -> specModel.getDependencyInjectionHelper().generateTestingFieldAccessor(p))
+          specModel.getInjectProps().stream()
+              .map(
+                  p ->
+                      specModel
+                          .getDependencyInjectionHelper()
+                          .generateTestingFieldAccessor(specModel, p))
               .collect(Collectors.toList());
       typeSpecDataHolder.addMethods(testAccessors);
     }
@@ -293,22 +432,77 @@ public class ComponentBodyGenerator {
     return typeSpecDataHolder.build();
   }
 
-  static TypeSpecDataHolder generateTreeProps(SpecModel specModel) {
+  static TypeSpecDataHolder generateTreeProps(SpecModel specModel, EnumSet<RunMode> runMode) {
     final TypeSpecDataHolder.Builder typeSpecDataHolder = TypeSpecDataHolder.newBuilder();
     final ImmutableList<TreePropModel> treeProps = specModel.getTreeProps();
 
     for (TreePropModel treeProp : treeProps) {
-      typeSpecDataHolder.addField(
+      final FieldSpec field =
           FieldSpec.builder(treeProp.getTypeName(), treeProp.getName())
               .addAnnotation(TreeProp.class)
               .addAnnotation(
                   AnnotationSpec.builder(Comparable.class)
-                      .addMember("type", "$L", getComparableType(specModel, treeProp))
+                      .addMember("type", "$L", getComparableType(treeProp, runMode))
                       .build())
-              .build());
+              .build();
+      if (runMode.contains(RunMode.TESTING)) {
+        MethodSpec getter =
+            GeneratorUtils.getter(field)
+                .addParameter(specModel.getContextClass(), "c")
+                .addModifiers(Modifier.PUBLIC)
+                .addAnnotations(field.annotations)
+                .build();
+        typeSpecDataHolder.addMethod(getter);
+      }
+      typeSpecDataHolder.addField(field);
     }
 
     return typeSpecDataHolder.build();
+  }
+
+  static MethodSpec generateInterstagePropsContainerImplGetter(
+      SpecModel specModel, TypeName interstagePropsContainerImplClassName) {
+    return MethodSpec.methodBuilder("getInterStagePropsContainerImpl")
+        .addModifiers(Modifier.PRIVATE)
+        .addParameter(specModel.getContextClass(), "c")
+        .addParameter(ClassNames.INTER_STAGE_PROPS_CONTAINER, "interStageProps")
+        .returns(interstagePropsContainerImplClassName)
+        .addStatement(
+            "return ($T) super.getInterStagePropsContainer(c, interStageProps)",
+            interstagePropsContainerImplClassName)
+        .build();
+  }
+
+  static MethodSpec generatePrepareInterstagePropsContainerImplGetter(
+      SpecModel specModel, TypeName prepareInterstagePropsContainerImplClassName) {
+    return MethodSpec.methodBuilder("getPrepareInterStagePropsContainerImpl")
+        .addModifiers(Modifier.PRIVATE)
+        .addParameter(specModel.getContextClass(), "c")
+        .returns(prepareInterstagePropsContainerImplClassName)
+        .addStatement(
+            "return ($T) super.getPrepareInterStagePropsContainer(c)",
+            prepareInterstagePropsContainerImplClassName)
+        .build();
+  }
+
+  static MethodSpec generateInterStagePropsContainerCreator(
+      ClassName interStagePropsContainerImplClassName) {
+    return MethodSpec.methodBuilder("createInterStagePropsContainer")
+        .addModifiers(Modifier.PROTECTED)
+        .addAnnotation(Override.class)
+        .returns(interStagePropsContainerImplClassName)
+        .addStatement("return new $T()", interStagePropsContainerImplClassName)
+        .build();
+  }
+
+  static MethodSpec generatePrepareInterStagePropsContainerCreator(
+      ClassName prepareInterStagePropsContainerImplClassName) {
+    return MethodSpec.methodBuilder("createPrepareInterStagePropsContainer")
+        .addModifiers(Modifier.PROTECTED)
+        .addAnnotation(Override.class)
+        .returns(prepareInterStagePropsContainerImplClassName)
+        .addStatement("return new $T()", prepareInterStagePropsContainerImplClassName)
+        .build();
   }
 
   static TypeSpecDataHolder generateInterStageInputs(SpecModel specModel) {
@@ -331,19 +525,20 @@ public class ComponentBodyGenerator {
     for (EventDeclarationModel eventDeclaration : specModel.getEventDeclarations()) {
       typeSpecDataHolder.addField(
           FieldSpec.builder(
-              ClassNames.EVENT_HANDLER,
-              getEventHandlerInstanceName(eventDeclaration.name))
+                  ParameterizedTypeName.get(ClassNames.EVENT_HANDLER, eventDeclaration.name),
+                  getEventHandlerInstanceName(eventDeclaration))
+              .addAnnotation(ClassNames.NULLABLE)
               .build());
     }
 
     return typeSpecDataHolder.build();
   }
 
-  static String getEventHandlerInstanceName(ClassName eventHandlerClassName) {
-    final String eventHandlerName = eventHandlerClassName.simpleName();
-    return eventHandlerName.substring(0, 1).toLowerCase(Locale.ROOT) +
-        eventHandlerName.substring(1) +
-        "Handler";
+  static String getEventHandlerInstanceName(EventDeclarationModel model) {
+    final String eventHandlerName = ClassName.bestGuess(model.getRawName().toString()).simpleName();
+    return eventHandlerName.substring(0, 1).toLowerCase(Locale.ROOT)
+        + eventHandlerName.substring(1)
+        + "Handler";
   }
 
   static TypeSpecDataHolder generateEventTriggers(SpecModel specModel) {
@@ -368,16 +563,46 @@ public class ComponentBodyGenerator {
         + "Trigger";
   }
 
-  static MethodSpec generateIsEquivalentMethod(SpecModel specModel) {
+  static MethodSpec generateIsEqualivalentTreePropsMethod(
+      SpecModel specModel, EnumSet<RunMode> runMode) {
+    MethodSpec.Builder isEquivalentBuilder =
+        MethodSpec.methodBuilder("isEqualivalentTreeProps")
+            .addAnnotation(Override.class)
+            .addModifiers(Modifier.PROTECTED)
+            .returns(TypeName.BOOLEAN)
+            .addParameter(specModel.getContextClass(), "current")
+            .addParameter(specModel.getContextClass(), "next");
+    for (TreePropModel treeProp : specModel.getTreeProps()) {
+      isEquivalentBuilder.addCode(
+          getCompareStatement(
+              "isEqualivalentTreeProps",
+              treeProp,
+              "current.getParentTreeProp("
+                  + TreePropGenerator.findTypeByTypeName(treeProp.getTypeName())
+                  + ".class"
+                  + ")",
+              "next.getParentTreeProp("
+                  + TreePropGenerator.findTypeByTypeName(treeProp.getTypeName())
+                  + ".class"
+                  + ")",
+              runMode));
+    }
+
+    isEquivalentBuilder.addStatement("return true");
+    return isEquivalentBuilder.build();
+  }
+
+  static MethodSpec generateIsEquivalentPropsMethod(SpecModel specModel, EnumSet<RunMode> runMode) {
     final String className = specModel.getComponentName();
     final String instanceRefName = getInstanceRefName(specModel);
 
     MethodSpec.Builder isEquivalentBuilder =
-        MethodSpec.methodBuilder("isEquivalentTo")
+        MethodSpec.methodBuilder("isEquivalentProps")
             .addAnnotation(Override.class)
             .addModifiers(Modifier.PUBLIC)
             .returns(TypeName.BOOLEAN)
             .addParameter(specModel.getComponentClass(), "other")
+            .addParameter(TypeName.BOOLEAN, "shouldCompareCommonProps")
             .beginControlFlow("if (this == other)")
             .addStatement("return true")
             .endControlFlow()
@@ -394,15 +619,17 @@ public class ComponentBodyGenerator {
     }
 
     for (PropModel prop : specModel.getProps()) {
-      isEquivalentBuilder.addCode(getCompareStatement(specModel, instanceRefName, prop));
+      isEquivalentBuilder.addCode(
+          getCompareStatement("isEquivalentProps", specModel, instanceRefName, prop, runMode));
     }
 
-    for (StateParamModel state : specModel.getStateValues()) {
-      isEquivalentBuilder.addCode(getCompareStatement(specModel, instanceRefName, state));
-    }
-
-    for (TreePropModel treeProp : specModel.getTreeProps()) {
-      isEquivalentBuilder.addCode(getCompareStatement(specModel, instanceRefName, treeProp));
+    ImmutableList<TreePropModel> treeProps = specModel.getTreeProps();
+    if (treeProps != null && !treeProps.isEmpty() && specModel.isStateful()) {
+      for (TreePropModel treeProp : specModel.getTreeProps()) {
+        isEquivalentBuilder.addCode(
+            getCompareStatement(
+                "isEquivalentProps", specModel, instanceRefName, treeProp, runMode));
+      }
     }
 
     isEquivalentBuilder.addStatement("return true");
@@ -410,32 +637,82 @@ public class ComponentBodyGenerator {
     return isEquivalentBuilder.build();
   }
 
-  static TypeSpecDataHolder generateCopyInterStageImpl(SpecModel specModel) {
+  static TypeSpecDataHolder generateCopyInterStageImpl(
+      SpecModel specModel, ClassName implClassName) {
     final TypeSpecDataHolder.Builder typeSpecDataHolder = TypeSpecDataHolder.newBuilder();
     final ImmutableList<InterStageInputParamModel> interStageInputs =
         specModel.getInterStageInputs();
 
     if (specModel.shouldGenerateCopyMethod() && !interStageInputs.isEmpty()) {
-      final String className = specModel.getComponentName();
-      final String instanceName = getInstanceRefName(specModel);
+      final String className =
+          InterStagePropsContainerGenerator.getInterStagePropsContainerClassName(specModel);
+      final String copyIntoParam = "copyIntoInterStagePropsContainer";
+      final String copyFromParam = "copyFromInterStagePropsContainer";
+      final String copyIntoInstanceName = copyIntoParam + "_ref";
+      final String copyFromInstanceName = copyFromParam + "_ref";
       final MethodSpec.Builder copyInterStageComponentBuilder =
           MethodSpec.methodBuilder("copyInterStageImpl")
               .addAnnotation(Override.class)
               .addModifiers(Modifier.PROTECTED)
               .returns(TypeName.VOID)
-              .addParameter(specModel.getComponentClass(), "component")
-              .addStatement("$N $N = ($N) component", className, instanceName, className);
+              .addParameter(ClassNames.INTER_STAGE_PROPS_CONTAINER, copyIntoParam)
+              .addParameter(ClassNames.INTER_STAGE_PROPS_CONTAINER, copyFromParam)
+              .addStatement(
+                  "$N $N = ($N) $N", className, copyIntoInstanceName, className, copyIntoParam)
+              .addStatement(
+                  "$N $N = ($N) $N", className, copyFromInstanceName, className, copyFromParam);
 
       for (InterStageInputParamModel interStageInput : interStageInputs) {
-        copyInterStageComponentBuilder
-            .addStatement(
-                "$N = $N.$N",
-                interStageInput.getName(),
-                instanceName,
-                interStageInput.getName());
+        copyInterStageComponentBuilder.addStatement(
+            "$N.$N = $N.$N",
+            copyIntoInstanceName,
+            interStageInput.getName(),
+            copyFromInstanceName,
+            interStageInput.getName());
       }
 
       typeSpecDataHolder.addMethod(copyInterStageComponentBuilder.build());
+    }
+
+    return typeSpecDataHolder.build();
+  }
+
+  static TypeSpecDataHolder generateCopyPrepareInterStageImpl(
+      SpecModel specModel, ClassName implClassName) {
+    final TypeSpecDataHolder.Builder typeSpecDataHolder = TypeSpecDataHolder.newBuilder();
+    final ImmutableList<PrepareInterStageInputParamModel> interStageInputs =
+        specModel.getPrepareInterStageInputs();
+
+    if (specModel.shouldGenerateCopyMethod() && !interStageInputs.isEmpty()) {
+      final String className =
+          PrepareInterStagePropsContainerGenerator.getPrepareInterStagePropsContainerClassName(
+              specModel);
+      final String copyIntoParam = "copyIntoInterStagePropsContainer";
+      final String copyFromParam = "copyFromInterStagePropsContainer";
+      final String copyIntoInstanceName = copyIntoParam + "_ref";
+      final String copyFromInstanceName = copyFromParam + "_ref";
+      final MethodSpec.Builder copyPrepareInterStageComponentBuilder =
+          MethodSpec.methodBuilder("copyPrepareInterStageImpl")
+              .addAnnotation(Override.class)
+              .addModifiers(Modifier.PROTECTED)
+              .returns(TypeName.VOID)
+              .addParameter(ClassNames.PREPARE_INTER_STAGE_PROPS_CONTAINER, copyIntoParam)
+              .addParameter(ClassNames.PREPARE_INTER_STAGE_PROPS_CONTAINER, copyFromParam)
+              .addStatement(
+                  "$N $N = ($N) $N", className, copyIntoInstanceName, className, copyIntoParam)
+              .addStatement(
+                  "$N $N = ($N) $N", className, copyFromInstanceName, className, copyFromParam);
+
+      for (PrepareInterStageInputParamModel interStageInput : interStageInputs) {
+        copyPrepareInterStageComponentBuilder.addStatement(
+            "$N.$N = $N.$N",
+            copyIntoInstanceName,
+            interStageInput.getName(),
+            copyFromInstanceName,
+            interStageInput.getName());
+      }
+
+      typeSpecDataHolder.addMethod(copyPrepareInterStageComponentBuilder.build());
     }
 
     return typeSpecDataHolder.build();
@@ -453,11 +730,15 @@ public class ComponentBodyGenerator {
         specModel.getInterStageInputs();
     final ImmutableList<SpecMethodModel<UpdateStateMethod, Void>> updateStateMethodModels =
         specModel.getUpdateStateMethods();
+    final @Nullable ImmutableList<SpecMethodModel<UpdateStateMethod, Void>>
+        updateStateWithTransitionMethodModels = specModel.getUpdateStateWithTransitionMethods();
     final boolean hasDeepCopy = specModel.hasDeepCopy();
 
-    if (componentsInImpl.isEmpty() &&
-        interStageComponentVariables.isEmpty() &&
-        updateStateMethodModels.isEmpty()) {
+    if (componentsInImpl.isEmpty()
+        && interStageComponentVariables.isEmpty()
+        && updateStateMethodModels.isEmpty()
+        && (updateStateWithTransitionMethodModels == null
+            || updateStateWithTransitionMethodModels.isEmpty())) {
       return typeSpecDataHolder.build();
     }
 
@@ -485,24 +766,36 @@ public class ComponentBodyGenerator {
           componentParam.getName());
     }
 
-    if (hasDeepCopy) {
-      builder.beginControlFlow("if (!deepCopy)");
-    }
+    if (specModel.isStateful()) {
 
-    for (InterStageInputParamModel interStageInput : specModel.getInterStageInputs()) {
-      builder.addStatement("component.$L = null", interStageInput.getName());
-    }
+      if (hasDeepCopy) {
+        builder.beginControlFlow("if (!deepCopy)");
+      }
 
-    final String stateContainerClassName = getStateContainerClassName(specModel);
-    if (hasState) {
-      builder.addStatement(
-          "component.$N = new $T()",
-          STATE_CONTAINER_FIELD_NAME,
-          ClassName.bestGuess(stateContainerClassName));
-    }
+      final String stateContainerClassName = getStateContainerClassName(specModel);
+      if (hasState) {
+        builder.addStatement(
+            "component.setStateContainer(new $T())", ClassName.bestGuess(stateContainerClassName));
+      }
 
-    if (hasDeepCopy) {
-      builder.endControlFlow();
+      final boolean hasInterStageProps =
+          specModel.getInterStageInputs() != null && !specModel.getInterStageInputs().isEmpty();
+      if (hasInterStageProps) {
+        builder.addStatement(
+            "component.setInterStagePropsContainer(createInterStagePropsContainer())");
+      }
+
+      boolean hasPrepareInterstageProps =
+          specModel.getPrepareInterStageInputs() != null
+              && !specModel.getPrepareInterStageInputs().isEmpty();
+      if (hasPrepareInterstageProps) {
+        builder.addStatement(
+            "component.setPrepareInterStagePropsContainer(createPrepareInterStagePropsContainer())");
+      }
+
+      if (hasDeepCopy) {
+        builder.endControlFlow();
+      }
     }
 
     builder.addStatement("return component");
@@ -590,37 +883,27 @@ public class ComponentBodyGenerator {
     return componentsInImpl;
   }
 
-  private static List<MethodParamModel> getParams(
-      SpecMethodModel<UpdateStateMethod, Void> updateStateMethodModel) {
-    final List<MethodParamModel> params = new ArrayList<>();
-    for (MethodParamModel methodParamModel : updateStateMethodModel.methodParams) {
-      for (Annotation annotation : methodParamModel.getAnnotations()) {
-        if (annotation.annotationType().equals(Param.class)) {
-          params.add(methodParamModel);
-          break;
-        }
-      }
-    }
-
-    return params;
-  }
-
   static CodeBlock getCompareStatement(
-      SpecModel specModel, String implInstanceName, MethodParamModel field) {
-    final String implAccessor = getImplAccessor(specModel, field, true);
+      String methodName,
+      SpecModel specModel,
+      String implInstanceName,
+      MethodParamModel field,
+      EnumSet<RunMode> runMode) {
+    final String implAccessor = getImplAccessor(methodName, specModel, field, null, true);
 
     return getCompareStatement(
-        specModel, field, implAccessor, implInstanceName + "." + implAccessor);
+        methodName, field, implAccessor, implInstanceName + "." + implAccessor, runMode);
   }
 
   static CodeBlock getCompareStatement(
-      SpecModel specModel,
+      String methodName,
       MethodParamModel field,
       String firstComparator,
-      String secondComparator) {
+      String secondComparator,
+      EnumSet<RunMode> runMode) {
     final CodeBlock.Builder codeBlock = CodeBlock.builder();
 
-    @Comparable.Type int comparableType = getComparableType(specModel, field);
+    @Comparable.Type int comparableType = getComparableType(field, runMode);
     switch (comparableType) {
       case Comparable.FLOAT:
         codeBlock
@@ -697,6 +980,16 @@ public class ComponentBodyGenerator {
         break;
 
       case Comparable.COMPONENT:
+        codeBlock
+            .beginControlFlow(
+                "if ($L != null ? !$L.isEquivalentTo($L, shouldCompareCommonProps) : $L != null)",
+                firstComparator,
+                firstComparator,
+                secondComparator,
+                secondComparator)
+            .addStatement("return false")
+            .endControlFlow();
+        break;
       case Comparable.SECTION:
       case Comparable.EVENT_HANDLER:
       case Comparable.EVENT_HANDLER_IN_PARAMETERIZED_TYPE:
@@ -727,12 +1020,21 @@ public class ComponentBodyGenerator {
     return codeBlock.build();
   }
 
-  static @Comparable.Type int getComparableType(SpecModel specModel, MethodParamModel field) {
-    return getComparableType(field.getTypeName(), field.getTypeSpec());
+  static @Comparable.Type int getComparableType(MethodParamModel field, EnumSet<RunMode> runMode) {
+
+    if (field instanceof PropModel) {
+      if (((PropModel) field).isDynamic()) {
+        return Comparable.OTHER;
+      }
+    }
+
+    return getComparableType(field.getTypeName(), field.getTypeSpec(), runMode);
   }
 
   private static @Comparable.Type int getComparableType(
-      TypeName typeName, com.facebook.litho.specmodels.model.TypeSpec typeSpec) {
+      TypeName typeName,
+      com.facebook.litho.specmodels.model.TypeSpec typeSpec,
+      EnumSet<RunMode> runMode) {
     if (typeName.equals(TypeName.FLOAT)) {
       return Comparable.FLOAT;
     } else if (typeName.equals(TypeName.DOUBLE)) {
@@ -745,7 +1047,7 @@ public class ComponentBodyGenerator {
       return Comparable.PRIMITIVE;
     } else if (typeName.equals(ClassNames.COMPARABLE_DRAWABLE)) {
       return Comparable.COMPARABLE_DRAWABLE;
-    } else if (typeSpec.isSubInterface(ClassNames.COLLECTION)) {
+    } else if (!runMode.contains(RunMode.ABI) && typeSpec.isSubInterface(ClassNames.COLLECTION)) {
       final int level = calculateLevelOfComponentInCollections((DeclaredTypeSpec) typeSpec);
       switch (level) {
         case 0:
@@ -779,27 +1081,162 @@ public class ComponentBodyGenerator {
     return Comparable.OTHER;
   }
 
-  static String getImplAccessor(SpecModel specModel, MethodParamModel methodParamModel) {
-    return getImplAccessor(specModel, methodParamModel, false);
+  static String getImplAccessor(
+      String methodName,
+      SpecModel specModel,
+      MethodParamModel methodParamModel,
+      String contextParamName) {
+    return getImplAccessor(methodName, specModel, methodParamModel, contextParamName, false);
   }
 
   static String getImplAccessor(
-      SpecModel specModel, MethodParamModel methodParamModel, boolean shallow) {
-    if (methodParamModel instanceof StateParamModel ||
-        SpecModelUtils.getStateValueWithName(specModel, methodParamModel.getName()) != null) {
-      return STATE_CONTAINER_FIELD_NAME + "." + methodParamModel.getName();
+      String methodName,
+      SpecModel specModel,
+      MethodParamModel methodParamModel,
+      String contextParamName,
+      boolean shallow) {
+
+    return getImplAccessorFromContainer(
+        methodName, specModel, methodParamModel, contextParamName, shallow, null);
+  }
+
+  static String getImplAccessorFromContainer(
+      String methodName,
+      SpecModel specModel,
+      MethodParamModel methodParamModel,
+      String contextParamName,
+      @Nullable String cachedContainerVariableName) {
+    return getImplAccessorFromContainer(
+        methodName,
+        specModel,
+        methodParamModel,
+        contextParamName,
+        false,
+        cachedContainerVariableName);
+  }
+
+  static String getImplAccessorFromContainer(
+      String methodName,
+      SpecModel specModel,
+      MethodParamModel methodParamModel,
+      String contextParamName,
+      boolean shallow,
+      @Nullable String cachedContainerVariableName) {
+
+    if (methodParamModel instanceof StateParamModel
+        || SpecModelUtils.getStateValueWithName(specModel, methodParamModel.getName()) != null) {
+      if (contextParamName == null) {
+        throw new IllegalStateException(
+            "Cannot access state in method " + methodName + " without a scoped component context.");
+      }
+      return cachedContainerVariableName != null
+          ? cachedContainerVariableName + "." + methodParamModel.getName()
+          : STATE_CONTAINER_IMPL_GETTER
+              + "("
+              + contextParamName
+              + ")."
+              + methodParamModel.getName();
     } else if (methodParamModel instanceof CachedValueParamModel) {
+      if (contextParamName == null) {
+        throw new IllegalStateException("Need a scoped context to access cached values.");
+      }
+
       return "get"
           + methodParamModel.getName().substring(0, 1).toUpperCase()
           + methodParamModel.getName().substring(1)
-          + "()";
+          + "("
+          + contextParamName
+          + ")";
     } else if (methodParamModel instanceof PropModel
         && ((PropModel) methodParamModel).isDynamic()
         && !shallow) {
       return "retrieveValue(" + methodParamModel.getName() + ")";
+    } else if (methodParamModel instanceof InjectPropModel) {
+      DependencyInjectionHelper dependencyInjectionHelper =
+          specModel.getDependencyInjectionHelper();
+      if (dependencyInjectionHelper != null) {
+        return dependencyInjectionHelper.generateImplAccessor(specModel, methodParamModel);
+      }
+    } else if (methodParamModel instanceof PrepareInterStageInputParamModel) {
+      if (contextParamName == null) {
+        throw new IllegalStateException(
+            "Cannot access param of type layout inter-stage prop in method "
+                + methodName
+                + " because it doesn't have a scoped ComponentContext as defined parameter.");
+      }
+
+      return "getPrepareInterStagePropsContainerImpl("
+          + contextParamName
+          + ")."
+          + methodParamModel.getName();
+    } else if (methodParamModel instanceof InterStageInputParamModel) {
+      if (contextParamName == null) {
+        throw new IllegalStateException(
+            "Cannot access param of type inter-stage prop in method "
+                + methodName
+                + " because it doesn't have a scoped ComponentContext as defined parameter.");
+      }
+
+      return "getInterStagePropsContainerImpl("
+          + contextParamName
+          + ", "
+          + LOCAL_INTER_STAGE_PROPS_CONTAINER_NAME
+          + ")."
+          + methodParamModel.getName();
+    } else if (methodParamModel instanceof TreePropModel) {
+      if (contextParamName == null) {
+        return methodParamModel.getName();
+      }
+      if (specModel.isStateful()) {
+        return "(" + methodParamModel.getName() + ")";
+      } else {
+        return "("
+            + contextParamName
+            + ".getParentTreeProp("
+            + TreePropGenerator.findTypeByTypeName(methodParamModel.getTypeName())
+            + ".class"
+            + "))";
+      }
     }
 
     return methodParamModel.getName();
+  }
+
+  static String getImplAccessor(
+      SpecModel specModel,
+      DelegateMethodDescription methodDescription,
+      MethodParamModel methodParamModel,
+      String contextParamName) {
+    if (isOutputType(methodParamModel.getTypeName())) {
+      if (methodDescription.optionalParameterTypes.contains(
+              DelegateMethodDescription.OptionalParameterType.INTER_STAGE_OUTPUT)
+          || methodDescription.optionalParameterTypes.contains(
+              DelegateMethodDescription.OptionalParameterType.PREPARE_INTER_STAGE_OUTPUT)) {
+        if (contextParamName == null) {
+          throw new IllegalStateException(
+              "Cannot access param of type inter-stage prop in method "
+                  + methodDescription.name
+                  + " because it doesn't have a scoped ComponentContext as defined parameter.");
+        }
+        if (methodDescription.mInterStagePropsTarget.equals(
+            DelegateMethodDescription.InterStagePropsTarget.PREPARE)) {
+          return "getPrepareInterStagePropsContainerImpl("
+              + contextParamName
+              + ")."
+              + methodParamModel.getName();
+        } else {
+          return "getInterStagePropsContainerImpl("
+              + contextParamName
+              + ", "
+              + LOCAL_INTER_STAGE_PROPS_CONTAINER_NAME
+              + ")."
+              + methodParamModel.getName();
+        }
+      }
+    }
+
+    return getImplAccessor(
+        methodDescription.name, specModel, methodParamModel, contextParamName, false);
   }
 
   /**
@@ -814,9 +1251,7 @@ public class ComponentBodyGenerator {
     DeclaredTypeSpec declaredTypeSpec = typeSpec;
     while (declaredTypeSpec.isSubInterface(ClassNames.COLLECTION)) {
       Optional<DeclaredTypeSpec> result =
-          declaredTypeSpec
-              .getTypeArguments()
-              .stream()
+          declaredTypeSpec.getTypeArguments().stream()
               .filter(it -> it != null && it instanceof DeclaredTypeSpec)
               .findFirst()
               .map(it -> (DeclaredTypeSpec) it);
@@ -860,5 +1295,20 @@ public class ComponentBodyGenerator {
                   "_e2_" + level + ".next()"));
     }
     return builder.endControlFlow().build();
+  }
+
+  public static boolean requiresInterStatePropContainer(
+      ImmutableList<MethodParamModel> params,
+      @Nullable ImmutableList<DelegateMethodDescription.OptionalParameterType> types) {
+
+    final boolean allowsInterStageOutputs =
+        types != null && types.stream().anyMatch(PREDICATE_ALLOWS_INTERSTAGE_OUTPUTS);
+
+    Predicate<MethodParamModel> hasInterStageProps =
+        param ->
+            param instanceof InterStageInputParamModel
+                || (allowsInterStageOutputs && isOutputType(param.getTypeName()));
+
+    return params.stream().anyMatch(hasInterStageProps);
   }
 }

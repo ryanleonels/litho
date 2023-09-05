@@ -7,6 +7,7 @@ android {
     defaultConfig {
         minSdkVersion rootProject.minSdkVersion
         targetSdkVersion rootProject.targetSdkVersion
+        consumerProguardFiles 'proguard-rules.pro'
     }
 }
 
@@ -22,6 +23,12 @@ dependencies {
 // someone (maybe you!) will fix this and get CMake to help us out.
 task buckBuild(type: Exec) {
     workingDir rootDir
-    environment BUCKVERSION: 'last'
-    commandLine 'buck', 'build', '//lib/yogajni:jni#default,shared'
+    environment BUCKVERSION: System.getenv('BUCKVERSION') ?: 'last'
+    def buckPath = System.getenv('BUCK_PATH') ?: 'buck'
+    commandLine buckPath, 'build', '//lib/yogajni:jni#default,shared'
+    doLast {
+        System.out.println("[Yoga Buck Build]: exit value: ${executionResult.get().exitValue}")
+        def build_outputs = 'find buck-out/gen/lib/yogajni/jni#default,shared/'.execute().text.trim()
+        System.out.println("[Yoga Buck Build]: build outputs:\n${build_outputs}")
+    }
 }

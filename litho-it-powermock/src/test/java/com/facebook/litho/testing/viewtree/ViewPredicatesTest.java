@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,7 @@
 
 package com.facebook.litho.testing.viewtree;
 
+import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static org.assertj.core.api.Java6Assertions.assertThat;
 
 import android.app.Activity;
@@ -31,20 +32,18 @@ import com.facebook.litho.LithoView;
 import com.facebook.litho.it.R;
 import com.facebook.litho.testing.helper.ComponentTestHelper;
 import com.facebook.litho.testing.shadows.ColorDrawableShadow;
-import com.facebook.litho.testing.testrunner.ComponentsTestRunner;
+import com.facebook.litho.testing.testrunner.LithoTestRunner;
 import com.facebook.litho.widget.Text;
 import com.google.common.base.Predicate;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
-import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
-/**
- * Tests {@link ViewPredicates}
- */
-@RunWith(ComponentsTestRunner.class)
+/** Tests {@link ViewPredicates} */
+@RunWith(LithoTestRunner.class)
 @Config(shadows = ColorDrawableShadow.class)
 public class ViewPredicatesTest {
 
@@ -81,9 +80,7 @@ public class ViewPredicatesTest {
     mImageViewWithCustomDrawable.setImageResource(R.drawable.custom_drawable);
 
     final ComponentContext context = new ComponentContext(activity);
-    mLithoViewWithText = ComponentTestHelper.mountComponent(
-        Text.create(context)
-            .text("Hello"));
+    mLithoViewWithText = ComponentTestHelper.mountComponent(Text.create(context).text("Hello"));
   }
 
   @Test
@@ -152,8 +149,9 @@ public class ViewPredicatesTest {
   }
 
   @Test
+  @Ignore("T146174263")
   public void testHasDrawable() {
-    final Resources resources = RuntimeEnvironment.application.getResources();
+    final Resources resources = getApplicationContext().getResources();
     final Drawable noAvatar = resources.getDrawable(R.drawable.custom_drawable);
     final Predicate<View> hasDrawable = ViewPredicates.hasDrawable(noAvatar);
 
@@ -182,7 +180,7 @@ public class ViewPredicatesTest {
 
   @Test
   public void testHasVisibleDrawable() {
-    final Resources resources = RuntimeEnvironment.application.getResources();
+    final Resources resources = getApplicationContext().getResources();
     final Drawable noAvatar = resources.getDrawable(R.drawable.litho);
     final Predicate<View> hasVisibleDrawable = ViewPredicates.hasVisibleDrawable(noAvatar);
 
@@ -193,7 +191,7 @@ public class ViewPredicatesTest {
 
   @Test
   public void testHasVisibleCustomDrawable() {
-    final Resources resources = RuntimeEnvironment.application.getResources();
+    final Resources resources = getApplicationContext().getResources();
     final Drawable customDrawable = resources.getDrawable(R.drawable.custom_drawable);
     final Predicate<View> hasVisibleDrawable = ViewPredicates.hasVisibleDrawable(customDrawable);
 

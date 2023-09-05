@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +16,7 @@
 
 package com.facebook.litho.specmodels.generator;
 
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -40,7 +40,7 @@ import com.facebook.litho.specmodels.internal.ImmutableList;
 import com.facebook.litho.specmodels.internal.RunMode;
 import com.facebook.litho.specmodels.model.ClassNames;
 import com.facebook.litho.specmodels.model.EventDeclarationModel;
-import com.facebook.litho.specmodels.model.FieldModel;
+import com.facebook.litho.specmodels.model.LayoutSpecModel;
 import com.facebook.litho.specmodels.model.PropModel;
 import com.facebook.litho.specmodels.model.SpecModel;
 import com.facebook.litho.specmodels.model.SpecModelUtils;
@@ -50,11 +50,17 @@ import com.facebook.litho.specmodels.model.TypeSpec.DeclaredTypeSpec;
 import com.facebook.litho.specmodels.processor.LayoutSpecModelFactory;
 import com.facebook.litho.specmodels.processor.MountSpecModelFactory;
 import com.google.testing.compile.CompilationRule;
+import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.FieldSpec;
+import com.squareup.javapoet.MethodSpec;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Predicate;
 import javax.annotation.processing.Messager;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
@@ -78,6 +84,7 @@ public class ComponentBodyGeneratorTest {
   @LayoutSpec
   static class TestSpec {
     @PropDefault protected static boolean arg0 = true;
+    @PropDefault protected static boolean isarg10 = true;
 
     @OnCreateLayout
     public void testDelegateMethod(
@@ -89,7 +96,9 @@ public class ComponentBodyGeneratorTest {
         @Prop List<Component> arg5,
         @Prop List<String> arg6,
         @TreeProp Set<List<Row>> arg7,
-        @TreeProp Set<Integer> arg8) {}
+        @TreeProp Set<Integer> arg8,
+        @Prop(varArg = "item") java.util.List<? extends java.lang.Number> arg9,
+        @Prop(optional = true) boolean isarg10) {}
 
     @OnEvent(Object.class)
     public void testEventMethod(
@@ -142,14 +151,9 @@ public class ComponentBodyGeneratorTest {
         @State int arg1,
         @Param Object arg2,
         @TreeProp long arg3,
-        @Prop Component arg4,
-        @Prop List<Component> arg5,
         @Prop List<String> arg6,
         @TreeProp Set<List<Row>> arg7,
         @TreeProp Set<Integer> arg8) {}
-
-    @OnUpdateState
-    public void testUpdateStateMethod() {}
 
     @OnUpdateStateWithTransition
     public void testUpdateStateWithTransitionMethod() {}
@@ -159,10 +163,38 @@ public class ComponentBodyGeneratorTest {
   static class TestKotlinWildcardsSpec {
     public static final TestKotlinWildcardsSpec INSTANCE = null;
 
+    private static final boolean isArg1 = true;
+    private static final boolean arg2 = true;
+
+    @PropDefault
+    public final boolean isArg1() {
+      return isArg1;
+    }
+
+    @PropDefault
+    public final boolean getArg2() {
+      return arg2;
+    }
+
     @OnCreateLayout
     public final Component onCreateLayout(
         ComponentContext c,
-        @Prop(varArg = "number") java.util.List<? extends java.lang.Number> numbers) {
+        @Prop(varArg = "number") java.util.List<? extends java.lang.Number> numbers,
+        @Prop(optional = true) boolean isArg1,
+        @Prop(optional = true) boolean arg2) {
+      return null;
+    }
+  }
+
+  @LayoutSpec
+  static class PropsTestingComponentSpec {
+
+    @OnCreateLayout
+    static Component onCreateLayout(
+        ComponentContext c,
+        @Prop int intProp,
+        @Prop(optional = true) int optionIntProp,
+        @Nullable @TreeProp String treeProp) {
       return null;
     }
   }
@@ -213,21 +245,23 @@ public class ComponentBodyGeneratorTest {
   }
 
   @Test
-  public void testGenerateStateContainerGetter() {
+  public void testGenerateStateContainerImplGetter() {
     assertThat(
-            ComponentBodyGenerator.generateStateContainerGetter(ClassNames.STATE_CONTAINER)
+            ComponentBodyGenerator.generateStateContainerImplGetter(
+                    mSpecModelDI, ClassNames.STATE_CONTAINER)
                 .toString())
         .isEqualTo(
-            "@java.lang.Override\n"
-                + "protected com.facebook.litho.StateContainer getStateContainer() {\n"
-                + "  return mStateContainer;\n"
+            "private com.facebook.litho.StateContainer getStateContainerImpl(\n"
+                + "    com.facebook.litho.ComponentContext c) {\n"
+                + "  return (com.facebook.litho.StateContainer) c.getScopedComponentInfo().getStateContainer();\n"
                 + "}\n");
   }
 
   @Test
   public void testGenerateProps() {
-    TypeSpecDataHolder dataHolder = ComponentBodyGenerator.generateProps(mSpecModelDI);
-    assertThat(dataHolder.getFieldSpecs()).hasSize(4);
+    TypeSpecDataHolder dataHolder =
+        ComponentBodyGenerator.generateProps(mSpecModelDI, RunMode.normal());
+    assertThat(dataHolder.getFieldSpecs()).hasSize(6);
     assertThat(dataHolder.getFieldSpecs().get(0).toString())
         .isEqualTo(
             "@com.facebook.litho.annotations.Prop(\n"
@@ -250,7 +284,29 @@ public class ComponentBodyGeneratorTest {
                 + ")\n"
                 + "com.facebook.litho.Component arg4;\n");
 
-    dataHolder = ComponentBodyGenerator.generateProps(mMountSpecModelDI);
+    assertThat(dataHolder.getFieldSpecs().get(4).toString())
+        .isEqualTo(
+            "@com.facebook.litho.annotations.Prop(\n"
+                + "    resType = com.facebook.litho.annotations.ResType.NONE,\n"
+                + "    optional = true,\n"
+                + "    varArg = \"item\"\n"
+                + ")\n"
+                + "@com.facebook.litho.annotations.Comparable(\n"
+                + "    type = 5\n"
+                + ")\n"
+                + "java.util.List<? extends java.lang.Number> arg9 = java.util.Collections.emptyList();\n");
+    assertThat(dataHolder.getFieldSpecs().get(5).toString())
+        .isEqualTo(
+            "@com.facebook.litho.annotations.Prop(\n"
+                + "    resType = com.facebook.litho.annotations.ResType.NONE,\n"
+                + "    optional = true\n"
+                + ")\n"
+                + "@com.facebook.litho.annotations.Comparable(\n"
+                + "    type = 3\n"
+                + ")\n"
+                + "boolean isarg10 = TestSpec.isarg10;\n");
+
+    dataHolder = ComponentBodyGenerator.generateProps(mMountSpecModelDI, RunMode.normal());
     assertThat(dataHolder.getFieldSpecs()).hasSize(6);
     assertThat(dataHolder.getFieldSpecs().get(4).toString())
         .isEqualTo(
@@ -268,32 +324,89 @@ public class ComponentBodyGeneratorTest {
   }
 
   @Test
+  public void whenComponentIsGeneratedFromTest_shouldHavePublicProps() {
+    final Elements elements = mCompilationRule.getElements();
+    final Types types = mCompilationRule.getTypes();
+    final TypeElement type =
+        elements.getTypeElement(PropsTestingComponentSpec.class.getCanonicalName());
+    final LayoutSpecModel model =
+        mLayoutSpecModelFactory.create(
+            elements, types, type, mMessager, RunMode.testing(), null, null);
+    final TypeSpecDataHolder holder =
+        ComponentBodyGenerator.generate(model, null, RunMode.testing());
+
+    final Predicate<AnnotationSpec> matcher =
+        annotation ->
+            annotation.type.equals(ClassName.get(Prop.class))
+                || annotation.type.equals(ClassName.get(TreeProp.class));
+
+    final FieldSpec[] props =
+        holder.getFieldSpecs().stream()
+            .filter(field -> field.annotations.stream().anyMatch(matcher))
+            .toArray(FieldSpec[]::new);
+    final MethodSpec[] getters =
+        holder.getMethodSpecs().stream()
+            .filter(method -> method.annotations.stream().anyMatch(matcher))
+            .toArray(MethodSpec[]::new);
+
+    assertThat(getters.length)
+        .describedAs("number of getters should be equal to the number of props")
+        .isEqualTo(props.length);
+
+    Arrays.stream(getters)
+        .forEach(methodSpec -> assertThat(methodSpec.modifiers).contains(Modifier.PUBLIC));
+  }
+
+  @Test
   public void testGeneratePropsForKotlinWildcards() {
-    TypeSpecDataHolder dataHolder = ComponentBodyGenerator.generateProps(mKotlinWildcardsSpecModel);
-    assertThat(dataHolder.getFieldSpecs()).hasSize(1);
+    TypeSpecDataHolder dataHolder =
+        ComponentBodyGenerator.generateProps(mKotlinWildcardsSpecModel, RunMode.normal());
+    assertThat(dataHolder.getFieldSpecs()).hasSize(3);
     assertThat(dataHolder.getFieldSpecs().get(0).toString())
         .isEqualTo(
             "@com.facebook.litho.annotations.Prop(\n"
                 + "    resType = com.facebook.litho.annotations.ResType.NONE,\n"
-                + "    optional = false\n"
+                + "    optional = true\n"
+                + ")\n"
+                + "@com.facebook.litho.annotations.Comparable(\n"
+                + "    type = 3\n"
+                + ")\n"
+                + "boolean arg2 = TestKotlinWildcardsSpec.INSTANCE.getArg2();\n");
+    assertThat(dataHolder.getFieldSpecs().get(1).toString())
+        .isEqualTo(
+            "@com.facebook.litho.annotations.Prop(\n"
+                + "    resType = com.facebook.litho.annotations.ResType.NONE,\n"
+                + "    optional = true\n"
+                + ")\n"
+                + "@com.facebook.litho.annotations.Comparable(\n"
+                + "    type = 3\n"
+                + ")\n"
+                + "boolean isArg1 = TestKotlinWildcardsSpec.INSTANCE.isArg1();\n");
+    assertThat(dataHolder.getFieldSpecs().get(2).toString())
+        .isEqualTo(
+            "@com.facebook.litho.annotations.Prop(\n"
+                + "    resType = com.facebook.litho.annotations.ResType.NONE,\n"
+                + "    optional = true,\n"
+                + "    varArg = \"number\"\n"
                 + ")\n"
                 + "@com.facebook.litho.annotations.Comparable(\n"
                 + "    type = 5\n"
                 + ")\n"
-                + "java.util.List<java.lang.Number> numbers;\n");
+                + "java.util.List<java.lang.Number> numbers = java.util.Collections.emptyList();\n");
   }
 
   @Test
   public void testGenerateTreeProps() {
-    TypeSpecDataHolder dataHolder = ComponentBodyGenerator.generateTreeProps(mSpecModelDI);
+    TypeSpecDataHolder dataHolder =
+        ComponentBodyGenerator.generateTreeProps(mSpecModelDI, RunMode.normal());
     assertThat(dataHolder.getFieldSpecs()).hasSize(3);
     assertThat(dataHolder.getFieldSpecs().get(0).toString())
         .isEqualTo(
             "@com.facebook.litho.annotations.TreeProp\n"
-            + "@com.facebook.litho.annotations.Comparable(\n"
-            + "    type = 3\n"
-            + ")\n"
-            + "long arg3;\n");
+                + "@com.facebook.litho.annotations.Comparable(\n"
+                + "    type = 3\n"
+                + ")\n"
+                + "long arg3;\n");
   }
 
   @Test
@@ -309,20 +422,26 @@ public class ComponentBodyGeneratorTest {
         .thenReturn(
             ImmutableList.of(
                 new EventDeclarationModel(
-                    ClassName.OBJECT, ClassName.OBJECT, ImmutableList.<FieldModel>of(), null)));
+                    ClassName.OBJECT, ClassName.OBJECT, ImmutableList.of(), null)));
 
     TypeSpecDataHolder dataHolder = ComponentBodyGenerator.generateEventHandlers(specModel);
     assertThat(dataHolder.getFieldSpecs()).hasSize(1);
     assertThat(dataHolder.getFieldSpecs().get(0).toString())
-        .isEqualTo("com.facebook.litho.EventHandler objectHandler;\n");
+        .isEqualTo(
+            "@androidx.annotation.Nullable\n"
+                + "com.facebook.litho.EventHandler<java.lang.Object> objectHandler;\n");
   }
 
   @Test
   public void testGenerateIsEquivalentMethod() {
-    assertThat(ComponentBodyGenerator.generateIsEquivalentMethod(mMountSpecModelDI).toString())
+    assertThat(
+            ComponentBodyGenerator.generateIsEquivalentPropsMethod(
+                    mMountSpecModelDI, RunMode.normal())
+                .toString())
         .isEqualTo(
             "@java.lang.Override\n"
-                + "public boolean isEquivalentTo(com.facebook.litho.Component other) {\n"
+                + "public boolean isEquivalentProps(com.facebook.litho.Component other,\n"
+                + "    boolean shouldCompareCommonProps) {\n"
                 + "  if (this == other) {\n"
                 + "    return true;\n"
                 + "  }\n"
@@ -330,13 +449,10 @@ public class ComponentBodyGeneratorTest {
                 + "    return false;\n"
                 + "  }\n"
                 + "  MountTest mountTestRef = (MountTest) other;\n"
-                + "  if (this.getId() == mountTestRef.getId()) {\n"
-                + "    return true;\n"
-                + "  }\n"
                 + "  if (arg0 != mountTestRef.arg0) {\n"
                 + "    return false;\n"
                 + "  }\n"
-                + "  if (arg4 != null ? !arg4.isEquivalentTo(mountTestRef.arg4) : mountTestRef.arg4 != null) {\n"
+                + "  if (arg4 != null ? !arg4.isEquivalentTo(mountTestRef.arg4, shouldCompareCommonProps) : mountTestRef.arg4 != null) {\n"
                 + "    return false;\n"
                 + "  }\n"
                 + "  if (arg5 != null) {\n"
@@ -357,36 +473,6 @@ public class ComponentBodyGeneratorTest {
                 + "    return false;\n"
                 + "  }\n"
                 + "  if (arg9 != null ? !arg9.equals(mountTestRef.arg9) : mountTestRef.arg9 != null) {\n"
-                + "    return false;\n"
-                + "  }\n"
-                + "  if (mStateContainer.arg1 != mountTestRef.mStateContainer.arg1) {\n"
-                + "    return false;\n"
-                + "  }\n"
-                + "  if (arg3 != mountTestRef.arg3) {\n"
-                + "    return false;\n"
-                + "  }\n"
-                + "  if (arg7 != null) {\n"
-                + "    if (mountTestRef.arg7 == null || arg7.size() != mountTestRef.arg7.size()) {\n"
-                + "      return false;\n"
-                + "    }\n"
-                + "    java.util.Iterator<java.util.List<com.facebook.litho.Row>> _e1_2 = arg7.iterator();\n"
-                + "    java.util.Iterator<java.util.List<com.facebook.litho.Row>> _e2_2 = mountTestRef.arg7.iterator();\n"
-                + "    while (_e1_2.hasNext() && _e2_2.hasNext()) {\n"
-                + "      if (_e1_2.next().size() != _e2_2.next().size()) {\n"
-                + "        return false;\n"
-                + "      }\n"
-                + "      java.util.Iterator<com.facebook.litho.Row> _e1_1 = _e1_2.next().iterator();\n"
-                + "      java.util.Iterator<com.facebook.litho.Row> _e2_1 = _e2_2.next().iterator();\n"
-                + "      while (_e1_1.hasNext() && _e2_1.hasNext()) {\n"
-                + "        if (!_e1_1.next().isEquivalentTo(_e2_1.next())) {\n"
-                + "          return false;\n"
-                + "        }\n"
-                + "      }\n"
-                + "    }\n"
-                + "  } else if (mountTestRef.arg7 != null) {\n"
-                + "    return false;\n"
-                + "  }\n"
-                + "  if (arg8 != null ? !arg8.equals(mountTestRef.arg8) : mountTestRef.arg8 != null) {\n"
                 + "    return false;\n"
                 + "  }\n"
                 + "  return true;\n"
@@ -412,15 +498,17 @@ public class ComponentBodyGeneratorTest {
   public void testGenerateStateParamImplAccessor() {
     StateParamModel stateParamModel = mock(StateParamModel.class);
     when(stateParamModel.getName()).thenReturn("stateParam");
-    assertThat(ComponentBodyGenerator.getImplAccessor(mSpecModelDI, stateParamModel))
-        .isEqualTo("mStateContainer.stateParam");
+    assertThat(
+            ComponentBodyGenerator.getImplAccessor(
+                "testMethod", mSpecModelDI, stateParamModel, "c"))
+        .isEqualTo("getStateContainerImpl(c).stateParam");
   }
 
   @Test
   public void testGeneratePropParamImplAccessor() {
     PropModel propModel = mock(PropModel.class);
     when(propModel.getName()).thenReturn("propParam");
-    assertThat(ComponentBodyGenerator.getImplAccessor(mSpecModelDI, propModel))
+    assertThat(ComponentBodyGenerator.getImplAccessor("testMethod", mSpecModelDI, propModel, "c"))
         .isEqualTo("propParam");
   }
 
@@ -445,6 +533,37 @@ public class ComponentBodyGeneratorTest {
     assertThat(
             ComponentBodyGenerator.calculateLevelOfComponentInCollections((DeclaredTypeSpec) arg2))
         .isEqualTo(0);
+  }
+
+  @Test
+  public void testGenerateMakeShallowCopyWithStateUpdate() {
+    TypeSpecDataHolder typeSpecDataHolder =
+        ComponentBodyGenerator.generateMakeShallowCopy(mSpecModelDI, true);
+    assertThat(typeSpecDataHolder.getMethodSpecs().size()).isEqualTo(1);
+
+    assertThat(typeSpecDataHolder.getMethodSpecs().get(0).toString())
+        .isEqualTo(
+            "@java.lang.Override\n"
+                + "public Test makeShallowCopy() {\n"
+                + "  Test component = (Test) super.makeShallowCopy();\n"
+                + "  component.arg4 = component.arg4 != null ? component.arg4.makeShallowCopy() : null;\n"
+                + "  return component;\n"
+                + "}\n");
+  }
+
+  @Test
+  public void testGenerateMakeShallowCopyWithOnlyStateUpdateWithTransition() {
+    TypeSpecDataHolder typeSpecDataHolder =
+        ComponentBodyGenerator.generateMakeShallowCopy(mSpecModelWithTransitionDI, true);
+    assertThat(typeSpecDataHolder.getMethodSpecs().size()).isEqualTo(1);
+
+    assertThat(typeSpecDataHolder.getMethodSpecs().get(0).toString())
+        .isEqualTo(
+            "@java.lang.Override\n"
+                + "public TestWithTransition makeShallowCopy() {\n"
+                + "  TestWithTransition component = (TestWithTransition) super.makeShallowCopy();\n"
+                + "  return component;\n"
+                + "}\n");
   }
 
   private static class CollectionObject {

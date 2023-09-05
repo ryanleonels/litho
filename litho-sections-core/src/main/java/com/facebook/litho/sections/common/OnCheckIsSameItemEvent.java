@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,11 +22,11 @@ import com.facebook.litho.annotations.Event;
  * This event is triggered by {@link DataDiffSectionSpec} when it needs to verify whether two model
  * objects represent the same item in the collection.
  *
- * todo(t16485443): The generic type declaration(OnCheckIsSameItemEvent<TEdgeModel>)
- * is temporarily removed until the bug in the attached task is fixed.
+ * <p>todo(t16485443): The generic type declaration(OnCheckIsSameItemEvent<TEdgeModel>) is
+ * temporarily removed until the bug in the attached task is fixed.
  */
 @Event(returnType = Boolean.class)
-public class OnCheckIsSameItemEvent {
-  public Object previousItem;
-  public Object nextItem;
+public class OnCheckIsSameItemEvent<T> {
+  public T previousItem;
+  public T nextItem;
 }

@@ -1,11 +1,11 @@
 /*
- * Copyright 2019-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,11 +20,11 @@ import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProviders
+import androidx.lifecycle.ViewModelProvider
 import com.facebook.litho.ComponentContext
 import com.facebook.litho.ComponentTree
 import com.facebook.litho.LithoView
-import com.facebook.litho.StateHandler
+import com.facebook.litho.TreeState
 
 class MainActivity : AppCompatActivity() {
 
@@ -32,19 +32,18 @@ class MainActivity : AppCompatActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
-    val mStateHandlerViewModel = ViewModelProviders.of(this).get(StateHandlerViewModel::class.java)
+    val treeStateViewModel = ViewModelProvider(this).get(TreeStateViewModel::class.java)
 
     val componentContext = ComponentContext(this)
 
     /**
-     * When creating the ComponentTree, pass it the StateHandler that you saved before
-     * the app configuration changed. This will restore the state value.
+     * When creating the ComponentTree, pass it the TreeState that you saved before the app
+     * configuration changed. This will restore the state value.
      */
-    mComponentTree = ComponentTree.create(
-        componentContext,
-        RootComponent.create(componentContext).build())
-          .stateHandler(mStateHandlerViewModel.getStateHandler())
-          .build()
+    mComponentTree =
+        ComponentTree.create(componentContext, RootComponent.create(componentContext).build())
+            .treeState(treeStateViewModel.getTreeState())
+            .build()
 
     val lithoView = LithoView(componentContext)
     lithoView.setComponentTree(mComponentTree)
@@ -55,29 +54,29 @@ class MainActivity : AppCompatActivity() {
   override fun onDestroy() {
     super.onDestroy()
 
-    val mStateHandlerViewModel = ViewModelProviders.of(this).get(StateHandlerViewModel::class.java)
+    val treeStateViewModel = ViewModelProvider(this).get(TreeStateViewModel::class.java)
 
     /**
-     * Before destroying the activity, save the StateHandler so we can restore the state value
-     * after the configuration change.
+     * Before destroying the activity, save the TreeState so we can restore the state value after
+     * the configuration change.
      */
-    mStateHandlerViewModel.updateStateHandler(mComponentTree)
+    treeStateViewModel.updateTreeState(mComponentTree)
   }
 
-  class StateHandlerViewModel : ViewModel() {
-    val stateHandlerData: MutableLiveData<StateHandler> = MutableLiveData<StateHandler>()
+  class TreeStateViewModel : ViewModel() {
+    val treeStateData: MutableLiveData<TreeState> = MutableLiveData<TreeState>()
 
-    fun getStateHandler(): StateHandler? {
-      return stateHandlerData.getValue()
+    fun getTreeState(): TreeState? {
+      return treeStateData.getValue()
     }
 
-    fun updateStateHandler(componentTree: ComponentTree?) {
+    fun updateTreeState(componentTree: ComponentTree?) {
       if (componentTree != null) {
         /**
-         * The current state values are wrapped in a StateHandler that lives on the ComponentTree.
-         * call acquireStateHandler to obtain a copy.
+         * The current state values are wrapped in a TreeState that lives on the ComponentTree. call
+         * acquireTreeState to obtain a copy.
          */
-        stateHandlerData.setValue(componentTree.acquireStateHandler())
+        treeStateData.setValue(componentTree.acquireTreeState())
       }
     }
   }

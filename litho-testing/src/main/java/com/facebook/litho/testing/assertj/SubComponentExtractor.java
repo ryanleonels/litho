@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,7 +31,10 @@ import org.hamcrest.Matcher;
  *
  * <p>In most cases you will want to use the {@link #subComponentWith(ComponentContext, Condition)}
  * combinator.
+ *
+ * @deprecated Use {@link LithoViewAssert#containsComponent)} instead.
  */
+@Deprecated
 public class SubComponentExtractor implements Extractor<Component, List<InspectableComponent>> {
 
   private final ComponentContext mComponentContext;
@@ -114,9 +117,9 @@ public class SubComponentExtractor implements Extractor<Component, List<Inspecta
     return new Condition<Component>() {
       @Override
       public boolean matches(Component component) {
-        as("number of sub components %s", matcher.toString());
-        final int numOfSubComponents = subComponents(c).extract(component).size();
-        return matcher.matches(numOfSubComponents);
+        final int num = subComponents(c).extract(component).size();
+        as("number of sub components %s but was %d", matcher.toString(), num);
+        return matcher.matches(num);
       }
     };
   }

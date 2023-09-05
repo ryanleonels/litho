@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -39,13 +39,12 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 
-/**
- * Extracts delegate methods from the given input.
- */
+/** Extracts delegate methods from the given input. */
 public class DelegateMethodExtractor {
 
   private static final List<Class<? extends Annotation>> METHOD_PARAM_ANNOTATIONS =
       new ArrayList<>();
+
   static {
     METHOD_PARAM_ANNOTATIONS.add(Prop.class);
     METHOD_PARAM_ANNOTATIONS.add(State.class);
@@ -55,11 +54,30 @@ public class DelegateMethodExtractor {
     METHOD_PARAM_ANNOTATIONS.add(CachedValue.class);
   }
 
-  /** Get the delegate methods from the given {@link TypeElement}. */
   public static ImmutableList<SpecMethodModel<DelegateMethod, Void>> getDelegateMethods(
       TypeElement typeElement,
       List<Class<? extends Annotation>> permittedMethodAnnotations,
       List<Class<? extends Annotation>> permittedInterStageInputAnnotations,
+      List<Class<? extends Annotation>> permittedLayoutInterStageInputAnnotations,
+      List<Class<? extends Annotation>> delegateMethodAnnotationsThatSkipDiffModels,
+      Messager messager) {
+    return getDelegateMethods(
+        typeElement,
+        permittedMethodAnnotations,
+        new ArrayList<>(),
+        permittedInterStageInputAnnotations,
+        permittedLayoutInterStageInputAnnotations,
+        delegateMethodAnnotationsThatSkipDiffModels,
+        messager);
+  }
+
+  /** Get the delegate methods from the given {@link TypeElement}. */
+  public static ImmutableList<SpecMethodModel<DelegateMethod, Void>> getDelegateMethods(
+      TypeElement typeElement,
+      List<Class<? extends Annotation>> permittedMethodAnnotations,
+      List<Class<? extends Annotation>> permittedMethodParamAnnotations,
+      List<Class<? extends Annotation>> permittedInterStageInputAnnotations,
+      List<Class<? extends Annotation>> permittedLayoutInterStageInputAnnotations,
       List<Class<? extends Annotation>> delegateMethodAnnotationsThatSkipDiffModels,
       Messager messager) {
     final List<SpecMethodModel<DelegateMethod, Void>> delegateMethods = new ArrayList<>();
@@ -78,8 +96,12 @@ public class DelegateMethodExtractor {
             getMethodParams(
                 executableElement,
                 messager,
-                getPermittedMethodParamAnnotations(permittedInterStageInputAnnotations),
+                getPermittedMethodParamAnnotations(
+                    permittedMethodParamAnnotations,
+                    permittedInterStageInputAnnotations,
+                    permittedLayoutInterStageInputAnnotations),
                 permittedInterStageInputAnnotations,
+                permittedLayoutInterStageInputAnnotations,
                 delegateMethodAnnotationsThatSkipDiffModels);
 
         final SpecMethodModel<DelegateMethod, Void> delegateMethod =
@@ -103,13 +125,11 @@ public class DelegateMethodExtractor {
   }
 
   private static List<Annotation> getMethodAnnotations(
-      Element method,
-      List<Class<? extends Annotation>> permittedMethodAnnotations) {
+      Element method, List<Class<? extends Annotation>> permittedMethodAnnotations) {
     List<Annotation> methodAnnotations = new ArrayList<>();
     for (Class<? extends Annotation> possibleDelegateMethodAnnotation :
         permittedMethodAnnotations) {
-      final Annotation methodAnnotation =
-          method.getAnnotation(possibleDelegateMethodAnnotation);
+      final Annotation methodAnnotation = method.getAnnotation(possibleDelegateMethodAnnotation);
       if (methodAnnotation != null) {
         methodAnnotations.add(methodAnnotation);
       }
@@ -119,11 +139,26 @@ public class DelegateMethodExtractor {
   }
 
   static List<Class<? extends Annotation>> getPermittedMethodParamAnnotations(
-      List<Class<? extends Annotation>> permittedInterStageInputAnnotations) {
+      List<Class<? extends Annotation>> permittedInterStageInputAnnotations,
+      List<Class<? extends Annotation>> permittedPrepareInterStageInputAnnotations) {
     final List<Class<? extends Annotation>> permittedMethodParamAnnotations =
         new ArrayList<>(METHOD_PARAM_ANNOTATIONS);
     permittedMethodParamAnnotations.addAll(permittedInterStageInputAnnotations);
+    permittedMethodParamAnnotations.addAll(permittedPrepareInterStageInputAnnotations);
 
     return permittedMethodParamAnnotations;
+  }
+
+  static List<Class<? extends Annotation>> getPermittedMethodParamAnnotations(
+      List<Class<? extends Annotation>> permittedMethodParamAnnotations,
+      List<Class<? extends Annotation>> permittedInterStageInputAnnotations,
+      List<Class<? extends Annotation>> permittedLayoutInterStageInputAnnotations) {
+    final List<Class<? extends Annotation>> allPermittedMethodParamAnnotations =
+        new ArrayList<>(METHOD_PARAM_ANNOTATIONS);
+    allPermittedMethodParamAnnotations.addAll(permittedMethodParamAnnotations);
+    allPermittedMethodParamAnnotations.addAll(permittedInterStageInputAnnotations);
+    allPermittedMethodParamAnnotations.addAll(permittedLayoutInterStageInputAnnotations);
+
+    return allPermittedMethodParamAnnotations;
   }
 }

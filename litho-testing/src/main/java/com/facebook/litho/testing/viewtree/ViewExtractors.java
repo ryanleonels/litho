@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,6 +17,7 @@
 package com.facebook.litho.testing.viewtree;
 
 import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.text.TextUtils;
 import android.view.View;
 import android.widget.ImageView;
@@ -29,37 +30,34 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
 
-/**
- * Function objects used for extracting specific information out of Android classes
- */
-final class ViewExtractors {
+/** Function objects used for extracting specific information out of Android classes */
+public final class ViewExtractors {
 
   private ViewExtractors() {}
 
-  public static final Function<View, String> GET_TEXT_FUNCTION = new Function<View, String>() {
-    @Override
-    public String apply(@Nullable View input) {
-      CharSequence text = null;
-      if (input instanceof ComponentHost) {
-        List<CharSequence> strings = ((ComponentHost) input).getTextContent().getTextItems();
-        if (!strings.isEmpty()) {
-          text = Joiner.on("\", and \"").join(strings);
-        }
-      } else if (input instanceof TextView) {
-        text = ((TextView) input).getText();
-      }
-      if (text == null) {
-        return String.format(
-            "No text found, view is %s",
-            getVisibilityString(input.getVisibility()));
-      }
+  public static final Function<View, String> GET_TEXT_FUNCTION =
+      new Function<View, String>() {
+        @Override
+        public String apply(@Nullable View input) {
+          CharSequence text = null;
+          if (input instanceof ComponentHost) {
+            List<CharSequence> strings = ((ComponentHost) input).getTextContentText();
+            if (!strings.isEmpty()) {
+              text = Joiner.on("\", and \"").join(strings);
+            }
+          } else if (input instanceof TextView) {
+            text = ((TextView) input).getText();
+          }
+          if (text == null) {
+            return String.format(
+                "No text found, view is %s", getVisibilityString(input.getVisibility()));
+          }
 
-      return String.format(
-          "Found text: \"%s\", view is %s",
-          Strings.nullToEmpty(text.toString()),
-          getVisibilityString(input.getVisibility()));
-    }
-  };
+          return String.format(
+              "Found text: \"%s\", view is %s",
+              Strings.nullToEmpty(text.toString()), getVisibilityString(input.getVisibility()));
+        }
+      };
 
   public static final Function<View, String> GET_DRAWABLE_FUNCTION =
       new Function<View, String>() {
@@ -78,6 +76,14 @@ final class ViewExtractors {
             }
             for (Drawable d : host.getImageContent().getImageItems()) {
               drawables.add(String.valueOf(d));
+            }
+            if (host.getBackground() != null) {
+              drawables.add(String.valueOf(host.getBackground()));
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+              if (host.getForeground() != null) {
+                drawables.add(String.valueOf(host.getForeground()));
+              }
             }
             return String.format(
                 "Found drawables: \"%s\", view is %s",
@@ -108,6 +114,7 @@ final class ViewExtractors {
 
   /**
    * Generates a function that extracts information about view tags from the given view.
+   *
    * @param key key that identifies the tag
    * @return function that extracts information about view tags
    */
@@ -117,14 +124,12 @@ final class ViewExtractors {
       public String apply(View input) {
         if (input.getTag(key) == null) {
           return String.format(
-              "No view tag found, view is %s",
-              getVisibilityString(input.getVisibility()));
+              "No view tag found, view is %s", getVisibilityString(input.getVisibility()));
         }
 
         return String.format(
             "Found view tag: \"%s\", view is %s",
-            input.getTag(key),
-            getVisibilityString(input.getVisibility()));
+            input.getTag(key), getVisibilityString(input.getVisibility()));
       }
     };
   }

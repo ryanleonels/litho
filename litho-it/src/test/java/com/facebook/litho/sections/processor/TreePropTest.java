@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,29 +16,37 @@
 
 package com.facebook.litho.sections.processor;
 
-import static android.view.View.MeasureSpec.EXACTLY;
-import static android.view.View.MeasureSpec.UNSPECIFIED;
-import static android.view.View.MeasureSpec.makeMeasureSpec;
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static com.facebook.litho.testing.MeasureSpecTestingUtilsKt.exactly;
+import static com.facebook.litho.testing.MeasureSpecTestingUtilsKt.unspecified;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import android.app.Activity;
+import android.view.View;
+import android.widget.TextView;
 import com.facebook.litho.Component;
 import com.facebook.litho.ComponentContext;
 import com.facebook.litho.LithoView;
-import com.facebook.litho.testing.testrunner.ComponentsTestRunner;
+import com.facebook.litho.testing.LegacyLithoViewRule;
+import com.facebook.litho.testing.testrunner.LithoTestRunner;
 import com.facebook.litho.testing.treeprop.TreePropNumberType;
 import com.facebook.litho.testing.treeprop.TreePropStringType;
 import com.facebook.litho.testing.treeprop.TreePropTestParent;
 import com.facebook.litho.testing.treeprop.TreePropTestResult;
+import com.facebook.litho.widget.ComponentWithTreePropParent;
+import com.facebook.litho.widget.treeprops.SimpleTreeProp;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
+import org.robolectric.annotation.LooperMode;
 
 /** Tests passing {@link TreeProp}s down a Component tree. */
-@RunWith(ComponentsTestRunner.class)
+@LooperMode(LooperMode.Mode.LEGACY)
+@RunWith(LithoTestRunner.class)
 public class TreePropTest {
 
+  public final @Rule LegacyLithoViewRule mLegacyLithoViewRule = new LegacyLithoViewRule();
   private ComponentContext mContext;
 
   @Before
@@ -48,8 +56,8 @@ public class TreePropTest {
   }
 
   /**
-   * Tests that a TreeProp is propagated down a Component Tree,
-   * is scoped correctly, and can be overwritten.
+   * Tests that a TreeProp is propagated down a Component Tree, is scoped correctly, and can be
+   * overwritten.
    */
   @Test
   public void testTreePropsPropagated() {
@@ -73,7 +81,7 @@ public class TreePropTest {
 
     LithoView lithoView = new LithoView(mContext);
     lithoView.setComponent(component);
-    lithoView.measure(makeMeasureSpec(1000, EXACTLY), makeMeasureSpec(0, UNSPECIFIED));
+    lithoView.measure(exactly(1000), unspecified());
 
     assertThat(propALeaf1.mProp).isEqualTo(treePropA);
     // TreePropTestMiddleSpec modifies "propB".
@@ -84,5 +92,36 @@ public class TreePropTest {
     assertThat(probBLeaf2.mProp).isEqualTo(treePropB);
 
     assertThat(propAMount.mProp).isEqualTo(treePropA);
+  }
+
+  @Test
+  public void testTreePropChangeShouldUpdateMountSpec() {
+    SimpleTreeProp treeProp = new SimpleTreeProp("sampleTreeProp");
+    final Component component =
+        ComponentWithTreePropParent.create(mLegacyLithoViewRule.getContext())
+            .propA(treeProp)
+            .build();
+    mLegacyLithoViewRule.setRoot(component);
+
+    mLegacyLithoViewRule.attachToWindow().measure().layout();
+
+    View view = mLegacyLithoViewRule.getLithoView().getChildAt(0);
+    assertThat(view).isNotNull();
+    assertThat(view).isInstanceOf(TextView.class);
+
+    assertThat(((TextView) view).getText()).isEqualTo("sampleTreeProp");
+
+    SimpleTreeProp treePropChanged = new SimpleTreeProp("sampleTreeProp_changed");
+    final Component updatedComponent =
+        ComponentWithTreePropParent.create(mLegacyLithoViewRule.getContext())
+            .propA(treePropChanged)
+            .build();
+    mLegacyLithoViewRule.setRoot(updatedComponent);
+
+    view = mLegacyLithoViewRule.getLithoView().getChildAt(0);
+    assertThat(view).isNotNull();
+    assertThat(view).isInstanceOf(TextView.class);
+
+    assertThat(((TextView) view).getText()).isEqualTo("sampleTreeProp_changed");
   }
 }

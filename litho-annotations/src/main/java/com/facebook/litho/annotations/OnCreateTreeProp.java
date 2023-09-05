@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,15 +20,14 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 /**
- * An annotation for a Spec method that generates tree props.
- * These tree props will be passed silently to all of the Component's children.
+ * An annotation for a Spec method that generates tree props. These tree props will be passed
+ * silently to all of the Component's children.
  *
- * Tree props are stored in a map keyed on their individual class object, meaning there will only be
- * one entry for tree props of any given type. PLEASE DO NOT USE COMMON JAVA CLASSES, for example,
- * String, Integer etc; creates a wrapper class instead.
+ * <p>Tree props are stored in a map keyed on their individual class object, meaning there will only
+ * be one entry for tree props of any given type. PLEASE DO NOT USE COMMON JAVA CLASSES, for
+ * example, String, Integer etc; creates a wrapper class instead.
  *
- * <p>Example usage:
- * <code>
+ * <p>Example usage: <code>
  *
  * {@literal @}LayoutSpec
  * public class MySpec {
@@ -43,6 +42,4 @@ import java.lang.annotation.RetentionPolicy;
  * </code>
  */
 @Retention(RetentionPolicy.RUNTIME)
-public @interface OnCreateTreeProp {
-
-}
+public @interface OnCreateTreeProp {}

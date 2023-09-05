@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,10 +30,10 @@ public class ContextUtils {
 
   /**
    * @return the Activity representing this Context if the Context is backed by an Activity and the
-   * Activity has not been finished/destroyed yet. Returns null otherwise.
+   *     Activity has not been finished/destroyed yet. Returns null otherwise.
    */
   @Nullable
-  static Activity getValidActivityForContext(Context context) {
+  public static Activity getValidActivityForContext(Context context) {
     final Activity activity = findActivityInContext(context);
 
     if (activity == null || activity.isFinishing() || isActivityDestroyed(activity)) {
@@ -45,9 +45,9 @@ public class ContextUtils {
 
   /**
    * @return the "most base" Context of this Context, i.e. the Activity, Application, or Service
-   *     backing this Context and all its ContextWrappers. In some cases, e.g. instrumentation
-   *     tests or other places we don't wrap a standard Context, this root Context may instead be a
-   *     raw ContextImpl.
+   *     backing this Context and all its ContextWrappers. In some cases, e.g. instrumentation tests
+   *     or other places we don't wrap a standard Context, this root Context may instead be a raw
+   *     ContextImpl.
    */
   static Context getRootContext(Context context) {
     Context currentContext = context;

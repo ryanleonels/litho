@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,11 +19,10 @@ package com.facebook.litho.sections.common;
 import com.facebook.litho.annotations.Event;
 
 /**
- * An {@link Event} that gets triggered by the
- * {@link com.facebook.litho.sections.fb.datasources.BaseGraphQLConnectionSectionServiceListener} in
- * {@link com.facebook.litho.sections.fb.datasources.BaseGraphQLConnectionSection}
- * as the connection state of
- * {@link com.facebook.litho.sections.fb.datasources.GraphQLConnectionService} changes.
+ * An {@link Event} that gets triggered by the {@link
+ * com.facebook.litho.sections.fb.datasources.BaseGraphQLConnectionSectionServiceListener} in {@link
+ * com.facebook.litho.sections.fb.datasources.BaseGraphQLConnectionSection} as the connection state
+ * of {@link com.facebook.litho.sections.fb.datasources.GraphQLConnectionService} changes.
  */
 @Event
 public class ConnectionStateEvent {

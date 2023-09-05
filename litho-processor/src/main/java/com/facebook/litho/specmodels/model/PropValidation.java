@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,17 +18,16 @@ package com.facebook.litho.specmodels.model;
 
 import com.facebook.litho.annotations.ResType;
 import com.facebook.litho.specmodels.internal.ImmutableList;
+import com.facebook.litho.specmodels.internal.RunMode;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
-import com.squareup.javapoet.WildcardTypeName;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
 
-/**
- * Class for validating that the state models within a  {@link SpecModel} are well-formed.
- */
+/** Class for validating that the state models within a {@link SpecModel} are well-formed. */
 public class PropValidation {
   // Using these names in props will cause conflicts with the method names for common props in
   // Component.Builder so we trigger a more user-friendly error if the component tries to use them.
@@ -86,6 +85,7 @@ public class PropValidation {
           "maxWidthAttr",
           "maxWidthRes",
           "maxWidthDip",
+          "handle",
           "height",
           "heightPx",
           "heightPercent",
@@ -113,6 +113,7 @@ public class PropValidation {
           "backgroundAttr",
           "backgroundRes",
           "backgroundColor",
+          "backgroundDynamicDrawable",
           "foreground",
           "foregroundAttr",
           "foregroundRes",
@@ -144,6 +145,7 @@ public class PropValidation {
           "outlineProvider",
           "clipToOutline",
           "testKey",
+          "componentTag",
           "accessibilityRole",
           "dispatchPopulateAccessibilityEventHandler",
           "onInitializeAccessibilityEventHandler",
@@ -166,11 +168,9 @@ public class PropValidation {
               "positionType", ClassName.bestGuess("com.facebook.yoga.YogaPositionType")),
           new CommonPropModel("widthPx", TypeName.INT),
           new CommonPropModel("heightPx", TypeName.INT),
-          new CommonPropModel(
-              "background",
-              ParameterizedTypeName.get(
-                  ClassNames.COMPARABLE_DRAWABLE, WildcardTypeName.subtypeOf(ClassNames.DRAWABLE))),
+          new CommonPropModel("background", ClassNames.DRAWABLE),
           new CommonPropModel("testKey", ClassNames.STRING),
+          new CommonPropModel("componentTag", ClassNames.OBJECT),
           new CommonPropModel(
               "layoutDirection", ClassName.bestGuess("com.facebook.yoga.YogaDirection")),
           new CommonPropModel("alignSelf", ClassName.bestGuess("com.facebook.yoga.YogaAlign")),
@@ -302,7 +302,8 @@ public class PropValidation {
   static List<SpecModelValidationError> validate(
       SpecModel specModel,
       List<String> reservedPropNames,
-      List<CommonPropModel> permittedCommonProps) {
+      List<CommonPropModel> permittedCommonProps,
+      EnumSet<RunMode> runMode) {
     final List<SpecModelValidationError> validationErrors = new ArrayList<>();
 
     final ImmutableList<PropModel> props = specModel.getProps();
@@ -366,7 +367,6 @@ public class PropValidation {
         }
       }
 
-      TypeName argumentType = null;
       if (prop.hasVarArgs()) {
         TypeName typeName = prop.getTypeName();
         if (typeName instanceof ParameterizedTypeName) {
@@ -377,7 +377,6 @@ public class PropValidation {
                     prop.getRepresentedObject(),
                     prop.getName() + " is a variable argument, and thus should be a List<> type."));
           }
-          argumentType = parameterizedTypeName.typeArguments.get(0);
         } else {
           validationErrors.add(
               new SpecModelValidationError(
@@ -385,25 +384,38 @@ public class PropValidation {
                   prop.getName()
                       + " is a variable argument, and thus requires a parameterized List type."));
         }
-      } else {
-        argumentType = prop.getTypeName();
       }
 
-      if (ILLEGAL_PROP_TYPES.contains(argumentType)) {
-        validationErrors.add(
-            new SpecModelValidationError(
-                prop.getRepresentedObject(),
-                "Props may not be declared with the following argument types: "
-                    + ILLEGAL_PROP_TYPES
-                    + "."));
+      TypeSpec typeSpec = prop.getTypeSpec();
+      for (TypeName illegalPropType : ILLEGAL_PROP_TYPES) {
+
+        if (typeSpec.isSameDeclaredType(illegalPropType)) {
+          validationErrors.add(
+              new SpecModelValidationError(
+                  prop.getRepresentedObject(),
+                  "Props may not be declared with argument type: "
+                      + illegalPropType
+                      + " or its inherited types."));
+        } else if (!runMode.contains(RunMode.ABI) && typeSpec.isSubType(illegalPropType)) {
+          validationErrors.add(
+              new SpecModelValidationError(
+                  prop.getRepresentedObject(),
+                  "Props may not be declared with argument type: "
+                      + illegalPropType
+                      + " or its inherited types. "
+                      + typeSpec.getTypeName()
+                      + " is an inherited type of "
+                      + illegalPropType));
+        }
       }
 
       if (!prop.isOptional() && prop.hasDefault(specModel.getPropDefaults())) {
         validationErrors.add(
             new SpecModelValidationError(
                 prop.getRepresentedObject(),
-                prop.getName() + " is not optional so it should not be declared with a default " +
-                    "value."));
+                prop.getName()
+                    + " is not optional so it should not be declared with a default "
+                    + "value."));
       }
 
       if ((prop.getResType() == ResType.DIMEN_SIZE
@@ -435,14 +447,21 @@ public class PropValidation {
         validationErrors.add(
             new SpecModelValidationError(
                 propDefault.mRepresentedObject,
-                "PropDefault " + propDefault.mName + " of type " + propDefault.mType +
-                    " does not correspond to any defined prop"));
+                "PropDefault "
+                    + propDefault.mName
+                    + " of type "
+                    + propDefault.mType
+                    + " does not correspond to any defined prop"));
       } else if (!(propDefault.mType.box()).equals(prop.getTypeName().box())) {
         validationErrors.add(
             new SpecModelValidationError(
                 propDefault.mRepresentedObject,
-                "PropDefault " + propDefault.mName + " of type " + propDefault.mType +
-                    " should be of type " + prop.getTypeName()));
+                "PropDefault "
+                    + propDefault.mName
+                    + " of type "
+                    + propDefault.mType
+                    + " should be of type "
+                    + prop.getTypeName()));
       }
     }
 

@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,6 +18,7 @@ package com.facebook.litho.sections;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
+import com.facebook.litho.CollectionsUtils;
 import com.facebook.litho.sections.annotations.GroupSectionSpec;
 import java.util.ArrayList;
 import java.util.List;
@@ -56,7 +57,7 @@ public class Children {
     }
 
     public Builder child(@Nullable List<Section> sectionList) {
-      if (sectionList == null || sectionList.isEmpty()) {
+      if (CollectionsUtils.isNullOrEmpty(sectionList)) {
         return this;
       }
 
@@ -79,7 +80,7 @@ public class Children {
     }
 
     public Builder children(@Nullable List<Section.Builder<?>> sectionBuilderList) {
-      if (sectionBuilderList == null || sectionBuilderList.isEmpty()) {
+      if (CollectionsUtils.isNullOrEmpty(sectionBuilderList)) {
         return this;
       }
 

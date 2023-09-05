@@ -1,11 +1,11 @@
 /*
- * Copyright 2019-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.litho.codelab
 
 import android.graphics.Color
@@ -73,101 +74,86 @@ object RootComponentSpec {
     Log.d("RootComponent", "OnCreateLayout() called")
 
     return Column.create(c)
-      .child(
-        Row.create(c)
-          .alignItems(YogaAlign.FLEX_START)
-          .child(
-            Text.create(c)
-              .backgroundColor(COLOR_BG_DECREMENT)
-              .paddingDip(YogaEdge.LEFT, 16F)
-              .paddingDip(YogaEdge.RIGHT, 16F)
-              .paddingDip(YogaEdge.TOP, 4F)
-              .paddingDip(YogaEdge.BOTTOM, 4F)
-              .marginDip(YogaEdge.ALL, 8F)
-              .text("-")
-              .textSizeSp(24F)
-              .textColor(COLOR_TXT_DECREMENT)
-              /* Setting the click handler for the decrement button */
-              .clickHandler(RootComponent.onDecrement(c))
-          )
-          .child(
-            Text.create(c)
-              .backgroundColor(COLOR_BG_COUNT)
-              .paddingDip(YogaEdge.LEFT, 16F)
-              .paddingDip(YogaEdge.RIGHT, 16F)
-              .paddingDip(YogaEdge.TOP, 4F)
-              .paddingDip(YogaEdge.BOTTOM, 4F)
-              .marginDip(YogaEdge.ALL, 8F)
-              .minWidthDip(64f)
-              .text(count.toString())
-              .textSizeSp(24F)
-              .textColor(COLOR_TXT_COUNT)
-              .textAlignment(Layout.Alignment.ALIGN_CENTER)
-          )
-          .child(
-            Text.create(c)
-              .backgroundColor(COLOR_BG_INCREMENT)
-              .paddingDip(YogaEdge.LEFT, 16F)
-              .paddingDip(YogaEdge.RIGHT, 16F)
-              .paddingDip(YogaEdge.TOP, 4F)
-              .paddingDip(YogaEdge.BOTTOM, 4F)
-              .marginDip(YogaEdge.ALL, 8F)
-              .text("+")
-              .textSizeSp(24F)
-              .textColor(COLOR_TXT_INCREMENT)
-              /* Setting the click handler for the increment button */
-              .clickHandler(RootComponent.onIncrement(c))
-          )
-      )
-      /* UI to change the value of `step` */
-      .child(
-        Row.create(c)
-          .child(
-            Text.create(c)
-              .marginDip(YogaEdge.ALL, 8F)
-              .text("Change Step: ")
-              .textSizeSp(24F)
-          )
-          .child(
-            TextInput.create(c)
-              .initialText(step.toString())
-              .minWidthDip(64F)
-              .textSizeSp(24F)
-              /* Setting the text change handler */
-              .textChangedEventHandler(RootComponent.onChangeStep(c))
-          )
-      )
-      .build()
+        .child(
+            Row.create(c)
+                .alignItems(YogaAlign.FLEX_START)
+                .child(
+                    Text.create(c)
+                        .backgroundColor(COLOR_BG_DECREMENT)
+                        .paddingDip(YogaEdge.LEFT, 16F)
+                        .paddingDip(YogaEdge.RIGHT, 16F)
+                        .paddingDip(YogaEdge.TOP, 4F)
+                        .paddingDip(YogaEdge.BOTTOM, 4F)
+                        .marginDip(YogaEdge.ALL, 8F)
+                        .text("-")
+                        .textSizeSp(24F)
+                        .textColor(COLOR_TXT_DECREMENT)
+                        /* Setting the click handler for the decrement button */
+                        .clickHandler(RootComponent.onDecrement(c)))
+                .child(
+                    Text.create(c)
+                        .backgroundColor(COLOR_BG_COUNT)
+                        .paddingDip(YogaEdge.LEFT, 16F)
+                        .paddingDip(YogaEdge.RIGHT, 16F)
+                        .paddingDip(YogaEdge.TOP, 4F)
+                        .paddingDip(YogaEdge.BOTTOM, 4F)
+                        .marginDip(YogaEdge.ALL, 8F)
+                        .minWidthDip(64f)
+                        .text(count.toString())
+                        .textSizeSp(24F)
+                        .textColor(COLOR_TXT_COUNT)
+                        .textAlignment(Layout.Alignment.ALIGN_CENTER))
+                .child(
+                    Text.create(c)
+                        .backgroundColor(COLOR_BG_INCREMENT)
+                        .paddingDip(YogaEdge.LEFT, 16F)
+                        .paddingDip(YogaEdge.RIGHT, 16F)
+                        .paddingDip(YogaEdge.TOP, 4F)
+                        .paddingDip(YogaEdge.BOTTOM, 4F)
+                        .marginDip(YogaEdge.ALL, 8F)
+                        .text("+")
+                        .textSizeSp(24F)
+                        .textColor(COLOR_TXT_INCREMENT)
+                        /* Setting the click handler for the increment button */
+                        .clickHandler(RootComponent.onIncrement(c))))
+        /* UI to change the value of `step` */
+        .child(
+            Row.create(c)
+                .child(
+                    Text.create(c)
+                        .marginDip(YogaEdge.ALL, 8F)
+                        .text("Change Step: ")
+                        .textSizeSp(24F))
+                .child(
+                    TextInput.create(c)
+                        .initialText(step.toString())
+                        .minWidthDip(64F)
+                        .textSizeSp(24F)
+                        /* Setting the text change handler */
+                        .textChangedEventHandler(RootComponent.onChangeStep(c))))
+        .build()
   }
 
-  /**
-   * The event handler for the decrement button.
-   */
+  /** The event handler for the decrement button. */
   @OnEvent(ClickEvent::class)
   fun onDecrement(c: ComponentContext) {
     RootComponent.decrement(c) // Call the decrement state update method.
   }
 
-  /**
-   * Update method for decrement which receives the state value container for `count`.
-   */
+  /** Update method for decrement which receives the state value container for `count`. */
   @OnUpdateState
   fun decrement(count: StateValue<Int>, step: StateValue<Int>) {
     // Actually decrement the value of count.
     count.set(step.get()?.let { count.get()?.minus(it) } ?: count.get()?.minus(1))
   }
 
-  /**
-   * The event handler for the increment button.
-   */
+  /** The event handler for the increment button. */
   @OnEvent(ClickEvent::class)
   fun onIncrement(c: ComponentContext) {
     RootComponent.increment(c) // Call the increment state update method.
   }
 
-  /**
-   * Update method for increment which receives the state value container of for `count`.
-   */
+  /** Update method for increment which receives the state value container of for `count`. */
   @OnUpdateState
   fun increment(count: StateValue<Int>, step: StateValue<Int>) {
     // Actually increment the value of count.
@@ -184,7 +170,8 @@ object RootComponentSpec {
       try {
         value = text.toInt()
       } catch (nfe: NumberFormatException) {
-        Toast.makeText(c.androidContext, "'$text' is not a valid number.", Toast.LENGTH_SHORT).show()
+        Toast.makeText(c.androidContext, "'$text' is not a valid number.", Toast.LENGTH_SHORT)
+            .show()
       }
     }
 

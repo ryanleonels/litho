@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,17 +25,17 @@ import android.graphics.PathEffect;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.graphics.drawable.Drawable;
 import androidx.annotation.ColorInt;
 import androidx.annotation.Px;
-import com.facebook.litho.CommonUtils;
+import com.facebook.rendercore.primitives.utils.EquivalenceUtils;
 import java.util.Arrays;
 import javax.annotation.Nullable;
 
 /** Drawable that draws border lines with given color, widths and path effect. */
-public class BorderColorDrawable extends ComparableDrawable {
+public class BorderColorDrawable extends Drawable implements ComparableDrawable {
 
   private static final int QUICK_REJECT_COLOR = Color.TRANSPARENT;
-  private static final float CLIP_ANGLE = 45f;
   private static final RectF sClipBounds = new RectF();
   private static final RectF sDrawBounds = new RectF();
   private static final RectF sInnerDrawBounds = new RectF();
@@ -52,7 +52,7 @@ public class BorderColorDrawable extends ComparableDrawable {
   }
 
   private static void drawBorder(
-      Canvas canvas, RectF bounds, Path path, float[] radii, Paint paint) {
+      Canvas canvas, RectF bounds, @Nullable Path path, float[] radii, Paint paint) {
     float maxRadii = Math.min(bounds.width(), bounds.height()) / 2f;
     if (path == null) {
       // All radii are the same
@@ -313,10 +313,15 @@ public class BorderColorDrawable extends ComparableDrawable {
   }
 
   @Override
-  public void setColorFilter(ColorFilter colorFilter) {
+  public void setColorFilter(@Nullable ColorFilter colorFilter) {
     if (mPaint != null) {
       mPaint.setColorFilter(colorFilter);
     }
+  }
+
+  @Override
+  public @Nullable ColorFilter getColorFilter() {
+    return mPaint != null ? mPaint.getColorFilter() : null;
   }
 
   @Override
@@ -330,7 +335,7 @@ public class BorderColorDrawable extends ComparableDrawable {
   }
 
   @Override
-  public boolean equals(Object o) {
+  public boolean equals(@Nullable Object o) {
     if (this == o) {
       return true;
     }
@@ -340,7 +345,7 @@ public class BorderColorDrawable extends ComparableDrawable {
 
     BorderColorDrawable that = (BorderColorDrawable) o;
 
-    return CommonUtils.equals(mState, that.mState);
+    return EquivalenceUtils.equals(mState, that.mState);
   }
 
   @Override
@@ -398,14 +403,14 @@ public class BorderColorDrawable extends ComparableDrawable {
           && mBorderTopColor == state.mBorderTopColor
           && mBorderRightColor == state.mBorderRightColor
           && mBorderBottomColor == state.mBorderBottomColor
-          && CommonUtils.equals(mPathEffect, state.mPathEffect)
+          && EquivalenceUtils.equals(mPathEffect, state.mPathEffect)
           && Arrays.equals(mBorderRadius, state.mBorderRadius);
     }
   }
 
   public static class Builder {
 
-    private State mState;
+    private final State mState;
 
     public Builder() {
       mState = new State();

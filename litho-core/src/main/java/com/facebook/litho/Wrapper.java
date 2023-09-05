@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,14 +17,15 @@
 package com.facebook.litho;
 
 import com.facebook.litho.annotations.Prop;
+import com.facebook.litho.annotations.RequiredProp;
 import java.util.BitSet;
 import javax.annotation.Nullable;
 
 /**
  * Utility class for wrapping an existing {@link Component}. This is useful for adding further
- * {@link CommonPropsHolder} to an already created component.
+ * {@link CommonProps} to an already created component.
  */
-public final class Wrapper extends Component {
+public final class Wrapper extends SpecGeneratedComponent {
 
   @Nullable @Prop Component delegate;
 
@@ -42,9 +43,7 @@ public final class Wrapper extends Component {
   }
 
   public static Builder create(ComponentContext context, int defStyleAttr, int defStyleRes) {
-    final Builder builder = new Builder();
-    builder.init(context, defStyleAttr, defStyleRes, new Wrapper());
-    return builder;
+    return new Builder(context, defStyleAttr, defStyleRes, new Wrapper());
   }
 
   @Override
@@ -53,16 +52,27 @@ public final class Wrapper extends Component {
   }
 
   @Override
-  protected ComponentLayout resolve(ComponentContext c) {
+  protected @Nullable LithoNode resolve(ResolveContext resolveContext, ComponentContext c) {
     if (delegate == null) {
-      return ComponentContext.NULL_LAYOUT;
+      return null;
     }
 
-    return c.newLayoutBuilder(delegate, 0, 0);
+    return Resolver.resolve(resolveContext, c, delegate);
   }
 
   @Override
-  public boolean isEquivalentTo(Component other) {
+  protected ComponentResolveResult resolve(
+      final ResolveContext resolveContext,
+      final ScopedComponentInfo scopedComponentInfo,
+      final int parentWidthSpec,
+      final int parentHeightSpec,
+      final @Nullable ComponentsLogger componentsLogger) {
+    LithoNode lithoNode = resolve(resolveContext, scopedComponentInfo.getContext());
+    return new ComponentResolveResult(lithoNode, getCommonProps());
+  }
+
+  @Override
+  public boolean isEquivalentProps(Component other, boolean shouldCompareCommonProps) {
     if (this == other) {
       return true;
     }
@@ -73,7 +83,9 @@ public final class Wrapper extends Component {
     if (this.getId() == wrapper.getId()) {
       return true;
     }
-    if (delegate != null ? !delegate.equals(wrapper.delegate) : wrapper.delegate != null) {
+    if (delegate != null
+        ? !delegate.isEquivalentTo(wrapper.delegate, shouldCompareCommonProps)
+        : wrapper.delegate != null) {
       return false;
     }
     return true;
@@ -91,17 +103,22 @@ public final class Wrapper extends Component {
     private final BitSet mRequired = new BitSet(REQUIRED_PROPS_COUNT);
     private Wrapper mWrapper;
 
-    private void init(
-        ComponentContext context, int defStyleAttr, int defStyleRes, Wrapper wrapper) {
-      super.init(context, defStyleAttr, defStyleRes, wrapper);
+    Builder(ComponentContext context, int defStyleAttr, int defStyleRes, Wrapper wrapper) {
+      super(context, defStyleAttr, defStyleRes, wrapper);
       mWrapper = wrapper;
     }
 
+    @RequiredProp("delegate")
     public Builder delegate(@Nullable Component delegate) {
       mRequired.set(0);
       this.mWrapper.delegate = delegate;
 
       return this;
+    }
+
+    @Override
+    protected void setComponent(Component component) {
+      mWrapper = (Wrapper) component;
     }
 
     @Override

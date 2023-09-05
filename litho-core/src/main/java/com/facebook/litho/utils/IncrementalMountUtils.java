@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,11 +21,11 @@ import static com.facebook.litho.ThreadUtils.assertMainThread;
 import android.graphics.Rect;
 import android.view.View;
 import android.view.ViewGroup;
+import com.facebook.infer.annotation.Nullsafe;
 import com.facebook.litho.LithoView;
 
-/**
- * Provides methods for enabling incremental mount.
- */
+/** Provides methods for enabling incremental mount. */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class IncrementalMountUtils {
 
   /**
@@ -33,16 +33,19 @@ public class IncrementalMountUtils {
    */
   public interface WrapperView {
 
-    /**
-     * @return A child view that will be incrementally mounted.
-     */
+    /** @return A child view that will be incrementally mounted. */
     View getWrappedView();
   }
 
-  /** Performs incremental mount on all {@link LithoView}s within the given View. */
+  /**
+   * Performs incremental mount on all {@link LithoView}s within the given View.
+   *
+   * @param view the view to process
+   */
   public static void incrementallyMountLithoViews(View view) {
-    if (view instanceof LithoView && ((LithoView) view).isIncrementalMountEnabled()) {
-      ((LithoView) view).performIncrementalMount();
+    if (view instanceof LithoView) {
+      final LithoView lithoView = (LithoView) view;
+      lithoView.notifyVisibleBoundsChanged();
     } else if (view instanceof ViewGroup) {
       for (int i = 0, size = ((ViewGroup) view).getChildCount(); i < size; i++) {
         final View child = ((ViewGroup) view).getChildAt(i);
@@ -53,6 +56,7 @@ public class IncrementalMountUtils {
 
   /**
    * Performs incremental mount on the children views of the given ViewGroup.
+   *
    * @param scrollingViewParent ViewGroup container of views that will be incrementally mounted.
    */
   public static void performIncrementalMount(ViewGroup scrollingViewParent) {
@@ -62,19 +66,14 @@ public class IncrementalMountUtils {
     final int viewGroupHeight = scrollingViewParent.getHeight();
     for (int i = 0; i < scrollingViewParent.getChildCount(); i++) {
       maybePerformIncrementalMountOnView(
-          viewGroupWidth,
-          viewGroupHeight,
-          scrollingViewParent.getChildAt(i));
+          viewGroupWidth, viewGroupHeight, scrollingViewParent.getChildAt(i));
     }
   }
 
   private static void maybePerformIncrementalMountOnView(
-      int scrollingParentWidth,
-      int scrollingParentHeight,
-      View view) {
-    final View underlyingView = view instanceof WrapperView
-        ? ((WrapperView) view).getWrappedView()
-        : view;
+      int scrollingParentWidth, int scrollingParentHeight, View view) {
+    final View underlyingView =
+        view instanceof WrapperView ? ((WrapperView) view).getWrappedView() : view;
 
     if (!(underlyingView instanceof LithoView)) {
       return;
@@ -97,12 +96,12 @@ public class IncrementalMountUtils {
     final int left = view.getLeft() + translationX;
     final int right = view.getRight() + translationX;
 
-    if (left >= 0 &&
-        top >= 0 &&
-        right <= scrollingParentWidth &&
-        bottom <= scrollingParentHeight &&
-        lithoView.getPreviousMountBounds().width() == lithoView.getWidth() &&
-        lithoView.getPreviousMountBounds().height() == lithoView.getHeight()) {
+    if (left >= 0
+        && top >= 0
+        && right <= scrollingParentWidth
+        && bottom <= scrollingParentHeight
+        && lithoView.getPreviousMountBounds().width() == lithoView.getWidth()
+        && lithoView.getPreviousMountBounds().height() == lithoView.getHeight()) {
       // View is fully visible, and has already been completely mounted.
       return;
     }
@@ -119,6 +118,6 @@ public class IncrementalMountUtils {
       return;
     }
 
-    lithoView.performIncrementalMount(rect, true);
+    lithoView.notifyVisibleBoundsChanged(rect, true);
   }
 }

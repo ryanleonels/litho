@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,6 +19,7 @@ package com.facebook.litho.testing.sections;
 import com.facebook.litho.StateContainer;
 import com.facebook.litho.sections.Change;
 import com.facebook.litho.sections.ChangeSet;
+import com.facebook.litho.sections.ChangesInfo;
 import com.facebook.litho.sections.Children;
 import com.facebook.litho.sections.Section;
 import com.facebook.litho.sections.SectionContext;
@@ -27,9 +28,7 @@ import java.util.HashSet;
 import java.util.Set;
 import javax.annotation.Nullable;
 
-/**
- * Test support class to easily create static Section hierarchies.
- */
+/** Test support class to easily create static Section hierarchies. */
 public class TestSectionCreator {
 
   public static Section createChangeSetSection(
@@ -37,45 +36,36 @@ public class TestSectionCreator {
       String key,
       final boolean forceShouldUpdate,
       @Nullable final Change... changes) {
-    return new ChangeSetSection(
-        initialCount,
-        key,
-        forceShouldUpdate,
-        changes);
+    return new ChangeSetSection(initialCount, key, forceShouldUpdate, changes);
   }
 
-  public static Section createSectionComponent(
-      String key,
-      @Nullable Section... children) {
+  public static ChildrenSectionTest createSectionComponent(
+      String key, @Nullable Section... children) {
     return createSectionComponent(key, false, children);
   }
 
-  public static Section createSectionComponent(
-      String key,
-      boolean forceShouldUpdate,
-      @Nullable Section... children) {
+  public static ChildrenSectionTest createSectionComponent(
+      String key, boolean forceShouldUpdate, @Nullable Section... children) {
     return new ChildrenSectionTest(0, key, forceShouldUpdate, children);
   }
 
-  public static Section createChangeSetComponent(
-      String key,
-      @Nullable final Change... changes) {
+  public static Section createChangeSetComponent(String key, @Nullable final Change... changes) {
     return createChangeSetSection(0, key, false, changes);
   }
 
   public static Section createChangeSetComponent(
-      String key,
-      boolean forceShouldUpdate,
-      @Nullable final Change... changes) {
+      String key, boolean forceShouldUpdate, @Nullable final Change... changes) {
     return createChangeSetSection(0, key, forceShouldUpdate, changes);
   }
 
   /**
-   * @return a Lifecycle for a non ChangeSetSpec Section that statically returns a list of
-   * {@link Section}s as children.
+   * @return a Lifecycle for a non ChangeSetSpec Section that statically returns a list of {@link
+   *     Section}s as children.
    */
-  private static class ChildrenSectionTest extends TestSection {
+  public static class ChildrenSectionTest extends TestSection {
     private final Section[] mChildren;
+    public boolean onDataRendered = false;
+    public ChangesInfo mChangesInfo;
 
     ChildrenSectionTest(
         int initialCount,
@@ -116,11 +106,25 @@ public class TestSectionCreator {
       firstFullyVisibleIndex = firstFullyVisibleItem;
       lastFullyVisibleIndex = lastFullyVisibleItem;
     }
+
+    @Override
+    protected void dataRendered(
+        SectionContext c,
+        boolean isDataChanged,
+        boolean isMounted,
+        long uptimeMillis,
+        int firstVisibleIndex,
+        int lastVisibleIndex,
+        ChangesInfo changesInfo,
+        int globalOffset) {
+      onDataRendered = true;
+      mChangesInfo = changesInfo;
+    }
   }
 
   /**
-   * @return a Lifecycle for a ChangeSetSpec Section that statically populates the
-   * {@link ChangeSet} with a list of {@link Change}s.
+   * @return a Lifecycle for a ChangeSetSpec Section that statically populates the {@link ChangeSet}
+   *     with a list of {@link Change}s.
    */
   private static class ChangeSetSection extends TestSection {
     private final Change[] mChanges;
@@ -136,7 +140,12 @@ public class TestSectionCreator {
 
     @Override
     protected void generateChangeSet(
-        SectionContext c, ChangeSet changeSet, Section previous, Section next) {
+        SectionContext c,
+        ChangeSet changeSet,
+        SectionContext previousScopedContext,
+        Section previous,
+        SectionContext nextScopedContext,
+        Section next) {
       if (mChanges != null) {
         for (int i = 0, size = mChanges.length; i < size; i++) {
           changeSet.addChange(mChanges[i]);
@@ -204,8 +213,7 @@ public class TestSectionCreator {
         return false;
       }
 
-      return o.getClass().equals(getClass())
-          && ((Section) o).getGlobalKey().equals(getGlobalKey());
+      return o.getClass().equals(getClass()) && ((Section) o).getGlobalKey().equals(getGlobalKey());
     }
 
     @Override

@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,9 +30,8 @@ import javax.annotation.Nullable;
 /**
  * Model that is an abstract representation of a {@link com.facebook.litho.annotations.LayoutSpec}.
  */
-public class LayoutSpecModel implements SpecModel, HasPureRender {
+public class LayoutSpecModel implements SpecModel {
   private final SpecModelImpl mSpecModel;
-  private final boolean mIsPureRender;
   private final String mSimpleNameDelegate;
   private final SpecGenerator<LayoutSpecModel> mLayoutSpecGenerator;
 
@@ -55,7 +54,6 @@ public class LayoutSpecModel implements SpecModel, HasPureRender {
       ImmutableList<PropJavadocModel> propJavadocs,
       boolean isPublic,
       DependencyInjectionHelper dependencyInjectionHelper,
-      boolean isPureRender,
       SpecElementType specElementType,
       Object representedObject,
       SpecGenerator<LayoutSpecModel> layoutSpecGenerator,
@@ -88,7 +86,6 @@ public class LayoutSpecModel implements SpecModel, HasPureRender {
             .representedObject(representedObject)
             .fields(fields)
             .build();
-    mIsPureRender = isPureRender;
     mLayoutSpecGenerator = layoutSpecGenerator;
     mSimpleNameDelegate = simpleNameDelegate;
   }
@@ -201,6 +198,11 @@ public class LayoutSpecModel implements SpecModel, HasPureRender {
   }
 
   @Override
+  public ImmutableList<PrepareInterStageInputParamModel> getPrepareInterStageInputs() {
+    return mSpecModel.getPrepareInterStageInputs();
+  }
+
+  @Override
   public ImmutableList<TreePropModel> getTreeProps() {
     return mSpecModel.getTreeProps();
   }
@@ -301,6 +303,16 @@ public class LayoutSpecModel implements SpecModel, HasPureRender {
   }
 
   @Override
+  public boolean shouldGenerateTransferState() {
+    return false;
+  }
+
+  @Override
+  public boolean isStateful() {
+    return false;
+  }
+
+  @Override
   public boolean shouldGenerateCopyMethod() {
     return true;
   }
@@ -331,11 +343,6 @@ public class LayoutSpecModel implements SpecModel, HasPureRender {
   }
 
   @Override
-  public boolean isPureRender() {
-    return mIsPureRender;
-  }
-
-  @Override
   public boolean shouldGenerateIsEquivalentTo() {
     return false;
   }
@@ -349,8 +356,6 @@ public class LayoutSpecModel implements SpecModel, HasPureRender {
     return "LayoutSpecModel{"
         + "mSpecModel="
         + mSpecModel
-        + ", mIsPureRender="
-        + mIsPureRender
         + ", mLayoutSpecGenerator="
         + mLayoutSpecGenerator
         + '}';

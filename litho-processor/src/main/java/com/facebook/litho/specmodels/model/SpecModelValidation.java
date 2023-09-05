@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,9 +17,11 @@
 package com.facebook.litho.specmodels.model;
 
 import com.facebook.litho.specmodels.internal.RunMode;
+import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /** Class for validating that a {@link SpecModel} is well-formed. */
 public class SpecModelValidation {
@@ -29,6 +31,15 @@ public class SpecModelValidation {
       List<String> reservedPropNames,
       List<PropValidation.CommonPropModel> permittedCommonProps,
       EnumSet<RunMode> runMode) {
+    return validateSpecModel(specModel, reservedPropNames, permittedCommonProps, null, runMode);
+  }
+
+  public static List<SpecModelValidationError> validateSpecModel(
+      SpecModel specModel,
+      List<String> reservedPropNames,
+      List<PropValidation.CommonPropModel> permittedCommonProps,
+      @Nullable List<Class<? extends Annotation>> extraPermittedEventParamAnnotations,
+      EnumSet<RunMode> runMode) {
     final List<SpecModelValidationError> validationErrors = new ArrayList<>();
     final DependencyInjectionHelper dependencyInjectionHelper =
         specModel.getDependencyInjectionHelper();
@@ -37,9 +48,11 @@ public class SpecModelValidation {
     }
     validationErrors.addAll(validateName(specModel));
     validationErrors.addAll(
-        PropValidation.validate(specModel, reservedPropNames, permittedCommonProps));
+        PropValidation.validate(specModel, reservedPropNames, permittedCommonProps, runMode));
     validationErrors.addAll(StateValidation.validate(specModel));
-    validationErrors.addAll(EventValidation.validate(specModel, runMode));
+    validationErrors.addAll(
+        EventValidation.validate(specModel, runMode, extraPermittedEventParamAnnotations));
+    validationErrors.addAll(TriggerValidation.validate(specModel, runMode));
     validationErrors.addAll(TreePropValidation.validate(specModel));
     validationErrors.addAll(DiffValidation.validate(specModel));
     validationErrors.addAll(TagValidation.validate(specModel));
@@ -53,31 +66,29 @@ public class SpecModelValidation {
   public static List<SpecModelValidationError> validateLayoutSpecModel(
       LayoutSpecModel specModel, EnumSet<RunMode> runMode) {
     List<SpecModelValidationError> validationErrors = new ArrayList<>();
+    validationErrors.addAll(DelegateMethodValidation.validateLayoutSpecModel(specModel));
+    validationErrors.addAll(SimpleNameDelegateValidation.validate(specModel));
     validationErrors.addAll(
         validateSpecModel(
             specModel,
             PropValidation.COMMON_PROP_NAMES,
             PropValidation.VALID_COMMON_PROPS,
             runMode));
-    validationErrors.addAll(PureRenderValidation.validate(specModel));
-    validationErrors.addAll(DelegateMethodValidation.validateLayoutSpecModel(specModel));
-    validationErrors.addAll(SimpleNameDelegateValidation.validate(specModel));
     return validationErrors;
   }
 
   public static List<SpecModelValidationError> validateMountSpecModel(
       MountSpecModel specModel, EnumSet<RunMode> runMode) {
     List<SpecModelValidationError> validationErrors = new ArrayList<>();
+    validationErrors.addAll(PureRenderValidation.validate(specModel));
+    validationErrors.addAll(DelegateMethodValidation.validateMountSpecModel(specModel));
+    validationErrors.addAll(validateGetMountType(specModel));
     validationErrors.addAll(
         validateSpecModel(
             specModel,
             PropValidation.COMMON_PROP_NAMES,
             PropValidation.VALID_COMMON_PROPS,
             runMode));
-    validationErrors.addAll(PureRenderValidation.validate(specModel));
-    validationErrors.addAll(DelegateMethodValidation.validateMountSpecModel(specModel));
-    validationErrors.addAll(validateGetMountType(specModel));
-    validationErrors.addAll(validateShouldUseDisplayLists(specModel));
     return validationErrors;
   }
 
@@ -98,27 +109,13 @@ public class SpecModelValidation {
   static List<SpecModelValidationError> validateGetMountType(MountSpecModel specModel) {
     List<SpecModelValidationError> validationErrors = new ArrayList<>();
 
-    if (!specModel.getMountType().equals(ClassNames.COMPONENT_LIFECYCLE_MOUNT_TYPE_DRAWABLE)
-        && !specModel.getMountType().equals(ClassNames.COMPONENT_LIFECYCLE_MOUNT_TYPE_VIEW)) {
+    if (!specModel.getMountType().equals(ClassNames.COMPONENT_MOUNT_TYPE_DRAWABLE)
+        && !specModel.getMountType().equals(ClassNames.COMPONENT_MOUNT_TYPE_VIEW)) {
       validationErrors.add(
           new SpecModelValidationError(
               specModel.getRepresentedObject(),
               "onCreateMountContent's return type should be either a View or a Drawable "
                   + "subclass."));
-    }
-
-    return validationErrors;
-  }
-
-  static List<SpecModelValidationError> validateShouldUseDisplayLists(MountSpecModel specModel) {
-    List<SpecModelValidationError> validationErrors = new ArrayList<>();
-
-    if (specModel.shouldUseDisplayList()
-        && !specModel.getMountType().equals(ClassNames.COMPONENT_LIFECYCLE_MOUNT_TYPE_DRAWABLE)) {
-      validationErrors.add(
-          new SpecModelValidationError(
-              specModel.getRepresentedObject(),
-              "shouldUseDisplayList = true can only be used on MountSpecs that mount a drawable."));
     }
 
     return validationErrors;

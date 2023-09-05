@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,15 +25,11 @@ import javax.annotation.Nullable;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 
-/**
- * Extracts javadocs from the given input.
- */
+/** Extracts javadocs from the given input. */
 public class JavadocExtractor {
   private static final Pattern JAVADOC_SANITIZER = Pattern.compile("^\\s", Pattern.MULTILINE);
 
-  /**
-   * Get the class javadoc from the given {@link TypeElement}.
-   */
+  /** Get the class javadoc from the given {@link TypeElement}. */
   @Nullable
   public static String getClassJavadoc(Elements elements, TypeElement typeElement) {
     final String unsanitizedJavadoc = elements.getDocComment(typeElement);
@@ -49,8 +45,7 @@ public class JavadocExtractor {
   }
 
   public static ImmutableList<PropJavadocModel> getPropJavadocs(
-      Elements elements,
-      TypeElement typeElement) {
+      Elements elements, TypeElement typeElement) {
     final String unsanitizedJavadoc = elements.getDocComment(typeElement);
 
     if (unsanitizedJavadoc == null || unsanitizedJavadoc.isEmpty()) {
@@ -71,8 +66,7 @@ public class JavadocExtractor {
       if (propJavadocContents.length == 2) {
         propJavadocModels.add(
             new PropJavadocModel(
-                propJavadocContents[0],
-                propJavadocContents[1].replace('\n', ' ')));
+                propJavadocContents[0], propJavadocContents[1].replace('\n', ' ')));
       }
     }
 

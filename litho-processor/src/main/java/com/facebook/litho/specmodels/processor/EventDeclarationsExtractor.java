@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -35,9 +35,7 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 
-/**
- * Extracts event declarations from the given input.
- */
+/** Extracts event declarations from the given input. */
 public class EventDeclarationsExtractor {
 
   public static ImmutableList<EventDeclarationModel> getEventDeclarations(
@@ -59,12 +57,16 @@ public class EventDeclarationsExtractor {
             runMode.contains(RunMode.ABI)
                 ? ImmutableList.of()
                 : FieldsExtractor.extractFields(type.asElement());
+
+        TypeName name;
+        try {
+          name = TypeName.get(type.asElement().asType());
+        } catch (Exception e) {
+          name = ClassName.bestGuess(type.asElement().toString());
+        }
+
         eventDeclarations.add(
-            new EventDeclarationModel(
-                ClassName.bestGuess(type.asElement().toString()),
-                returnType,
-                fields,
-                type.asElement()));
+            new EventDeclarationModel(name, returnType, fields, type.asElement()));
       }
     } else {
       eventDeclarations = Collections.emptyList();
@@ -79,6 +81,6 @@ public class EventDeclarationsExtractor {
         ProcessorUtils.getAnnotationParameter(
             elements, typeElement, Event.class, "returnType", TypeMirror.class);
 
-    return typeMirror != null ? TypeName.get(typeMirror) : null;
+    return typeMirror != null ? TypeName.get(typeMirror) : TypeName.VOID;
   }
 }

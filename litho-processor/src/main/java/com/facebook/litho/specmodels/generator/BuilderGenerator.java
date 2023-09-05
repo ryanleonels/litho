@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,15 +17,21 @@
 package com.facebook.litho.specmodels.generator;
 
 import static com.facebook.litho.specmodels.generator.GeneratorConstants.DYNAMIC_PROPS;
+import static com.facebook.litho.specmodels.generator.GeneratorUtils.annotation;
+import static com.facebook.litho.specmodels.generator.GeneratorUtils.parameter;
 
+import com.facebook.litho.annotations.Generated;
+import com.facebook.litho.annotations.PropSetter;
+import com.facebook.litho.annotations.RequiredProp;
 import com.facebook.litho.specmodels.internal.ImmutableList;
 import com.facebook.litho.specmodels.model.BuilderMethodModel;
 import com.facebook.litho.specmodels.model.ClassNames;
 import com.facebook.litho.specmodels.model.EventDeclarationModel;
 import com.facebook.litho.specmodels.model.EventMethod;
+import com.facebook.litho.specmodels.model.LayoutSpecModel;
+import com.facebook.litho.specmodels.model.MountSpecModel;
 import com.facebook.litho.specmodels.model.PropDefaultModel;
 import com.facebook.litho.specmodels.model.PropModel;
-import com.facebook.litho.specmodels.model.SpecElementType;
 import com.facebook.litho.specmodels.model.SpecMethodModel;
 import com.facebook.litho.specmodels.model.SpecModel;
 import com.facebook.litho.specmodels.model.SpecModelUtils;
@@ -43,12 +49,13 @@ import com.squareup.javapoet.WildcardTypeName;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import javax.lang.model.element.Modifier;
 
-/**
- * Class that generates the builder for a Component.
- */
+/** Class that generates the builder for a Component. */
+@SuppressWarnings("NewApi")
 public class BuilderGenerator {
 
   private static final String BUILDER = "Builder";
@@ -59,8 +66,7 @@ public class BuilderGenerator {
   private static final String REQUIRED_PROPS_NAMES = "REQUIRED_PROPS_NAMES";
   private static final String REQUIRED_PROPS_COUNT = "REQUIRED_PROPS_COUNT";
 
-  private BuilderGenerator() {
-  }
+  private BuilderGenerator() {}
 
   public static TypeSpecDataHolder generate(SpecModel specModel) {
     return TypeSpecDataHolder.newBuilder()
@@ -71,28 +77,21 @@ public class BuilderGenerator {
 
   static TypeSpecDataHolder generateFactoryMethods(SpecModel specModel) {
     final TypeSpecDataHolder.Builder dataHolder = TypeSpecDataHolder.newBuilder();
-
     final MethodSpec.Builder factoryMethod =
         MethodSpec.methodBuilder("create")
             .addModifiers(Modifier.PUBLIC)
             .addModifiers(Modifier.STATIC)
             .returns(getBuilderType(specModel))
-            .addParameter(specModel.getContextClass(), "context")
-            .addStatement("final $1T builder = new $1T()", BUILDER_CLASS_NAME);
-
-    if (!specModel.getTypeVariables().isEmpty()) {
-      factoryMethod.addTypeVariables(specModel.getTypeVariables());
-    }
+            .addParameter(specModel.getContextClass(), "context");
 
     if (specModel.hasInjectedDependencies()) {
       factoryMethod.addCode(
-          specModel.getDependencyInjectionHelper().generateFactoryMethodsComponentInstance(
-              specModel));
+          specModel
+              .getDependencyInjectionHelper()
+              .generateFactoryMethodsComponentInstance(specModel));
     } else {
       factoryMethod.addStatement(
-          "$L instance = new $L()",
-          specModel.getComponentName(),
-          specModel.getComponentName());
+          "$L instance = new $L()", specModel.getComponentName(), specModel.getComponentName());
     }
 
     if (specModel.isStylingSupported()) {
@@ -100,16 +99,19 @@ public class BuilderGenerator {
       factoryMethod
           .addParameter(int.class, "defStyleAttr")
           .addParameter(int.class, "defStyleRes")
-          .addStatement("builder.init(context, defStyleAttr, defStyleRes, $L)", "instance");
+          .addStatement(
+              "return new $T(context, defStyleAttr, defStyleRes, $L)",
+              BUILDER_CLASS_NAME,
+              "instance");
     } else {
-      factoryMethod.addStatement("builder.init(context, $L)", "instance");
+      factoryMethod.addStatement("return new $T(context, $L)", BUILDER_CLASS_NAME, "instance");
     }
 
-    factoryMethod.addStatement("return builder");
+    if (!specModel.getTypeVariables().isEmpty()) {
+      factoryMethod.addTypeVariables(specModel.getTypeVariables());
+    }
 
-    return dataHolder
-        .addMethod(factoryMethod.build())
-        .build();
+    return dataHolder.addMethod(factoryMethod.build()).build();
   }
 
   private static MethodSpec generateDelegatingCreateBuilderMethod(SpecModel specModel) {
@@ -133,9 +135,10 @@ public class BuilderGenerator {
     final String componentInstanceRefName = ComponentBodyGenerator.getInstanceRefName(specModel);
     final String componentMemberInstanceName = getComponentMemberInstanceName(specModel);
     final ClassName componentClass = ClassName.bestGuess(componentName);
-    final MethodSpec.Builder initMethodSpec = MethodSpec.methodBuilder("init")
-        .addModifiers(Modifier.PRIVATE)
-        .addParameter(specModel.getContextClass(), CONTEXT_PARAM_NAME);
+    final MethodSpec.Builder ctorMethodSpec =
+        MethodSpec.constructorBuilder()
+            .addModifiers(Modifier.PRIVATE)
+            .addParameter(specModel.getContextClass(), CONTEXT_PARAM_NAME);
 
     final ImmutableList<PropDefaultModel> propDefaults = specModel.getPropDefaults();
     boolean isResResolvable = false;
@@ -148,24 +151,34 @@ public class BuilderGenerator {
     }
 
     if (specModel.isStylingSupported()) {
-      initMethodSpec
+      ctorMethodSpec
           .addParameter(int.class, "defStyleAttr")
           .addParameter(int.class, "defStyleRes")
           .addParameter(componentClass, componentInstanceRefName)
-          .addStatement("super.init(context, defStyleAttr, defStyleRes, $L)", componentInstanceRefName);
+          .addStatement("super(context, defStyleAttr, defStyleRes, $L)", componentInstanceRefName);
     } else {
-      initMethodSpec
+      ctorMethodSpec
           .addParameter(componentClass, componentInstanceRefName)
-          .addStatement("super.init(context, $L)", componentInstanceRefName);
+          .addStatement("super(context, $L)", componentInstanceRefName);
     }
 
-    initMethodSpec
+    ctorMethodSpec
         .addStatement("$L = $L", componentMemberInstanceName, componentInstanceRefName)
         .addStatement("$L = $L", CONTEXT_MEMBER_NAME, CONTEXT_PARAM_NAME);
 
     if (isResResolvable) {
-      initMethodSpec.addStatement("initPropDefaults()");
+      ctorMethodSpec.addStatement("initPropDefaults()");
     }
+
+    final MethodSpec.Builder setComponentMethodSpec =
+        MethodSpec.methodBuilder("setComponent")
+            .addModifiers(Modifier.PROTECTED)
+            .addAnnotation(Override.class)
+            .addParameter(ClassNames.COMPONENT, "component")
+            .addStatement(
+                "$L = ($T) component",
+                getComponentMemberInstanceName(specModel),
+                specModel.getComponentTypeName());
 
     final boolean builderHasTypeVariables = !specModel.getTypeVariables().isEmpty();
 
@@ -173,6 +186,7 @@ public class BuilderGenerator {
 
     final TypeSpec.Builder propsBuilderClassBuilder =
         TypeSpec.classBuilder(BUILDER)
+            .addAnnotation(Generated.class)
             .addModifiers(Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
             .superclass(
                 ParameterizedTypeName.get(
@@ -213,10 +227,14 @@ public class BuilderGenerator {
               .initializer("new $T($L)", BitSet.class, REQUIRED_PROPS_COUNT)
               .build());
 
-      initMethodSpec.addStatement("mRequired.clear()");
+      ctorMethodSpec.addStatement("mRequired.clear()");
     }
 
-    propsBuilderClassBuilder.addMethod(initMethodSpec.build());
+    propsBuilderClassBuilder.addMethod(ctorMethodSpec.build());
+
+    if (specModel instanceof LayoutSpecModel || specModel instanceof MountSpecModel) {
+      propsBuilderClassBuilder.addMethod(setComponentMethodSpec.build());
+    }
 
     if (isResResolvable) {
       MethodSpec.Builder initResTypePropDefaultsSpec = MethodSpec.methodBuilder("initPropDefaults");
@@ -235,7 +253,6 @@ public class BuilderGenerator {
 
       propsBuilderClassBuilder.addMethod(initResTypePropDefaultsSpec.build());
     }
-
 
     int requiredPropIndex = 0;
     for (PropModel prop : specModel.getProps()) {
@@ -263,7 +280,7 @@ public class BuilderGenerator {
 
     if (!specModel.getTriggerMethods().isEmpty()) {
       propsBuilderClassBuilder.addMethod(
-          generateKeySetterMethod(specModel, specModel.getTriggerMethods()));
+          generateRegisterEventTriggersMethod(specModel.getTriggerMethods()));
     }
 
     for (BuilderMethodModel builderMethodModel : specModel.getExtraBuilderMethods()) {
@@ -287,8 +304,9 @@ public class BuilderGenerator {
         ? BUILDER_CLASS_NAME
         : ParameterizedTypeName.get(
             BUILDER_CLASS_NAME,
-            specModel.getTypeVariables().toArray(
-                new TypeName[specModel.getTypeVariables().size()]));
+            specModel
+                .getTypeVariables()
+                .toArray(new TypeName[specModel.getTypeVariables().size()]));
   }
 
   private static String getComponentMemberInstanceName(SpecModel specModel) {
@@ -309,9 +327,7 @@ public class BuilderGenerator {
   }
 
   static TypeSpecDataHolder generatePropsBuilderMethods(
-      SpecModel specModel,
-      PropModel prop,
-      int requiredIndex) {
+      SpecModel specModel, PropModel prop, int requiredIndex) {
     final TypeSpecDataHolder.Builder dataHolder = TypeSpecDataHolder.newBuilder();
     final boolean hasVarArgs = prop.hasVarArgs();
 
@@ -433,9 +449,9 @@ public class BuilderGenerator {
         }
 
         final TypeName componentClass =
-            prop.getTypeName() instanceof ParameterizedTypeName ?
-                ((ParameterizedTypeName) prop.getTypeName()).rawType :
-                prop.getTypeName();
+            prop.getTypeName() instanceof ParameterizedTypeName
+                ? ((ParameterizedTypeName) prop.getTypeName()).rawType
+                : prop.getTypeName();
 
         if (componentClass.equals(ClassNames.COMPONENT)) {
           dataHolder.addMethod(componentBuilder(specModel, prop, requiredIndex));
@@ -454,8 +470,7 @@ public class BuilderGenerator {
 
     if (getRawType(prop.getTypeName()).equals(ClassNames.COMPONENT)) {
       dataHolder.addMethod(
-          builderBuilder(
-              specModel, prop, requiredIndex, ClassNames.COMPONENT_BUILDER, true));
+          builderBuilder(specModel, prop, requiredIndex, ClassNames.COMPONENT_BUILDER, true));
     }
 
     if (getRawType(prop.getTypeName()).equals(ClassNames.SECTION)) {
@@ -467,8 +482,7 @@ public class BuilderGenerator {
   }
 
   static String generatePropsDefaultInitializers(
-      SpecModel specModel,
-      PropDefaultModel propDefault) {
+      SpecModel specModel, PropDefaultModel propDefault) {
 
     switch (propDefault.getResType()) {
       case STRING:
@@ -505,15 +519,13 @@ public class BuilderGenerator {
   }
 
   private static MethodSpec componentBuilder(
-      SpecModel specModel,
-      PropModel prop,
-      int requiredIndex) {
+      SpecModel specModel, PropModel prop, int requiredIndex) {
     return getMethodSpecBuilder(
             specModel,
             prop,
             requiredIndex,
             prop.getName(),
-            Arrays.asList(parameter(prop, prop.getTypeName(), prop.getName())),
+            Arrays.asList(parameter(prop)),
             "$L == null ? null : $L.makeShallowCopy()",
             prop.getName(),
             prop.getName())
@@ -527,11 +539,7 @@ public class BuilderGenerator {
             prop,
             requiredIndex,
             prop.getName(),
-            Arrays.asList(
-                parameter(
-                    prop,
-                    KotlinSpecUtils.getFieldTypeName(specModel, dynamicValueType),
-                    prop.getName())),
+            Arrays.asList(parameter(prop, dynamicValueType, prop.getName())),
             prop.getName())
         .build();
   }
@@ -543,11 +551,7 @@ public class BuilderGenerator {
             prop,
             requiredIndex,
             prop.getName(),
-            Arrays.asList(
-                parameter(
-                    prop,
-                    KotlinSpecUtils.getFieldTypeName(specModel, prop.getTypeName()),
-                    prop.getName())),
+            Arrays.asList(parameter(prop, prop.getTypeName(), prop.getName())),
             "new $T($L)",
             dynamicValueType,
             prop.getName())
@@ -555,10 +559,7 @@ public class BuilderGenerator {
   }
 
   private static MethodSpec regularBuilder(
-      SpecModel specModel,
-      PropModel prop,
-      int requiredIndex,
-      AnnotationSpec... extraAnnotations) {
+      SpecModel specModel, PropModel prop, int requiredIndex, AnnotationSpec... extraAnnotations) {
     return getMethodSpecBuilder(
             specModel,
             prop,
@@ -567,7 +568,10 @@ public class BuilderGenerator {
             Arrays.asList(
                 parameter(
                     prop,
-                    KotlinSpecUtils.getFieldTypeName(specModel, prop.getTypeName()),
+                    prop.hasVarArgs()
+                        ? KotlinSpecHelper.maybeRemoveWildcardFromVarArgsIfKotlinSpec(
+                            specModel, prop.getTypeName())
+                        : prop.getTypeName(),
                     prop.getName(),
                     extraAnnotations)),
             prop.getName())
@@ -575,45 +579,29 @@ public class BuilderGenerator {
   }
 
   private static MethodSpec varArgBuilder(
-      SpecModel specModel,
-      PropModel prop,
-      int requiredIndex,
-      AnnotationSpec... extraAnnotations) {
+      SpecModel specModel, PropModel prop, int requiredIndex, AnnotationSpec... extraAnnotations) {
+    ParameterizedTypeName parameterizedTypeName = (ParameterizedTypeName) prop.getTypeName();
+    TypeName singleParameterType = parameterizedTypeName.typeArguments.get(0);
+    if (KotlinSpecHelper.isKotlinSpec(specModel)) {
+      singleParameterType = KotlinSpecHelper.getBaseTypeIfWildcard(singleParameterType);
+    }
     String varArgName = prop.getVarArgsSingleName();
 
-    final String propName = prop.getName();
-    final String implMemberInstanceName = getComponentMemberInstanceName(specModel);
-    final ParameterizedTypeName varArgType = (ParameterizedTypeName) prop.getTypeName();
-    final TypeName varArgTypeArgumentTypeName = varArgType.typeArguments.get(0);
-    final TypeName varArgTypeName = getParameterTypeName(specModel, varArgTypeArgumentTypeName);
-
-    final ParameterizedTypeName listType =
-        ParameterizedTypeName.get(ClassName.get(ArrayList.class), varArgTypeName);
     CodeBlock.Builder codeBlockBuilder =
         CodeBlock.builder()
             .beginControlFlow("if ($L == null)", varArgName)
             .addStatement("return this")
             .endControlFlow();
 
-    if (prop.hasDefault(specModel.getPropDefaults())) {
-      codeBlockBuilder.beginControlFlow(
-          "if (this.$L.$L == null || this.$L.$L == $L.$L)",
-          implMemberInstanceName,
-          propName,
-          implMemberInstanceName,
-          propName,
-          specModel.getSpecName(),
-          propName);
-    } else {
-      codeBlockBuilder.beginControlFlow(
-          "if (this.$L.$L == null)", implMemberInstanceName, propName);
-    }
+    createListIfDefault(codeBlockBuilder, specModel, prop, singleParameterType);
 
     CodeBlock codeBlock =
         codeBlockBuilder
-            .addStatement("this.$L.$L = new $T()", implMemberInstanceName, propName, listType)
-            .endControlFlow()
-            .addStatement("this.$L.$L.add($L)", implMemberInstanceName, propName, varArgName)
+            .addStatement(
+                "this.$L.$L.add($L)",
+                getComponentMemberInstanceName(specModel),
+                prop.getName(),
+                varArgName)
             .build();
 
     return getMethodSpecBuilder(
@@ -621,52 +609,54 @@ public class BuilderGenerator {
             prop,
             requiredIndex,
             varArgName,
-            Arrays.asList(parameter(prop, varArgTypeName, varArgName, extraAnnotations)),
+            Arrays.asList(parameter(prop, singleParameterType, varArgName, extraAnnotations)),
             codeBlock)
         .build();
   }
 
-  private static TypeName getParameterTypeName(
-      SpecModel specModel, TypeName varArgTypeArgumentTypeName) {
-
-    final String rawVarArgType = varArgTypeArgumentTypeName.toString();
-    final boolean isKotlinSpec = specModel.getSpecElementType() == SpecElementType.KOTLIN_SINGLETON;
-
-    TypeName varArgTypeName;
-
-    if (isKotlinSpec) {
-      final boolean isNotJvmSuppressWildcardsAnnotated =
-          KotlinSpecUtils.isNotJvmSuppressWildcardsAnnotated(rawVarArgType);
-
-      /*
-       * If it is a JvmSuppressWildcards annotated type on a Kotlin Spec,
-       * we should fallback to previous type detection way.
-       * */
-      if (!isNotJvmSuppressWildcardsAnnotated) {
-        varArgTypeName = varArgTypeArgumentTypeName;
-      } else {
-        final String[] typeParts = rawVarArgType.split(" ");
-
-        // Just in case something has gone pretty wrong
-        if (typeParts.length < 3) {
-          varArgTypeName = varArgTypeArgumentTypeName;
-        } else {
-          // Calculate appropriate ClassName
-          final String pureTypeName = typeParts[2];
-          varArgTypeName = KotlinSpecUtils.buildClassName(pureTypeName);
-        }
-      }
+  /**
+   * Adds code to the {@code codeBlockBuilder}, which checks if {@code varArgProp} member variable
+   * equals default value and assigns a new list if true.
+   *
+   * <pre>{@code
+   * if (this.mComponentName.varArgPropName == ...) {
+   *   this.mComponentName.varArgPropName = new ...;
+   * }
+   * }</pre>
+   */
+  private static void createListIfDefault(
+      CodeBlock.Builder codeBlockBuilder,
+      SpecModel specModel,
+      PropModel varArgProp,
+      TypeName varArgParameterType) {
+    final String varArgPropName = varArgProp.getName();
+    final String componentMemberInstanceName = getComponentMemberInstanceName(specModel);
+    if (varArgProp.hasDefault(specModel.getPropDefaults())) {
+      codeBlockBuilder.beginControlFlow(
+          "if (this.$L.$L == null || this.$L.$L == $L.$L)",
+          componentMemberInstanceName,
+          varArgPropName,
+          componentMemberInstanceName,
+          varArgPropName,
+          specModel.getSpecName(),
+          varArgPropName);
     } else {
-      // Fallback when it is a Java spec
-      varArgTypeName = varArgTypeArgumentTypeName;
+      codeBlockBuilder.beginControlFlow(
+          "if (this.$L.$L == $T.EMPTY_LIST)",
+          componentMemberInstanceName,
+          varArgPropName,
+          ClassName.get(Collections.class));
     }
-    return varArgTypeName;
+    final ParameterizedTypeName listType =
+        ParameterizedTypeName.get(ClassName.get(ArrayList.class), varArgParameterType);
+    codeBlockBuilder
+        .addStatement(
+            "this.$L.$L = new $T()", componentMemberInstanceName, varArgPropName, listType)
+        .endControlFlow();
   }
 
   private static MethodSpec varArgBuilderBuilder(
-      SpecModel specModel,
-      PropModel prop,
-      int requiredIndex) {
+      SpecModel specModel, PropModel prop, int requiredIndex) {
     String varArgName = prop.getVarArgsSingleName();
     final ParameterizedTypeName varArgType = (ParameterizedTypeName) prop.getTypeName();
     final TypeName internalType = varArgType.typeArguments.get(0);
@@ -677,16 +667,18 @@ public class BuilderGenerator {
             .endControlFlow()
             .addStatement("$L($L.build())", varArgName, varArgName + "Builder")
             .build();
-    TypeName builderParameterType = ParameterizedTypeName.get(
-        ClassNames.COMPONENT_BUILDER,
-        getBuilderGenericTypes(internalType, ClassNames.COMPONENT_BUILDER));
+    TypeName builderParameterType =
+        ParameterizedTypeName.get(
+            ClassNames.COMPONENT_BUILDER,
+            getBuilderGenericTypes(internalType, ClassNames.COMPONENT_BUILDER));
     return getMethodSpecBuilder(
-        specModel,
-        prop,
-        requiredIndex,
-        varArgName,
-        Arrays.asList(parameter(prop, builderParameterType, varArgName + "Builder")),
-        codeBlock).build();
+            specModel,
+            prop,
+            requiredIndex,
+            varArgName,
+            Arrays.asList(parameter(prop, builderParameterType, varArgName + "Builder")),
+            codeBlock)
+        .build();
   }
 
   private static TypeSpecDataHolder regularBuilders(
@@ -729,13 +721,13 @@ public class BuilderGenerator {
 
     if (hasVarArgs) {
       dataHolder.addMethod(
-          resTypeListBuilder(
+          resTypeVarArgBuilder(
                   specModel,
                   prop,
                   requiredIndex,
                   prop.getName() + "Res",
                   Arrays.asList(
-                      parameterWithoutNullableAnnotation(
+                      parameter(
                           prop,
                           ParameterizedTypeName.get(ClassNames.LIST, TypeName.INT.box()),
                           "resIds")),
@@ -779,13 +771,13 @@ public class BuilderGenerator {
 
     if (hasVarArgs) {
       dataHolder.addMethod(
-          resTypeListBuilder(
+          resTypeVarArgBuilder(
                   specModel,
                   prop,
                   requiredIndex,
                   prop.getName() + "Res",
                   Arrays.asList(
-                      parameterWithoutNullableAnnotation(
+                      parameter(
                           prop,
                           ParameterizedTypeName.get(ClassNames.LIST, TypeName.INT.box()),
                           "resIds",
@@ -848,13 +840,13 @@ public class BuilderGenerator {
 
     if (hasVarArgs) {
       dataHolder.addMethod(
-          resTypeListBuilder(
+          resTypeVarArgBuilder(
                   specModel,
                   prop,
                   requiredIndex,
                   prop.getName() + "Attr",
                   Arrays.asList(
-                      parameterWithoutNullableAnnotation(
+                      parameter(
                           prop,
                           ParameterizedTypeName.get(ClassNames.LIST, TypeName.INT.box()),
                           "attrResIds"),
@@ -867,13 +859,13 @@ public class BuilderGenerator {
               .build());
 
       dataHolder.addMethod(
-          resTypeListBuilder(
+          resTypeVarArgBuilder(
                   specModel,
                   prop,
                   requiredIndex,
                   prop.getName() + "Attr",
                   Arrays.asList(
-                      parameterWithoutNullableAnnotation(
+                      parameter(
                           prop,
                           ParameterizedTypeName.get(ClassNames.LIST, TypeName.INT.box()),
                           "attrResIds")),
@@ -915,7 +907,7 @@ public class BuilderGenerator {
 
     if (hasVarArgs) {
       dataHolder.addMethod(
-          resTypeListBuilder(
+          resTypeVarArgBuilder(
                   specModel,
                   prop,
                   requiredIndex,
@@ -939,9 +931,10 @@ public class BuilderGenerator {
             ? "(float) mResourceResolver.dipsToPixels(dip)"
             : "mResourceResolver.dipsToPixels(dip)";
 
-    AnnotationSpec dipAnnotation = AnnotationSpec.builder(ClassNames.DIMENSION)
-        .addMember("unit", "$T.DP", ClassNames.DIMENSION)
-        .build();
+    AnnotationSpec dipAnnotation =
+        AnnotationSpec.builder(ClassNames.DIMENSION)
+            .addMember("unit", "$T.DP", ClassNames.DIMENSION)
+            .build();
 
     dataHolder.addMethod(
         resTypeRegularBuilder(
@@ -956,13 +949,13 @@ public class BuilderGenerator {
 
     if (hasVarArgs) {
       dataHolder.addMethod(
-          resTypeListBuilder(
+          resTypeVarArgBuilder(
                   specModel,
                   prop,
                   requiredIndex,
                   prop.getName() + "Dip",
                   Arrays.asList(
-                      parameterWithoutNullableAnnotation(
+                      parameter(
                           prop,
                           ParameterizedTypeName.get(ClassNames.LIST, TypeName.FLOAT.box()),
                           "dips")),
@@ -983,9 +976,10 @@ public class BuilderGenerator {
             ? "(float) mResourceResolver.sipsToPixels(sip)"
             : "mResourceResolver.sipsToPixels(sip)";
 
-    AnnotationSpec spAnnotation = AnnotationSpec.builder(ClassNames.DIMENSION)
-        .addMember("unit", "$T.SP", ClassNames.DIMENSION)
-        .build();
+    AnnotationSpec spAnnotation =
+        AnnotationSpec.builder(ClassNames.DIMENSION)
+            .addMember("unit", "$T.SP", ClassNames.DIMENSION)
+            .build();
 
     dataHolder.addMethod(
         resTypeRegularBuilder(
@@ -1000,13 +994,13 @@ public class BuilderGenerator {
 
     if (hasVarArgs) {
       dataHolder.addMethod(
-          resTypeListBuilder(
+          resTypeVarArgBuilder(
                   specModel,
                   prop,
                   requiredIndex,
                   prop.getName() + "Sp",
                   Arrays.asList(
-                      parameterWithoutNullableAnnotation(
+                      parameter(
                           prop,
                           ParameterizedTypeName.get(ClassNames.LIST, TypeName.FLOAT.box()),
                           "sips")),
@@ -1056,7 +1050,7 @@ public class BuilderGenerator {
               ? ((ParameterizedTypeName) type).typeArguments.get(0)
               : WildcardTypeName.subtypeOf(ClassNames.COMPONENT);
 
-      return new TypeName[]{typeParameter};
+      return new TypeName[] {typeParameter};
     }
   }
 
@@ -1072,34 +1066,7 @@ public class BuilderGenerator {
     return parameter(type, name, externalAnnotations, extraAnnotations);
   }
 
-  private static ParameterSpec parameter(
-      PropModel prop,
-      TypeName type,
-      String name,
-      AnnotationSpec... extraAnnotations) {
-    return parameter(type, name, prop.getExternalAnnotations(), extraAnnotations);
-  }
-
-  private static ParameterSpec parameter(
-      TypeName type,
-      String name,
-      List<AnnotationSpec> externalAnnotations,
-      AnnotationSpec... extraAnnotations) {
-    final ParameterSpec.Builder builder =
-        ParameterSpec.builder(type, name).addAnnotations(externalAnnotations);
-
-    for (AnnotationSpec annotation : extraAnnotations) {
-      builder.addAnnotation(annotation);
-    }
-
-    return builder.build();
-  }
-
-  private static AnnotationSpec annotation(ClassName className) {
-    return AnnotationSpec.builder(className).build();
-  }
-
-  private static MethodSpec.Builder resTypeListBuilder(
+  private static MethodSpec.Builder resTypeVarArgBuilder(
       SpecModel specModel,
       PropModel prop,
       int requiredIndex,
@@ -1107,13 +1074,9 @@ public class BuilderGenerator {
       List<ParameterSpec> parameters,
       String statement,
       Object... formatObjects) {
-    final String propName = prop.getName();
     final String parameterName = parameters.get(0).name;
-    final String componentMemberInstanceName = getComponentMemberInstanceName(specModel);
     final ParameterizedTypeName varArgType = (ParameterizedTypeName) prop.getTypeName();
     final TypeName resType = varArgType.typeArguments.get(0);
-    final ParameterizedTypeName listType =
-        ParameterizedTypeName.get(ClassName.get(ArrayList.class), resType);
 
     CodeBlock.Builder codeBlockBuilder =
         CodeBlock.builder()
@@ -1121,28 +1084,15 @@ public class BuilderGenerator {
             .addStatement("return this")
             .endControlFlow();
 
-    if (prop.hasDefault(specModel.getPropDefaults())) {
-      codeBlockBuilder.beginControlFlow(
-          "if (this.$L.$L == null || this.$L.$L == $L.$L)",
-          componentMemberInstanceName,
-          propName,
-          componentMemberInstanceName,
-          propName,
-          specModel.getSpecName(),
-          propName);
-    } else {
-      codeBlockBuilder.beginControlFlow(
-          "if (this.$L.$L == null)", componentMemberInstanceName, propName);
-    }
+    createListIfDefault(codeBlockBuilder, specModel, prop, resType);
 
     CodeBlock codeBlock =
         codeBlockBuilder
-            .addStatement("this.$L.$L = new $T()", componentMemberInstanceName, propName, listType)
-            .endControlFlow()
             .beginControlFlow("for (int i = 0; i < $L.size(); i++)", parameterName)
             .add("final $T res = ", resType.isBoxedPrimitive() ? resType.unbox() : resType)
             .addStatement(statement, formatObjects)
-            .addStatement("this.$L.$L.add(res)", componentMemberInstanceName, propName)
+            .addStatement(
+                "this.$L.$L.add(res)", getComponentMemberInstanceName(specModel), prop.getName())
             .endControlFlow()
             .build();
 
@@ -1159,41 +1109,25 @@ public class BuilderGenerator {
       Object... formatObjects) {
 
     if (prop.hasVarArgs()) {
-      final String propName = prop.getName();
-      final String componentMemberInstanceName = getComponentMemberInstanceName(specModel);
       final ParameterizedTypeName varArgType = (ParameterizedTypeName) prop.getTypeName();
       final TypeName singleParameterType = varArgType.typeArguments.get(0);
-      final ParameterizedTypeName listType =
-          ParameterizedTypeName.get(ClassName.get(ArrayList.class), singleParameterType);
 
       CodeBlock.Builder codeBlockBuilder = CodeBlock.builder();
 
-      if (prop.hasDefault(specModel.getPropDefaults())) {
-        codeBlockBuilder.beginControlFlow(
-            "if (this.$L.$L == null || this.$L.$L == $L.$L)",
-            componentMemberInstanceName,
-            propName,
-            componentMemberInstanceName,
-            propName,
-            specModel.getSpecName(),
-            propName);
-      } else {
-        codeBlockBuilder.beginControlFlow(
-            "if (this.$L.$L == null)", componentMemberInstanceName, propName);
-      }
+      createListIfDefault(codeBlockBuilder, specModel, prop, singleParameterType);
 
       codeBlockBuilder
-          .addStatement("this.$L.$L = new $T()", componentMemberInstanceName, propName, listType)
-          .endControlFlow()
           .add(
               "final $T res = ",
               singleParameterType.isBoxedPrimitive()
                   ? singleParameterType.unbox()
                   : singleParameterType)
           .addStatement(statement, formatObjects)
-          .addStatement("this.$L.$L.add(res)", componentMemberInstanceName, propName);
+          .addStatement(
+              "this.$L.$L.add(res)", getComponentMemberInstanceName(specModel), prop.getName());
 
-      return getMethodSpecBuilder(specModel, prop, requiredIndex, name, parameters, codeBlockBuilder.build());
+      return getMethodSpecBuilder(
+          specModel, prop, requiredIndex, name, parameters, codeBlockBuilder.build());
     }
 
     return getNoVarArgsMethodSpecBuilder(
@@ -1232,11 +1166,7 @@ public class BuilderGenerator {
             propName);
       } else {
         codeBlockBuilder.beginControlFlow(
-            "if (this.$L.$L == null || this.$L.$L.isEmpty())",
-            componentMemberInstanceName,
-            propName,
-            componentMemberInstanceName,
-            propName);
+            "if (this.$L.$L.isEmpty())", componentMemberInstanceName, propName);
       }
 
       codeBlockBuilder
@@ -1245,7 +1175,8 @@ public class BuilderGenerator {
           .addStatement("this.$L.$L.addAll($L)", componentMemberInstanceName, propName, propName)
           .endControlFlow();
 
-      return getMethodSpecBuilder(specModel, prop, requiredIndex, name, parameters, codeBlockBuilder.build());
+      return getMethodSpecBuilder(
+          specModel, prop, requiredIndex, name, parameters, codeBlockBuilder.build());
     }
 
     return getNoVarArgsMethodSpecBuilder(
@@ -1261,10 +1192,11 @@ public class BuilderGenerator {
       String statement,
       Object... formatObjects) {
 
-    CodeBlock codeBlock = CodeBlock.builder()
-        .add("this.$L.$L = ", getComponentMemberInstanceName(specModel), prop.getName())
-        .addStatement(statement, formatObjects)
-        .build();
+    CodeBlock codeBlock =
+        CodeBlock.builder()
+            .add("this.$L.$L = ", getComponentMemberInstanceName(specModel), prop.getName())
+            .addStatement(statement, formatObjects)
+            .build();
 
     return getMethodSpecBuilder(specModel, prop, requiredIndex, name, parameters, codeBlock);
   }
@@ -1276,13 +1208,13 @@ public class BuilderGenerator {
       String name,
       List<ParameterSpec> parameters,
       CodeBlock codeBlock) {
-    final MethodSpec.Builder builder =
+    final MethodSpec.Builder methodBuilder =
         MethodSpec.methodBuilder(name)
             .addModifiers(Modifier.PUBLIC)
             .returns(getBuilderType(specModel));
 
     if (prop.isCommonProp()) {
-      builder.addAnnotation(Override.class);
+      methodBuilder.addAnnotation(Override.class);
 
       if (!prop.overrideCommonPropBehavior()) {
         final CodeBlock.Builder superCodeBlock = CodeBlock.builder().add("super.$L(", name);
@@ -1295,33 +1227,47 @@ public class BuilderGenerator {
           isFirstParam = false;
         }
 
-        builder.addCode(superCodeBlock.add(");\n").build());
+        methodBuilder.addCode(superCodeBlock.add(");\n").build());
       }
     }
 
     for (ParameterSpec param : parameters) {
-      builder.addParameter(param);
+      methodBuilder.addParameter(param);
     }
 
-    builder.addCode(codeBlock);
+    methodBuilder.addCode(codeBlock);
+
+    methodBuilder.addAnnotation(
+        AnnotationSpec.builder(PropSetter.class)
+            .addMember("value", "$S", prop.getName())
+            .addMember("required", "$L", !prop.isOptional())
+            .build());
     if (!prop.isOptional()) {
-      builder.addStatement("$L.set($L)", "mRequired", requiredIndex);
+      methodBuilder.addAnnotation(
+          AnnotationSpec.builder(RequiredProp.class)
+              .addMember("value", "$S", prop.getName())
+              .build());
+      methodBuilder.addStatement("$L.set($L)", "mRequired", requiredIndex);
     }
 
-    builder.addStatement("return this");
+    methodBuilder.addStatement("return this");
 
-    return builder;
+    return methodBuilder;
   }
 
   private static MethodSpec generateEventDeclarationBuilderMethod(
-      SpecModel specModel,
-      EventDeclarationModel eventDeclaration) {
+      SpecModel specModel, EventDeclarationModel eventDeclaration) {
     final String eventHandlerName =
-        ComponentBodyGenerator.getEventHandlerInstanceName(eventDeclaration.name);
+        ComponentBodyGenerator.getEventHandlerInstanceName(eventDeclaration);
     return MethodSpec.methodBuilder(eventHandlerName)
         .addModifiers(Modifier.PUBLIC)
         .returns(getBuilderType(specModel))
-        .addParameter(ClassNames.EVENT_HANDLER, eventHandlerName)
+        .addParameter(
+            ParameterSpec.builder(
+                    ParameterizedTypeName.get(ClassNames.EVENT_HANDLER, eventDeclaration.name),
+                    eventHandlerName)
+                .addAnnotation(ClassNames.NULLABLE)
+                .build())
         .addStatement(
             "this.$L.$L = $L",
             getComponentMemberInstanceName(specModel),
@@ -1339,6 +1285,13 @@ public class BuilderGenerator {
 
     return MethodSpec.methodBuilder(eventTriggerName)
         .addModifiers(Modifier.PUBLIC)
+        .addJavadoc(
+            "@deprecated Do not use this method to set an EventTrigger. Instead, set a Handle on\n"
+                + "this Component with .handle() and dispatch the trigger using the variant of\n"
+                + "$L.$L that takes a Handle param.\n",
+            specModel.getComponentName(),
+            eventTriggerName)
+        .addAnnotation(java.lang.Deprecated.class)
         .returns(getBuilderType(specModel))
         .addParameter(ClassNames.EVENT_TRIGGER, eventTriggerName)
         .addStatement("this.$L.$L = $L", implMemberName, eventTriggerName, eventTriggerName)
@@ -1352,9 +1305,8 @@ public class BuilderGenerator {
         ComponentBodyGenerator.getEventTriggerInstanceName(triggerMethodModel.name);
     final String implMemberName = getComponentMemberInstanceName(specModel);
 
-    return MethodSpec.methodBuilder(getEventTriggerKeyResetMethodName(triggerMethodModel.name))
+    return MethodSpec.methodBuilder(getRegisterEventTriggerMethodName(triggerMethodModel.name))
         .addModifiers(Modifier.PRIVATE)
-        .addParameter(ClassNames.STRING, "key")
         .addStatement(
             "$L $L = this.$L.$L",
             ClassNames.EVENT_TRIGGER,
@@ -1363,10 +1315,11 @@ public class BuilderGenerator {
             eventTriggerName)
         .beginControlFlow("if ($L == null)", eventTriggerName)
         .addStatement(
-            "$L = $L.$L(this.mContext, key)",
+            "$L = $L.$L(this.mContext, this.$L)",
             eventTriggerName,
             specModel.getComponentName(),
-            eventTriggerName)
+            TriggerGenerator.getCreateEventTriggerMethodName(triggerMethodModel.name),
+            getComponentMemberInstanceName(specModel))
         .endControlFlow()
         .addStatement("$L($L)", eventTriggerName, eventTriggerName)
         .build();
@@ -1381,32 +1334,28 @@ public class BuilderGenerator {
         .build();
   }
 
-  private static MethodSpec generateKeySetterMethod(
-      SpecModel specModel,
+  private static MethodSpec generateRegisterEventTriggersMethod(
       ImmutableList<SpecMethodModel<EventMethod, EventDeclarationModel>> triggerMethods) {
     MethodSpec.Builder builder =
-        MethodSpec.methodBuilder("key")
-            .addAnnotation(Override.class)
-            .addModifiers(Modifier.PUBLIC)
-            .addParameter(ClassNames.STRING, "key")
-            .addStatement("super.key(key)");
+        MethodSpec.methodBuilder("registerEventTriggers").addModifiers(Modifier.PRIVATE);
 
     for (SpecMethodModel<EventMethod, EventDeclarationModel> triggerMethod : triggerMethods) {
-      builder.addStatement("$L(key)", getEventTriggerKeyResetMethodName(triggerMethod.name));
+      builder.addStatement("$L()", getRegisterEventTriggerMethodName(triggerMethod.name));
     }
-
-    builder.addStatement("return this").returns(getBuilderType(specModel));
 
     return builder.build();
   }
 
-  private static String getEventTriggerKeyResetMethodName(CharSequence eventTriggerClassName) {
-    return ComponentBodyGenerator.getEventTriggerInstanceName(eventTriggerClassName);
+  private static String getRegisterEventTriggerMethodName(CharSequence eventTriggerClassName) {
+    final String asString = eventTriggerClassName.toString();
+    return "register"
+        + asString.substring(0, 1).toUpperCase(Locale.ROOT)
+        + asString.substring(1)
+        + "Trigger";
   }
 
   private static MethodSpec generateExtraBuilderMethod(
-      SpecModel specModel,
-      BuilderMethodModel builderMethodModel) {
+      SpecModel specModel, BuilderMethodModel builderMethodModel) {
     return MethodSpec.methodBuilder(builderMethodModel.paramName)
         .addAnnotation(Override.class)
         .addModifiers(Modifier.PUBLIC)
@@ -1418,18 +1367,15 @@ public class BuilderGenerator {
   }
 
   private static MethodSpec generateBuildMethod(SpecModel specModel, int numRequiredProps) {
-    final MethodSpec.Builder buildMethodBuilder = MethodSpec.methodBuilder("build")
-        .addAnnotation(Override.class)
-        .addModifiers(Modifier.PUBLIC)
-        .returns(specModel.getComponentTypeName());
+    final MethodSpec.Builder buildMethodBuilder =
+        MethodSpec.methodBuilder("build")
+            .addAnnotation(Override.class)
+            .addModifiers(Modifier.PUBLIC)
+            .returns(specModel.getComponentTypeName());
 
     if (numRequiredProps > 0) {
-      buildMethodBuilder
-          .addStatement(
-              "checkArgs($L, $L, $L)",
-              REQUIRED_PROPS_COUNT,
-              "mRequired",
-              REQUIRED_PROPS_NAMES);
+      buildMethodBuilder.addStatement(
+          "checkArgs($L, $L, $L)", REQUIRED_PROPS_COUNT, "mRequired", REQUIRED_PROPS_NAMES);
     }
 
     final List<PropModel> dynamicProps = SpecModelUtils.getDynamicProps(specModel);
@@ -1451,15 +1397,17 @@ public class BuilderGenerator {
       }
     }
 
+    if (!specModel.getTriggerMethods().isEmpty()) {
+      buildMethodBuilder.addStatement("registerEventTriggers()");
+    }
+
     return buildMethodBuilder
         .addStatement("return $L", getComponentMemberInstanceName(specModel))
         .build();
   }
 
   private static String generatePropDefaultResInitializer(
-      String resourceResolveMethodName,
-      PropDefaultModel propDefaultModel,
-      SpecModel specModel) {
+      String resourceResolveMethodName, PropDefaultModel propDefaultModel, SpecModel specModel) {
     StringBuilder builtInitializer = new StringBuilder();
 
     if (propDefaultModel.isResResolvable()) {

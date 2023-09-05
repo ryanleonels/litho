@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,7 +31,7 @@ import com.facebook.litho.annotations.PropDefault;
 /**
  * A component that renders a solid color.
  *
- * @uidocs https://fburl.com/SolidColor:b0df
+ * @uidocs
  * @prop color Color to be shown.
  * @prop alpha The alpha of the color, in the range [0.0, 1.0]
  */
@@ -48,9 +48,6 @@ class SolidColorSpec {
       alpha = Math.min(1f, alpha);
       color = ColorUtils.setAlphaComponent(color, (int) (alpha * 255f));
     }
-    return Image.create(c)
-        .scaleType(FIT_XY)
-        .drawable(new ColorDrawable(color))
-        .build();
+    return Image.create(c).scaleType(FIT_XY).drawable(new ColorDrawable(color)).build();
   }
 }

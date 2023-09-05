@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,16 +16,18 @@
 
 package com.facebook.litho.sections;
 
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.facebook.litho.testing.sections.TestTarget;
-import com.facebook.litho.testing.testrunner.ComponentsTestRunner;
+import com.facebook.litho.testing.testrunner.LithoTestRunner;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.LooperMode;
 
 /** Tests {@link FocusDispatcher} */
-@RunWith(ComponentsTestRunner.class)
+@LooperMode(LooperMode.Mode.LEGACY)
+@RunWith(LithoTestRunner.class)
 public class FocusDispatcherTest {
 
   private FocusDispatcher mFocusDispatcher;

@@ -3,19 +3,51 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-load("//tools/build_defs/oss:litho_defs.bzl", "LITHO_ANDROIDSUPPORT_RECYCLERVIEW_TARGET", "LITHO_ANDROIDSUPPORT_TARGET", "LITHO_JAVA_TARGET", "LITHO_WIDGET_TARGET", "litho_android_library", "make_dep_path")
+load(
+    "//tools/build_defs/oss:litho_defs.bzl",
+    "LITHO_ANDROIDSUPPORT_RECYCLERVIEW_TARGET",
+    "LITHO_ANDROIDSUPPORT_TARGET",
+    "LITHO_INFERANNOTATIONS_TARGET",
+    "LITHO_JAVA_TARGET",
+    "LITHO_KOTLIN_TARGET",
+    "LITHO_PROCESSOR_TARGET",
+    "LITHO_SECTIONS_ANNOTATIONS_TARGET",
+    "LITHO_SECTIONS_COMMON_TARGET",
+    "LITHO_SECTIONS_PROCESSOR_TARGET",
+    "LITHO_SECTIONS_TARGET",
+    "LITHO_TESTING_CORE_TARGET",
+    "LITHO_WIDGET_TARGET",
+    "LITHO_YOGA_TARGET",
+    "litho_android_test_library",
+    "make_dep_path",
+)
 
-litho_android_library(
+litho_android_test_library(
     name = "widget",
-    srcs = glob(["*.java"]),
-    is_androidx = True,
+    srcs = glob([
+        "**/*.kt",
+    ]),
+    autoglob = False,
+    plugins = [
+        LITHO_PROCESSOR_TARGET,
+        LITHO_SECTIONS_PROCESSOR_TARGET,
+    ],
+    required_for_source_only_abi = True,
     visibility = [
-        make_dep_path("litho-it/src/test/..."),
+        "PUBLIC",
     ],
     deps = [
-        LITHO_JAVA_TARGET,
         LITHO_ANDROIDSUPPORT_RECYCLERVIEW_TARGET,
         LITHO_ANDROIDSUPPORT_TARGET,
+        LITHO_INFERANNOTATIONS_TARGET,
+        LITHO_JAVA_TARGET,
+        LITHO_KOTLIN_TARGET,
+        LITHO_SECTIONS_ANNOTATIONS_TARGET,
+        LITHO_SECTIONS_COMMON_TARGET,
+        LITHO_SECTIONS_TARGET,
+        LITHO_TESTING_CORE_TARGET,
         LITHO_WIDGET_TARGET,
+        LITHO_YOGA_TARGET,
+        make_dep_path("litho-it/src/main/java/com/facebook/litho:litho-testing"),
     ],
 )

@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -58,7 +58,7 @@ public class DefaultMountSpecGenerator implements SpecGenerator<MountSpecModel> 
   public TypeSpec generate(MountSpecModel mountSpecModel, EnumSet<RunMode> runMode) {
     final TypeSpec.Builder typeSpec =
         TypeSpec.classBuilder(mountSpecModel.getComponentName())
-            .superclass(ClassNames.COMPONENT)
+            .superclass(ClassNames.SPEC_GENERATED_COMPONENT)
             .addTypeVariables(mountSpecModel.getTypeVariables());
 
     if (SpecModelUtils.isTypeElement(mountSpecModel)) {
@@ -77,8 +77,8 @@ public class DefaultMountSpecGenerator implements SpecGenerator<MountSpecModel> 
         .addTypeSpecDataHolder(JavadocGenerator.generate(mountSpecModel))
         .addTypeSpecDataHolder(ClassAnnotationsGenerator.generate(mountSpecModel))
         .addTypeSpecDataHolder(PreambleGenerator.generate(mountSpecModel))
-        .addTypeSpecDataHolder(ComponentBodyGenerator.generate(mountSpecModel, null))
-        .addTypeSpecDataHolder(TreePropGenerator.generate(mountSpecModel))
+        .addTypeSpecDataHolder(ComponentBodyGenerator.generate(mountSpecModel, null, runMode))
+        .addTypeSpecDataHolder(TreePropGenerator.generate(mountSpecModel, runMode))
         .addTypeSpecDataHolder(
             DelegateMethodGenerator.generateDelegates(
                 mountSpecModel,
@@ -88,9 +88,7 @@ public class DefaultMountSpecGenerator implements SpecGenerator<MountSpecModel> 
         .addTypeSpecDataHolder(MountSpecGenerator.generatePoolSize(mountSpecModel))
         .addTypeSpecDataHolder(MountSpecGenerator.generateCanPreallocate(mountSpecModel))
         .addTypeSpecDataHolder(MountSpecGenerator.generateHasChildLithoViews(mountSpecModel))
-        .addTypeSpecDataHolder(MountSpecGenerator.generateShouldUseDisplayList(mountSpecModel))
         .addTypeSpecDataHolder(MountSpecGenerator.generateIsMountSizeDependent(mountSpecModel))
-        .addTypeSpecDataHolder(MountSpecGenerator.generateCallsShouldUpdateOnMount(mountSpecModel))
         .addTypeSpecDataHolder(PureRenderGenerator.generate(mountSpecModel))
         .addTypeSpecDataHolder(EventGenerator.generate(mountSpecModel))
         .addTypeSpecDataHolder(TriggerGenerator.generate(mountSpecModel))
@@ -99,7 +97,7 @@ public class DefaultMountSpecGenerator implements SpecGenerator<MountSpecModel> 
         .addTypeSpecDataHolder(RenderDataGenerator.generate(mountSpecModel))
         .addTypeSpecDataHolder(BuilderGenerator.generate(mountSpecModel))
         .addTypeSpecDataHolder(TagGenerator.generate(mountSpecModel, mBlacklistedTagInterfaces))
-        .addTypeSpecDataHolder(CachedValueGenerator.generate(mountSpecModel))
+        .addTypeSpecDataHolder(CachedValueGenerator.generate(mountSpecModel, runMode))
         .build()
         .addToTypeSpec(typeSpec);
 

@@ -1,13 +1,11 @@
-import org.gradle.internal.jvm.Jvm
-
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,60 +14,66 @@ import org.gradle.internal.jvm.Jvm
  * limitations under the License.
  */
 
-import org.gradle.internal.jvm.Jvm
-
 apply plugin: 'com.android.library'
-apply plugin: 'maven'
+apply plugin: 'kotlin-android'
+apply plugin: 'kotlin-kapt'
+apply plugin: 'org.jetbrains.dokka'
 
 android {
     compileSdkVersion rootProject.compileSdkVersion
     buildToolsVersion rootProject.buildToolsVersion
 
-    useLibrary 'org.apache.http.legacy'
-
     defaultConfig {
         minSdkVersion rootProject.minSdkVersion
-        javaCompileOptions {
-            annotationProcessorOptions {
-                // We transitively depend on auto-value which we don't want to
-                // use as annotation processor at this time, so we can safely
-                // disable this warning.
-                includeCompileClasspath false
-            }
+    }
+
+    lintOptions {
+        disable "InvalidPackage", "NewApi"
+    }
+
+    testOptions {
+        unitTests.all {
+            forkEvery = 1
+            maxParallelForks = Math.ceil(Runtime.runtime.availableProcessors() * 1.5)
         }
+
+        unitTests.includeAndroidResources = true
     }
 }
 
 dependencies {
     compileOnly project(':litho-sections-annotations')
     implementation project(':litho-core')
+    implementation project(':litho-core-kotlin')
     implementation project(':litho-widget')
+    implementation project(':litho-widget-kotlin')
     implementation project(':litho-sections-core')
     implementation project(':litho-processor')
-    annotationProcessor project(':litho-processor')
-    annotationProcessor project(':litho-sections-processor')
+    kapt project(':litho-processor')
+    kapt project(':litho-sections-processor')
 
-    implementation files(Jvm.current().getToolsJar())
-    implementation files(Jvm.current().getJre().homeDir.getAbsolutePath() + '/lib/rt.jar')
-
+    implementation deps.inferAnnotations
     implementation deps.javapoet
     implementation deps.assertjCore
     implementation deps.guava
     implementation deps.jsr305
     implementation deps.junit
     implementation deps.mockitoCore
-    implementation deps.robolectric
+    implementation deps.mockitokotlin
+    implementation(deps.robolectric) {
+        exclude group: "com.google.guava", module: "guava"
+    }
+    implementation deps.kotlinStandardLib
     implementation deps.supportAppCompat
     implementation deps.textlayoutbuilder
     implementation deps.supportRecyclerView
+    implementation deps.supportCore
+    implementation deps.supportTestCore
     implementation deps.supportTestRunner
     compileOnly deps.supportAnnotations
+
+    kaptTest project(':litho-processor')
+    testImplementation deps.supportTestJunit
 }
 
-apply from: rootProject.file('gradle/release.gradle')
-
-task sourcesJar(type: Jar) {
-    from android.sourceSets.main.java.srcDirs
-    archiveClassifier.set('sources')
-}
-artifacts.add('archives', sourcesJar)
+apply plugin: "com.vanniktech.maven.publish"

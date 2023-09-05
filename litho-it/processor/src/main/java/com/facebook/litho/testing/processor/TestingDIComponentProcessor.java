@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -83,6 +83,11 @@ public class TestingDIComponentProcessor extends AbstractComponentsProcessor {
     }
 
     @Override
+    public ImmutableList<AnnotationSpec> getAdditionalClassAnnotations(SpecModel specModel) {
+      return ImmutableList.of();
+    }
+
+    @Override
     public MethodSpec generateConstructor(SpecModel specModel) {
       return MethodSpec.constructorBuilder()
           .addModifiers(Modifier.PUBLIC)
@@ -100,7 +105,7 @@ public class TestingDIComponentProcessor extends AbstractComponentsProcessor {
 
     @Override
     public TypeSpecDataHolder generateInjectedFields(
-        ImmutableList<InjectPropModel> injectPropParams) {
+        SpecModel specModel, ImmutableList<InjectPropModel> injectPropParams) {
       final TypeSpecDataHolder.Builder builder = TypeSpecDataHolder.newBuilder();
 
       for (MethodParamModel injectedParam : injectPropParams) {
@@ -117,7 +122,8 @@ public class TestingDIComponentProcessor extends AbstractComponentsProcessor {
     }
 
     @Override
-    public MethodSpec generateTestingFieldAccessor(InjectPropModel injectedParam) {
+    public MethodSpec generateTestingFieldAccessor(
+        SpecModel specModel, InjectPropModel injectedParam) {
       return MethodSpec.methodBuilder(
               "get"
                   + injectedParam.getName().substring(0, 1).toUpperCase()
@@ -125,6 +131,11 @@ public class TestingDIComponentProcessor extends AbstractComponentsProcessor {
           .returns(injectedParam.getTypeName())
           .addStatement("return $N", injectedParam.getName())
           .build();
+    }
+
+    @Override
+    public String generateImplAccessor(SpecModel specModel, MethodParamModel methodParamModel) {
+      return methodParamModel.getName();
     }
   }
 }

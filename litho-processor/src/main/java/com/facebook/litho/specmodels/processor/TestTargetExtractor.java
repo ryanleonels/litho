@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,9 +17,9 @@
 package com.facebook.litho.specmodels.processor;
 
 import com.facebook.litho.annotations.TestSpec;
-import com.sun.tools.javac.code.Type;
 import javax.annotation.Nullable;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.MirroredTypeException;
 import javax.lang.model.type.TypeMirror;
 
@@ -31,7 +31,7 @@ public class TestTargetExtractor {
       element.getAnnotation(TestSpec.class).value();
     } catch (MirroredTypeException e) {
       final TypeMirror typeMirror = e.getTypeMirror();
-      return (TypeElement) ((Type.ClassType) typeMirror).asElement();
+      return (TypeElement) ((DeclaredType) typeMirror).asElement();
     }
 
     return null;

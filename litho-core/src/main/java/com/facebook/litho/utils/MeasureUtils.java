@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,10 +24,14 @@ import static com.facebook.litho.SizeSpec.getSize;
 
 import android.util.Log;
 import android.view.View.MeasureSpec;
+import androidx.annotation.Nullable;
+import com.facebook.infer.annotation.Nullsafe;
 import com.facebook.litho.Size;
 import com.facebook.litho.SizeSpec;
 import com.facebook.litho.config.ComponentsConfiguration;
+import com.facebook.rendercore.MeasureResult;
 
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public final class MeasureUtils {
 
   private static final String TAG = "MeasureUtils";
@@ -46,15 +50,11 @@ public final class MeasureUtils {
   }
 
   /**
-   * Set the {@param outputSize} to respect both Specs and the desired width and height.
-   * The desired size is usually the necessary pixels to render the inner content.
+   * Set the {@param outputSize} to respect both Specs and the desired width and height. The desired
+   * size is usually the necessary pixels to render the inner content.
    */
   public static void measureWithDesiredPx(
-      int widthSpec,
-      int heightSpec,
-      int desiredWidthPx,
-      int desiredHeightPx,
-      Size outputSize) {
+      int widthSpec, int heightSpec, int desiredWidthPx, int desiredHeightPx, Size outputSize) {
     outputSize.width = getResultSizePxWithSpecAndDesiredPx(widthSpec, desiredWidthPx);
     outputSize.height = getResultSizePxWithSpecAndDesiredPx(heightSpec, desiredHeightPx);
   }
@@ -74,9 +74,9 @@ public final class MeasureUtils {
   }
 
   /**
-   * Set the {@param outputSize} to respect both Specs and try to keep both width and height equal.
-   * This will only not guarantee equal width and height if thes Specs use modes and sizes which
-   * prevent it.
+   * Set the {@param outputSize} to respect both size specs and try to keep both width and height
+   * equal. This will only not guarantee equal width and height if these specs use modes and sizes
+   * which prevent it.
    */
   public static void measureWithEqualDimens(int widthSpec, int heightSpec, Size outputSize) {
     final int widthMode = SizeSpec.getMode(widthSpec);
@@ -133,8 +133,8 @@ public final class MeasureUtils {
   }
 
   /**
-   * Measure according to an aspect ratio an width and height constraints. This version
-   * of measureWithAspectRatio will respect the intrinsic size of the component being measured.
+   * Measure according to an aspect ratio an width and height constraints. This version of
+   * measureWithAspectRatio will respect the intrinsic size of the component being measured.
    *
    * @param widthSpec A SizeSpec for the width
    * @param heightSpec A SizeSpec for the height
@@ -151,17 +151,40 @@ public final class MeasureUtils {
       float aspectRatio,
       Size outputSize) {
 
-    if (SizeSpec.getMode(widthSpec) == AT_MOST &&
-        SizeSpec.getSize(widthSpec) > intrinsicWidth) {
+    if (SizeSpec.getMode(widthSpec) == AT_MOST && SizeSpec.getSize(widthSpec) > intrinsicWidth) {
       widthSpec = SizeSpec.makeSizeSpec(intrinsicWidth, AT_MOST);
     }
 
-    if (SizeSpec.getMode(heightSpec) == AT_MOST &&
-        SizeSpec.getSize(heightSpec) > intrinsicHeight) {
+    if (SizeSpec.getMode(heightSpec) == AT_MOST && SizeSpec.getSize(heightSpec) > intrinsicHeight) {
       heightSpec = SizeSpec.makeSizeSpec(intrinsicHeight, AT_MOST);
     }
 
     measureWithAspectRatio(widthSpec, heightSpec, aspectRatio, outputSize);
+  }
+
+  /**
+   * Measure according to an aspect ratio an width and height constraints. This version of
+   * measureWithAspectRatio will respect the intrinsic size of the component being measured.
+   *
+   * @param widthSpec A SizeSpec for the width
+   * @param heightSpec A SizeSpec for the height
+   * @param intrinsicWidth A pixel value for the intrinsic width of the measured component
+   * @param intrinsicHeight A pixel value for the intrinsic height of the measured component
+   * @param aspectRatio The aspect ration size against
+   */
+  public static MeasureResult measureResultUsingAspectRatio(
+      final int widthSpec,
+      final int heightSpec,
+      final int intrinsicWidth,
+      final int intrinsicHeight,
+      final float aspectRatio,
+      final @Nullable Object layoutData) {
+
+    Size size = new Size();
+    measureWithAspectRatio(
+        widthSpec, heightSpec, intrinsicWidth, intrinsicHeight, aspectRatio, size);
+
+    return new MeasureResult(size.width, size.height, layoutData);
   }
 
   /**
@@ -173,10 +196,11 @@ public final class MeasureUtils {
    * @param outputSize The output size of this measurement
    */
   public static void measureWithAspectRatio(
-      int widthSpec,
-      int heightSpec,
-      float aspectRatio,
-      Size outputSize) {
+      int widthSpec, int heightSpec, float aspectRatio, Size outputSize) {
+
+    if (aspectRatio < 0) {
+      throw new IllegalArgumentException("The aspect ratio must be a positive number");
+    }
 
     final int widthMode = SizeSpec.getMode(widthSpec);
     final int widthSize = SizeSpec.getSize(widthSpec);
@@ -219,9 +243,7 @@ public final class MeasureUtils {
               TAG,
               String.format(
                   "Ratio makes height larger than allowed. w:%s h:%s aspectRatio:%f",
-                  SizeSpec.toString(widthSpec),
-                  SizeSpec.toString(heightSpec),
-                  aspectRatio));
+                  SizeSpec.toString(widthSpec), SizeSpec.toString(heightSpec), aspectRatio));
         }
       }
     }
@@ -239,9 +261,7 @@ public final class MeasureUtils {
               TAG,
               String.format(
                   "Ratio makes width larger than allowed. w:%s h:%s aspectRatio:%f",
-                  SizeSpec.toString(widthSpec),
-                  SizeSpec.toString(heightSpec),
-                  aspectRatio));
+                  SizeSpec.toString(widthSpec), SizeSpec.toString(heightSpec), aspectRatio));
         }
       }
     }

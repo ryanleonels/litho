@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -107,6 +107,21 @@ public class SectionsTestHelper extends Section {
             })
         .when(spyContext)
         .updateStateSync(any(StateContainer.StateUpdate.class), any(String.class));
+
+    doAnswer(
+            new Answer() {
+              @Override
+              @Nullable
+              public Object answer(InvocationOnMock invocation) throws Throwable {
+                final Section scope = ((SectionContext) invocation.getMock()).getSectionScope();
+                final StateContainer.StateUpdate stateUpdate =
+                    (StateContainer.StateUpdate) invocation.getArguments()[0];
+                SectionLifecycleTestUtil.getStateContainer(scope).applyStateUpdate(stateUpdate);
+                return null;
+              }
+            })
+        .when(spyContext)
+        .updateStateAsync(any(StateContainer.StateUpdate.class), any(String.class));
 
     doAnswer(
             new Answer() {

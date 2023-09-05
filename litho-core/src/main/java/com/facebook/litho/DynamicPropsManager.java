@@ -1,11 +1,11 @@
 /*
- * Copyright 2019-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,11 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.litho;
 
+import android.graphics.drawable.Drawable;
 import android.os.Build;
+import android.util.Pair;
 import android.util.SparseArray;
 import android.view.View;
+import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -26,42 +31,52 @@ import java.util.Set;
 /**
  * Takes care of dynamic Props
  *
- * <p>Usage from {@link MountState}
+ * <p>Usage from {@link DynamicPropsExtension}
  *
- * <p>Unique per {@link MountState} instance, which calls {@link
- * #onBindComponentToContent(Component, Object)} and {#link {@link #onUnbindComponent(Component)}}
- * when it binds and unbinds Components respectively. When Component is being bound, a
- * DynamicPropsManager subscribes to {@link DynamicValue}s that its represent dynamic props, and
- * keeps the mounted content the Components is rendered into in sync with {@link
- * DynamicValue#mValue} until the Component gets unbound, at which point, the DynamicPropsManager
- * unsubscribes from the DynamicValues.
+ * <p>Unique per {@link DynamicPropsExtension} instance, which calls {@link
+ * #onBindComponentToContent(Component, ComponentContext, SparseArray, Object)} and {#link {@link
+ * #onUnbindComponent(Component, SparseArray, Object)}} when it binds and unbinds Components
+ * respectively.
+ *
+ * <p>When Component is being bound, a DynamicPropsManager subscribes to {@link DynamicValue}s that
+ * its represent dynamic props, and keeps the mounted content the Components is rendered into in
+ * sync with {@link DynamicValue#get()} until the Component gets unbound, at which point, the
+ * DynamicPropsManager unsubscribes from the DynamicValues.
  */
-class DynamicPropsManager implements DynamicValue.OnValueChangeListener {
-  static final int KEY_ALPHA = 1;
-  static final int KEY_TRANSLATION_X = 2;
-  static final int KEY_TRANSLATION_Y = 3;
-  static final int KEY_SCALE_X = 4;
-  static final int KEY_SCALE_Y = 5;
-  static final int KEY_ELEVATION = 6;
-  static final int KEY_BACKGROUND_COLOR = 7;
+public class DynamicPropsManager implements DynamicValue.OnValueChangeListener {
+  public static final int KEY_ALPHA = 1;
+  public static final int KEY_TRANSLATION_X = 2;
+  public static final int KEY_TRANSLATION_Y = 3;
+  public static final int KEY_SCALE_X = 4;
+  public static final int KEY_SCALE_Y = 5;
+  public static final int KEY_ELEVATION = 6;
+  public static final int KEY_BACKGROUND_COLOR = 7;
+  public static final int KEY_ROTATION = 8;
+  public static final int KEY_BACKGROUND_DRAWABLE = 9;
+  public static final int KEY_FOREGROUND_COLOR = 10;
 
-  private final Map<DynamicValue<?>, Set<Component>> mDependentComponents = new HashMap<>();
+  private static final DynamicValue<?>[] sEmptyArray = new DynamicValue[0];
+
+  private final Map<DynamicValue<?>, Set<Pair<Component, SparseArray<? extends DynamicValue<?>>>>>
+      mDependentComponents = new HashMap<>();
   private final Map<Component, Set<DynamicValue<?>>> mAffectingDynamicValues = new HashMap<>();
   private final Map<Component, Object> mContents = new HashMap<>();
 
-  void onBindComponentToContent(Component component, Object content) {
-    final boolean hasCommonDynamicPropsToBind = hasCommonDynamicPropsToBind(component);
-    final boolean hasCustomDynamicProps = component.getDynamicProps().length > 0;
+  void onBindComponentToContent(
+      final Component component,
+      final @Nullable ComponentContext scopedContext,
+      final @Nullable SparseArray<? extends DynamicValue<?>> commonDynamicProps,
+      final Object content) {
+    final boolean hasCommonDynamicPropsToBind =
+        hasCommonDynamicPropsToBind(commonDynamicProps, content);
 
-    if (!hasCommonDynamicPropsToBind && !hasCustomDynamicProps) {
+    if (!hasCommonDynamicPropsToBind && !hasCustomDynamicProps(component)) {
       return;
     }
 
     final Set<DynamicValue<?>> dynamicValues = new HashSet<>();
 
-    if (hasCommonDynamicPropsToBind) {
-      final SparseArray<DynamicValue<?>> commonDynamicProps = component.getCommonDynamicProps();
-
+    if (commonDynamicProps != null && hasCommonDynamicPropsToBind) {
       // Go through all common dynamic props
       for (int i = 0; i < commonDynamicProps.size(); i++) {
         final int key = commonDynamicProps.keyAt(i);
@@ -69,29 +84,41 @@ class DynamicPropsManager implements DynamicValue.OnValueChangeListener {
 
         bindCommonDynamicProp(key, value, (View) content);
 
-        addDependentComponentAndSubscribeIfNeeded(value, component);
+        addDependentComponentAndSubscribeIfNeeded(value, new Pair<>(component, commonDynamicProps));
         dynamicValues.add(value);
       }
     }
 
-    final DynamicValue[] dynamicProps = component.getDynamicProps();
-    // Go through all the other dynamic props
-    for (int i = 0; i < dynamicProps.length; i++) {
-      final DynamicValue<?> value = dynamicProps[i];
+    final DynamicValue<?>[] customDynamicProps = getCustomDynamicProps(component);
+    // Go through all the custom dynamic props
+    for (int i = 0; i < customDynamicProps.length; i++) {
+      final @Nullable DynamicValue<?> value = customDynamicProps[i];
 
-      component.bindDynamicProp(i, value.get(), content);
+      try {
+        ((SpecGeneratedComponent) component)
+            .bindDynamicProp(i, value != null ? value.get() : null, content);
 
-      addDependentComponentAndSubscribeIfNeeded(value, component);
-
-      dynamicValues.add(value);
+        addDependentComponentAndSubscribeIfNeeded(value, new Pair<>(component, commonDynamicProps));
+        dynamicValues.add(value);
+      } catch (Exception e) {
+        if (scopedContext != null) {
+          ComponentUtils.handle(scopedContext, e);
+        } else {
+          ComponentUtils.rethrow(e);
+        }
+      }
     }
 
     mAffectingDynamicValues.put(component, dynamicValues);
     mContents.put(component, content);
   }
 
-  void onUnbindComponent(Component component) {
-    if (!hasCommonDynamicPropsToBind(component) && component.getDynamicProps().length == 0) {
+  void onUnbindComponent(
+      Component component,
+      final @Nullable SparseArray<? extends DynamicValue<?>> commonDynamicProps,
+      Object content) {
+    if (!hasCommonDynamicPropsToBind(commonDynamicProps, content)
+        && !hasCustomDynamicProps(component)) {
       return;
     }
 
@@ -103,13 +130,63 @@ class DynamicPropsManager implements DynamicValue.OnValueChangeListener {
     }
 
     for (DynamicValue<?> value : dynamicValues) {
-      removeDependentComponentAndUnsubscribeIfNeeded(value, component);
+      removeDependentComponentAndUnsubscribeIfNeeded(
+          value, new Pair<>(component, commonDynamicProps));
+    }
+
+    resetDynamicValues(content);
+    mAffectingDynamicValues.remove(component);
+  }
+
+  private static void resetDynamicValues(Object content) {
+    if (!(content instanceof View)) {
+      return;
+    }
+
+    final View target = (View) content;
+    if (target.getAlpha() != 1) {
+      target.setAlpha(1);
+    }
+
+    if (target.getTranslationX() != 0) {
+      target.setTranslationX(0);
+    }
+
+    if (target.getTranslationY() != 0) {
+      target.setTranslationY(0);
+    }
+
+    if (target.getScaleX() != 1) {
+      target.setScaleX(1);
+    }
+
+    if (target.getScaleY() != 1) {
+      target.setScaleY(1);
+    }
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+      if (target.getElevation() != 0) {
+        target.setElevation(0);
+      }
+    }
+
+    if (target.getBackground() != null) {
+      target.setBackground(null);
+    }
+
+    if (target.getRotation() != 0) {
+      target.setRotation(0);
     }
   }
 
   private void addDependentComponentAndSubscribeIfNeeded(
-      DynamicValue<?> value, Component component) {
-    Set<Component> dependentComponents = mDependentComponents.get(value);
+      @Nullable DynamicValue<?> value,
+      Pair<Component, SparseArray<? extends DynamicValue<?>>> componentWithProps) {
+    if (value == null) {
+      return;
+    }
+    Set<Pair<Component, SparseArray<? extends DynamicValue<?>>>> dependentComponents =
+        mDependentComponents.get(value);
 
     if (dependentComponents == null) {
       dependentComponents = new HashSet<>();
@@ -118,22 +195,30 @@ class DynamicPropsManager implements DynamicValue.OnValueChangeListener {
       value.attachListener(this);
     }
 
-    dependentComponents.add(component);
+    dependentComponents.add(componentWithProps);
   }
 
   private void removeDependentComponentAndUnsubscribeIfNeeded(
-      DynamicValue<?> value, Component component) {
-    final Set<Component> dependentComponents = mDependentComponents.get(value);
-    dependentComponents.remove(component);
+      @Nullable DynamicValue<?> value,
+      Pair<Component, SparseArray<? extends DynamicValue<?>>> componentWithProps) {
+    if (value == null) {
+      return;
+    }
+    final Set<Pair<Component, SparseArray<? extends DynamicValue<?>>>> dependentComponents =
+        mDependentComponents.get(value);
+    if (dependentComponents == null) {
+      return;
+    }
+
+    dependentComponents.remove(componentWithProps);
 
     if (dependentComponents.isEmpty()) {
       mDependentComponents.remove(value);
-
       value.detach(this);
     }
   }
 
-  private void bindCommonDynamicProp(int key, DynamicValue<?> value, View target) {
+  private static void bindCommonDynamicProp(int key, @Nullable DynamicValue<?> value, View target) {
     switch (key) {
       case KEY_ALPHA:
         target.setAlpha(DynamicPropsManager.<Float>resolve(value));
@@ -164,6 +249,17 @@ class DynamicPropsManager implements DynamicValue.OnValueChangeListener {
       case KEY_BACKGROUND_COLOR:
         target.setBackgroundColor(DynamicPropsManager.<Integer>resolve(value));
         break;
+
+      case KEY_ROTATION:
+        target.setRotation(DynamicPropsManager.<Float>resolve(value));
+        break;
+
+      case KEY_BACKGROUND_DRAWABLE:
+        target.setBackground(DynamicPropsManager.<Drawable>resolve(value));
+        break;
+
+      case KEY_FOREGROUND_COLOR:
+        ViewUtils.setViewForeground(target, DynamicPropsManager.<Integer>resolve(value));
     }
   }
 
@@ -174,14 +270,26 @@ class DynamicPropsManager implements DynamicValue.OnValueChangeListener {
 
   @Override
   public void onValueChange(DynamicValue value) {
-    final Set<Component> dependentComponents = mDependentComponents.get(value);
+    final Set<Pair<Component, SparseArray<? extends DynamicValue<?>>>> dependentComponents =
+        mDependentComponents.get(value);
+    if (dependentComponents == null) {
+      return;
+    }
 
-    for (Component component : dependentComponents) {
+    // It's possible that applying a dynamic prop could bind or unbind a component - snapshot the
+    // components here to prevent a ConcurrentModificationException during iteration
+    Pair<Component, SparseArray<DynamicValue<?>>>[] dependentComponentSnapshot =
+        dependentComponents.toArray(new Pair[dependentComponents.size()]);
+    for (Pair<Component, SparseArray<DynamicValue<?>>> componentWithProps :
+        dependentComponentSnapshot) {
+      final Component component = componentWithProps.first;
+      final SparseArray<DynamicValue<?>> commonDynamicProps = componentWithProps.second;
       final Object content = mContents.get(component);
+      if (content == null) {
+        continue;
+      }
 
-      if (hasCommonDynamicPropsToBind(component)) {
-        final SparseArray<DynamicValue<?>> commonDynamicProps = component.getCommonDynamicProps();
-
+      if (hasCommonDynamicPropsToBind(commonDynamicProps, content)) {
         for (int i = 0; i < commonDynamicProps.size(); i++) {
           if (commonDynamicProps.valueAt(i) == value) {
             bindCommonDynamicProp(commonDynamicProps.keyAt(i), value, (View) content);
@@ -189,10 +297,10 @@ class DynamicPropsManager implements DynamicValue.OnValueChangeListener {
         }
       }
 
-      final DynamicValue[] dynamicProps = component.getDynamicProps();
+      final DynamicValue<?>[] dynamicProps = getCustomDynamicProps(component);
       for (int i = 0; i < dynamicProps.length; i++) {
         if (value == dynamicProps[i]) {
-          component.bindDynamicProp(i, value.get(), content);
+          ((SpecGeneratedComponent) component).bindDynamicProp(i, value.get(), content);
         }
       }
     }
@@ -203,11 +311,28 @@ class DynamicPropsManager implements DynamicValue.OnValueChangeListener {
    * MountDrawableSpec components we create a wrapping HostComponent and copy the dynamic props
    * there. Thus DynamicPropsManager should ignore non-MountViewSpecs
    *
-   * @param component Component to consider
+   * @param commonDynamicProps to consider
    * @return true if Component has common dynamic props, that DynamicPropsManager should take an
    *     action on
    */
-  private static boolean hasCommonDynamicPropsToBind(Component component) {
-    return component.hasCommonDynamicProps() && Component.isMountViewSpec(component);
+  private static boolean hasCommonDynamicPropsToBind(
+      final @Nullable SparseArray<? extends DynamicValue<?>> commonDynamicProps, Object content) {
+    return CollectionsUtils.isNotNullOrEmpty(commonDynamicProps) && content instanceof View;
+  }
+
+  private static boolean hasCustomDynamicProps(Component component) {
+    return component instanceof SpecGeneratedComponent
+        && ((SpecGeneratedComponent) component).getDynamicProps().length > 0;
+  }
+
+  private static DynamicValue<?>[] getCustomDynamicProps(Component component) {
+    return component instanceof SpecGeneratedComponent
+        ? ((SpecGeneratedComponent) component).getDynamicProps()
+        : sEmptyArray;
+  }
+
+  @VisibleForTesting
+  boolean hasCachedContent(Component component) {
+    return mContents.containsKey(component);
   }
 }

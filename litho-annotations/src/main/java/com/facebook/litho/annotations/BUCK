@@ -1,13 +1,20 @@
+load("@fbsource//xplat/pfh/FBApp_UIFrameworks_Litho_Litho:DEFS.bzl", "FBApp_UIFrameworks_Litho_Litho")
+
 # Copyright (c) 2017-present, Facebook, Inc.
 #
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
-load("//tools/build_defs/oss:litho_defs.bzl", "LITHO_ANDROIDSUPPORT_TARGET", "fb_java_library")
+load(
+    "//tools/build_defs/oss:litho_defs.bzl",
+    "LITHO_ANDROIDSUPPORT_TARGET",
+    "fb_java_library",
+)
 
 fb_java_library(
     name = "annotations",
     srcs = glob(["*.java"]),
-    is_androidx = True,
+    feature = FBApp_UIFrameworks_Litho_Litho,
+    labels = [],
     provided_deps = [
         LITHO_ANDROIDSUPPORT_TARGET,
     ],

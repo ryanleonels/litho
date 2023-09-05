@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,13 +20,13 @@ import android.os.Looper;
 import android.os.Process;
 import androidx.annotation.IntDef;
 import androidx.annotation.VisibleForTesting;
+import com.facebook.infer.annotation.Nullsafe;
 import com.facebook.litho.config.ComponentsConfiguration;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
-/**
- * Thread assertion utilities.
- */
+/** Thread assertion utilities. */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class ThreadUtils {
   public static final int OVERRIDE_DISABLED = 0;
   public static final int OVERRIDE_MAIN_THREAD_TRUE = 1;
@@ -36,11 +36,9 @@ public class ThreadUtils {
   @Retention(RetentionPolicy.SOURCE)
   public @interface MainThreadOverride {}
 
-  @MainThreadOverride
-  private static int sMainThreadOverride = OVERRIDE_DISABLED;
+  @MainThreadOverride private static int sMainThreadOverride = OVERRIDE_DISABLED;
 
-  private ThreadUtils() {
-  }
+  private ThreadUtils() {}
 
   @VisibleForTesting
   public static void setMainThreadOverride(@MainThreadOverride int override) {
@@ -58,11 +56,18 @@ public class ThreadUtils {
     }
   }
 
+  public static boolean isLayoutThread() {
+    return Thread.currentThread().getName().startsWith(ComponentTree.DEFAULT_LAYOUT_THREAD_NAME);
+  }
+
   public static void assertMainThread() {
-    if (!ComponentsConfiguration.IS_INTERNAL_BUILD || ComponentsConfiguration.isEndToEndTestRun) {
+    if (ComponentsConfiguration.isEndToEndTestRun) {
       return;
-    } else if (!isMainThread()) {
-      throw new IllegalStateException("This should run on the main thread.");
+    }
+    if (!isMainThread()) {
+      throw new IllegalStateException(
+          "This must run on the main thread; but is running on "
+              + Thread.currentThread().getName());
     }
   }
 

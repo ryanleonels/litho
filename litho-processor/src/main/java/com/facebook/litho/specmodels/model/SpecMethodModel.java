@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,9 +25,7 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import javax.lang.model.element.Modifier;
 
-/**
- * Model that is an abstract representation of a method.
- */
+/** Model that is an abstract representation of a method. */
 @Immutable
 public final class SpecMethodModel<Phantom, A> {
   public final ImmutableList<Annotation> annotations;
@@ -38,8 +36,7 @@ public final class SpecMethodModel<Phantom, A> {
   public final ImmutableList<TypeVariableName> typeVariables;
   public final ImmutableList<MethodParamModel> methodParams;
   public final Object representedObject;
-  @Nullable
-  public final A typeModel;
+  @Nullable public final A typeModel;
 
   public SpecMethodModel(
       ImmutableList<Annotation> annotations,

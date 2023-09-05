@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,6 +21,7 @@ import android.util.DisplayMetrics;
 import android.view.View;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearSmoothScroller;
 import androidx.recyclerview.widget.OrientationHelper;
 import androidx.recyclerview.widget.RecyclerView;
@@ -39,6 +40,11 @@ public class StartSnapHelper extends SnapHelper {
   @Nullable private LayoutManager mVerticalHelperLayoutManager;
   @Nullable private LayoutManager mHorizontalHelperLayoutManager;
   @Nullable private RecyclerView mRecyclerView;
+  private final int mFlingOffset;
+
+  public StartSnapHelper(int flingOffset) {
+    mFlingOffset = flingOffset;
+  }
 
   @Nullable
   @Override
@@ -109,9 +115,31 @@ public class StartSnapHelper extends SnapHelper {
       }
     }
 
+    int targetPos =
+        forwardDirection
+            ? getForwardTargetPosition(layoutManager, reverseLayout, firstBeforeStartPosition)
+            : firstBeforeStartPosition;
+    if (targetPos < 0) {
+      targetPos = 0;
+    }
+    if (targetPos >= itemCount) {
+      targetPos = itemCount - 1;
+    }
+    return targetPos;
+  }
+
+  private int getForwardTargetPosition(
+      LayoutManager layoutManager, boolean reverseLayout, int firstBeforeStartPosition) {
+    if (layoutManager instanceof GridLayoutManager) {
+      return reverseLayout
+          ? (firstBeforeStartPosition - ((GridLayoutManager) layoutManager).getSpanCount())
+              / mFlingOffset
+          : (firstBeforeStartPosition + ((GridLayoutManager) layoutManager).getSpanCount())
+              * mFlingOffset;
+    }
     return reverseLayout
-        ? (forwardDirection ? firstBeforeStartPosition - 1 : firstBeforeStartPosition)
-        : (forwardDirection ? firstBeforeStartPosition + 1 : firstBeforeStartPosition);
+        ? firstBeforeStartPosition - mFlingOffset
+        : firstBeforeStartPosition + mFlingOffset;
   }
 
   @Override
@@ -190,7 +218,8 @@ public class StartSnapHelper extends SnapHelper {
 
   /** @return the first View whose start is before the start of this recycler view */
   @Nullable
-  private static View findFirstViewBeforeStart(LayoutManager layoutManager, OrientationHelper helper) {
+  private static View findFirstViewBeforeStart(
+      LayoutManager layoutManager, OrientationHelper helper) {
     int childCount = layoutManager.getChildCount();
     if (childCount == 0) {
       return null;
@@ -210,7 +239,7 @@ public class StartSnapHelper extends SnapHelper {
         closestChild = child;
       }
     }
-    
+
     return closestChild;
   }
 

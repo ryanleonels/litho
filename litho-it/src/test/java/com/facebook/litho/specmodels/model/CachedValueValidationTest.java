@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +16,7 @@
 
 package com.facebook.litho.specmodels.model;
 
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -154,8 +154,8 @@ public class CachedValueValidationTest {
             .methodParams(
                 ImmutableList.of(
                     MockMethodParamModel.newBuilder()
-                        .name("c")
-                        .type(ClassNames.COMPONENT_CONTEXT)
+                        .name("cl")
+                        .type(ClassNames.COMPONENT_LAYOUT)
                         .representedObject(paramObject)
                         .build()))
             .representedObject(mDelegateMethodRepresentedObject1)
@@ -167,7 +167,44 @@ public class CachedValueValidationTest {
     assertThat(validationErrors.get(0).element).isEqualTo(paramObject);
     assertThat(validationErrors.get(0).message)
         .isEqualTo(
-            "@OnCalculateCachedValue methods may only take Props, @InjectProps and State as params.");
+            "@OnCalculateCachedValue methods may only take ComponentContext, @Prop, @TreeProp, @InjectProp and @State as params.");
+  }
+
+  @Test
+  public void testOnCalculateCachedValueWithContext() {
+    Object paramObject = new Object();
+    SpecMethodModel<DelegateMethod, Void> delegateMethod =
+        SpecMethodModel.<DelegateMethod, Void>builder()
+            .annotations(
+                ImmutableList.<Annotation>of(
+                    new OnCalculateCachedValue() {
+                      @Override
+                      public String name() {
+                        return "name1";
+                      }
+
+                      @Override
+                      public Class<? extends Annotation> annotationType() {
+                        return OnCalculateCachedValue.class;
+                      }
+                    }))
+            .modifiers(ImmutableList.<Modifier>of())
+            .name("onCalculateName1")
+            .returnTypeSpec(new TypeSpec(TypeName.BOOLEAN))
+            .typeVariables(ImmutableList.of())
+            .methodParams(
+                ImmutableList.of(
+                    MockMethodParamModel.newBuilder()
+                        .name("c")
+                        .type(ClassNames.COMPONENT_CONTEXT)
+                        .representedObject(paramObject)
+                        .build()))
+            .representedObject(mDelegateMethodRepresentedObject1)
+            .build();
+    when(mSpecModel.getDelegateMethods()).thenReturn(ImmutableList.of(delegateMethod));
+
+    List<SpecModelValidationError> validationErrors = CachedValueValidation.validate(mSpecModel);
+    assertThat(validationErrors).hasSize(0);
   }
 
   @Test

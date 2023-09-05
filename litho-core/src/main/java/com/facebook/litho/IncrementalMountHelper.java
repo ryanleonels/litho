@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,6 +19,7 @@ package com.facebook.litho;
 import android.view.ViewParent;
 import androidx.core.view.ViewCompat;
 import androidx.viewpager.widget.ViewPager;
+import com.facebook.infer.annotation.Nullsafe;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
@@ -29,6 +30,7 @@ import java.util.List;
  * we have no reliable hook for knowing when they are changing their content (and we should
  * therefore potentially be mounting).
  */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 class IncrementalMountHelper {
   private final ComponentTree mComponentTree;
   private List<ViewPagerListener> mViewPagerListeners;
@@ -99,12 +101,13 @@ class IncrementalMountHelper {
     @Override
     public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
       final ComponentTree componentTree = mComponentTree.get();
-      if (componentTree != null) {
-        componentTree.incrementalMountComponent();
+      if (componentTree != null && componentTree.getLithoView() != null) {
+        componentTree.getLithoView().performIncrementalMountForVisibleBoundsChange();
       }
     }
 
     private void release() {
+      mComponentTree.clear();
       final ViewPager viewPager = mViewPager.get();
       if (viewPager != null) {
         ViewCompat.postOnAnimation(

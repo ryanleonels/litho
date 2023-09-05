@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -46,7 +46,7 @@ import javax.annotation.Nullable;
 /**
  * Renders an infinitely spinning progress bar.
  *
- * @uidocs https://fburl.com/Progress:3805
+ * @uidocs
  * @prop indeterminateDrawable Drawable to be shown to show progress.
  * @prop color Tint color for the drawable.
  */
@@ -58,9 +58,7 @@ class ProgressSpec {
   @PropDefault static final int color = Color.TRANSPARENT;
 
   @OnLoadStyle
-  static void onLoadStyle(
-      ComponentContext c,
-      Output<Drawable> indeterminateDrawable) {
+  static void onLoadStyle(ComponentContext c, Output<Drawable> indeterminateDrawable) {
     indeterminateDrawable.set(getStyledIndeterminateDrawable(c, 0));
   }
 
@@ -72,17 +70,16 @@ class ProgressSpec {
     if (indeterminateDrawable != null) {
       resolvedIndeterminateDrawable.set(indeterminateDrawable);
     } else {
-      resolvedIndeterminateDrawable.set(getStyledIndeterminateDrawable(
-          c,
-          android.R.attr.progressBarStyle));
+      resolvedIndeterminateDrawable.set(
+          getStyledIndeterminateDrawable(c, android.R.attr.progressBarStyle));
     }
   }
 
   @OnMeasure
   static void onMeasure(
       ComponentContext c, ComponentLayout layout, int widthSpec, int heightSpec, Size size) {
-    if (SizeSpec.getMode(widthSpec) == SizeSpec.UNSPECIFIED &&
-        SizeSpec.getMode(heightSpec) == SizeSpec.UNSPECIFIED) {
+    if (SizeSpec.getMode(widthSpec) == SizeSpec.UNSPECIFIED
+        && SizeSpec.getMode(heightSpec) == SizeSpec.UNSPECIFIED) {
       size.width = DEFAULT_SIZE;
       size.height = DEFAULT_SIZE;
     } else {
@@ -102,9 +99,10 @@ class ProgressSpec {
     }
 
     if (color != Color.TRANSPARENT && progressBar.getIndeterminateDrawable() != null) {
-      progressBar.getIndeterminateDrawable().mutate().setColorFilter(
-          color,
-          PorterDuff.Mode.MULTIPLY);
+      progressBar
+          .getIndeterminateDrawable()
+          .mutate()
+          .setColorFilter(color, PorterDuff.Mode.MULTIPLY);
     }
   }
 
@@ -146,26 +144,5 @@ class ProgressSpec {
     styledAttributes.recycle();
 
     return indeterminateDrawable;
-  }
-
-  private static class ProgressView extends ProgressBar {
-
-    private ProgressView(Context context) {
-      super(context);
-    }
-
-    /**
-     * ProgressBar is not setting the right bounds on the drawable passed to
-     * {@link ProgressBar#setIndeterminateDrawable(Drawable)}. Overriding the method and setting
-     * the bounds before passing the drawable in solves the issue.
-     */
-    @Override
-    public void setIndeterminateDrawable(Drawable d) {
-      if (d != null) {
-        d.setBounds(0, 0, getWidth(), getHeight());
-      }
-
-      super.setIndeterminateDrawable(d);
-    }
   }
 }

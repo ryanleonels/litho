@@ -1,18 +1,22 @@
 /*
- * This file provided by Facebook is for non-commercial testing and evaluation
- * purposes only.  Facebook reserves all rights not expressly granted.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * FACEBOOK BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
- * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.facebook.samples.litho;
 
-import static com.facebook.litho.testing.assertj.LithoAssertions.assertThat;
+import static com.facebook.litho.testing.assertj.LegacyLithoAssertions.assertThat;
 import static com.facebook.litho.testing.assertj.SubComponentExtractor.numOfSubComponents;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.core.Is.is;
@@ -21,18 +25,18 @@ import static org.junit.Assume.assumeThat;
 import com.facebook.litho.Component;
 import com.facebook.litho.config.ComponentsConfiguration;
 import com.facebook.litho.sections.widget.RecyclerCollectionComponent;
-import com.facebook.litho.testing.ComponentsRule;
+import com.facebook.litho.testing.LegacyLithoViewRule;
 import com.facebook.litho.testing.subcomponents.SubComponent;
-import com.facebook.litho.testing.testrunner.ComponentsTestRunner;
+import com.facebook.litho.testing.testrunner.LithoTestRunner;
 import java.util.ArrayList;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-@RunWith(ComponentsTestRunner.class)
+@RunWith(LithoTestRunner.class)
 public class DemoListComponentTest {
-  @Rule public ComponentsRule mComponentsRule = new ComponentsRule();
+  @Rule public LegacyLithoViewRule mLegacyLithoViewRule = new LegacyLithoViewRule();
   private Component mComponent;
 
   @Before
@@ -46,24 +50,24 @@ public class DemoListComponentTest {
   @Before
   public void setUp() {
     mComponent =
-        DemoListComponent.create(mComponentsRule.getContext())
-            .dataModels(new ArrayList<DemoListActivity.DemoListDataModel>())
-            .parentIndices(null)
+        DemoListRootComponent.create(mLegacyLithoViewRule.getContext())
+            .demos(new ArrayList<Demos.DemoGrouping>())
+            .previousIndices(null)
             .build();
   }
 
   @Test
   public void testSubComponents() {
-    assertThat(mComponentsRule.getContext(), mComponent)
+    assertThat(mLegacyLithoViewRule.getContext(), mComponent)
         .containsOnlySubComponents(SubComponent.of(RecyclerCollectionComponent.class));
   }
 
   @Test
   public void testNumOfSubComponents() {
-    assertThat(mComponentsRule.getContext(), mComponent)
-        .has(numOfSubComponents(mComponentsRule.getContext(), is(1)));
+    assertThat(mLegacyLithoViewRule.getContext(), mComponent)
+        .has(numOfSubComponents(mLegacyLithoViewRule.getContext(), is(1)));
 
-    assertThat(mComponentsRule.getContext(), mComponent)
-        .has(numOfSubComponents(mComponentsRule.getContext(), greaterThan(0)));
+    assertThat(mLegacyLithoViewRule.getContext(), mComponent)
+        .has(numOfSubComponents(mLegacyLithoViewRule.getContext(), greaterThan(0)));
   }
 }

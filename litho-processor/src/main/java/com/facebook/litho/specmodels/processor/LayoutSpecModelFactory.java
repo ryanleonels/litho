@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +16,6 @@
 
 package com.facebook.litho.specmodels.processor;
 
-import com.facebook.litho.annotations.FromCreateLayout;
 import com.facebook.litho.annotations.LayoutSpec;
 import com.facebook.litho.annotations.OnCalculateCachedValue;
 import com.facebook.litho.annotations.OnCreateTreeProp;
@@ -51,8 +50,6 @@ public class LayoutSpecModelFactory implements SpecModelFactory<LayoutSpecModel>
   static final List<Class<? extends Annotation>> INTER_STAGE_INPUT_ANNOTATIONS = new ArrayList<>();
 
   static {
-    INTER_STAGE_INPUT_ANNOTATIONS.add(FromCreateLayout.class);
-
     List<Class<? extends Annotation>> delegateMethodAnnotations = new ArrayList<>();
     delegateMethodAnnotations.addAll(
         DelegateMethodDescriptions.LAYOUT_SPEC_DELEGATE_METHODS_MAP.keySet());
@@ -106,21 +103,32 @@ public class LayoutSpecModelFactory implements SpecModelFactory<LayoutSpecModel>
         DelegateMethodExtractor.getDelegateMethods(
             element,
             mLayoutSpecDelegateMethodAnnotations,
+            ImmutableList.of(),
             INTER_STAGE_INPUT_ANNOTATIONS,
             ImmutableList.<Class<? extends Annotation>>of(ShouldUpdate.class),
             messager),
         EventMethodExtractor.getOnEventMethods(
-            elements, element, INTER_STAGE_INPUT_ANNOTATIONS, messager, runMode),
+            elements,
+            element,
+            ImmutableList.of(),
+            INTER_STAGE_INPUT_ANNOTATIONS,
+            messager,
+            runMode),
         TriggerMethodExtractor.getOnTriggerMethods(
-            elements, element, INTER_STAGE_INPUT_ANNOTATIONS, messager, runMode),
+            elements,
+            element,
+            ImmutableList.of(),
+            INTER_STAGE_INPUT_ANNOTATIONS,
+            messager,
+            runMode),
         WorkingRangesMethodExtractor.getRegisterMethod(
-            element, INTER_STAGE_INPUT_ANNOTATIONS, messager),
+            element, ImmutableList.of(), INTER_STAGE_INPUT_ANNOTATIONS, messager),
         WorkingRangesMethodExtractor.getRangesMethods(
-            elements, element, INTER_STAGE_INPUT_ANNOTATIONS, messager),
+            elements, element, ImmutableList.of(), INTER_STAGE_INPUT_ANNOTATIONS, messager),
         UpdateStateMethodExtractor.getOnUpdateStateMethods(
-            element, INTER_STAGE_INPUT_ANNOTATIONS, messager),
+            element, ImmutableList.of(), INTER_STAGE_INPUT_ANNOTATIONS, messager),
         UpdateStateMethodExtractor.getOnUpdateStateWithTransitionMethods(
-            element, INTER_STAGE_INPUT_ANNOTATIONS, messager),
+            element, ImmutableList.of(), INTER_STAGE_INPUT_ANNOTATIONS, messager),
         interStageStore == null
             ? ImmutableList.of()
             : CachedPropNameExtractor.getCachedPropNames(
@@ -129,12 +137,11 @@ public class LayoutSpecModelFactory implements SpecModelFactory<LayoutSpecModel>
         EventDeclarationsExtractor.getEventDeclarations(
             elements, element, LayoutSpec.class, runMode),
         AnnotationExtractor.extractValidAnnotations(element),
-        TagExtractor.extractTagsFromSpecClass(types, element),
+        TagExtractor.extractTagsFromSpecClass(types, element, runMode),
         JavadocExtractor.getClassJavadoc(elements, element),
         JavadocExtractor.getPropJavadocs(elements, element),
         element.getAnnotation(LayoutSpec.class).isPublic(),
         dependencyInjectionHelper,
-        element.getAnnotation(LayoutSpec.class).isPureRender(),
         SpecElementTypeDeterminator.determine(element),
         element,
         mLayoutSpecGenerator,

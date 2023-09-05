@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,22 +18,22 @@ package com.facebook.litho.widget;
 
 import static androidx.recyclerview.widget.OrientationHelper.HORIZONTAL;
 import static androidx.recyclerview.widget.OrientationHelper.VERTICAL;
+import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.facebook.litho.SizeSpec.EXACTLY;
 import static com.facebook.litho.SizeSpec.UNSPECIFIED;
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import androidx.recyclerview.widget.GridLayoutManager;
 import com.facebook.litho.SizeSpec;
-import com.facebook.litho.testing.testrunner.ComponentsTestRunner;
+import com.facebook.litho.testing.testrunner.LithoTestRunner;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.RuntimeEnvironment;
 
-@RunWith(ComponentsTestRunner.class)
+@RunWith(LithoTestRunner.class)
 public class GridLayoutInfoTest {
 
   @Test
@@ -384,6 +384,6 @@ public class GridLayoutInfoTest {
   }
 
   private static GridLayoutInfo createGridLayoutInfo(int direction, int spanCount) {
-    return new GridLayoutInfo(RuntimeEnvironment.application, spanCount, direction, false);
+    return new GridLayoutInfo(getApplicationContext(), spanCount, direction, false);
   }
 }

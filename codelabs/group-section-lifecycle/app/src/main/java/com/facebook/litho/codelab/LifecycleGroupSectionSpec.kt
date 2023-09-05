@@ -1,11 +1,11 @@
 /*
- * Copyright 2019-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -36,9 +36,9 @@ import com.facebook.litho.sections.annotations.OnCreateChildren
 import com.facebook.litho.sections.annotations.OnCreateService
 import com.facebook.litho.sections.annotations.OnDataBound
 import com.facebook.litho.sections.annotations.OnDataRendered
-import com.facebook.litho.sections.annotations.OnViewportChanged
 import com.facebook.litho.sections.annotations.OnRefresh
 import com.facebook.litho.sections.annotations.OnUnbindService
+import com.facebook.litho.sections.annotations.OnViewportChanged
 import com.facebook.litho.sections.common.DataDiffSection
 import com.facebook.litho.sections.common.RenderEvent
 import com.facebook.litho.widget.Card
@@ -80,13 +80,13 @@ object LifecycleGroupSectionSpec {
       @State startTime: Long,
       @State scramble: Boolean
   ): Children {
-    val children = Children.create()
-        .child(
-            DataDiffSection.create<Zodiac>(c)
-                .data(if (scramble) zodiacs.toMutableList().shuffled() else zodiacs)
-                .renderEventHandler(LifecycleGroupSection.onRender(c))
-        )
-        .build()
+    val children =
+        Children.create()
+            .child(
+                DataDiffSection.create<Zodiac>(c)
+                    .data(if (scramble) zodiacs.toMutableList().shuffled() else zodiacs)
+                    .renderEventHandler(LifecycleGroupSection.onRender(c)))
+            .build()
     dispatchLifecycleEvent(LifecycleEventType.ON_CREATE_CHILDREN, lifecycleListener, startTime)
     return children
   }
@@ -97,10 +97,7 @@ object LifecycleGroupSectionSpec {
         .component(
             Card.create(c)
                 .content(
-                    Text.create(c)
-                        .text(model.animal)
-                        .textSizeSp(20f)
-                        .paddingDip(YogaEdge.ALL, 8f)))
+                    Text.create(c).text(model.animal).textSizeSp(20f).paddingDip(YogaEdge.ALL, 8f)))
         .build()
   }
 

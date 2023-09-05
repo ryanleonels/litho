@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,15 +21,16 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Constants used in {@link SpecModel}s.
- */
+/** Constants used in {@link SpecModel}s. */
 public interface ClassNames {
   ClassName CLASS = ClassName.bestGuess("java.lang.Class");
   ClassName OBJECT = ClassName.bestGuess("java.lang.Object");
   ClassName STRING = ClassName.bestGuess("java.lang.String");
   ClassName EXCEPTION = ClassName.bestGuess("java.lang.Exception");
   ClassName COMMON_UTILS = ClassName.bestGuess("com.facebook.litho.CommonUtils");
+  ClassName EQUIVALENCE_UTILS =
+      ClassName.bestGuess("com.facebook.rendercore.primitives.utils.EquivalenceUtils");
+  ClassName NULLABLE = ClassName.bestGuess("androidx.annotation.Nullable");
 
   String VIEW_NAME = "android.view.View";
   ClassName VIEW = ClassName.bestGuess(VIEW_NAME);
@@ -57,7 +58,8 @@ public interface ClassNames {
   ClassName COLLECTIONS = ClassName.get(Collections.class);
   ClassName COLLECTION = ClassName.bestGuess("java.util.Collection");
 
-  ClassName MOUNT_CONTENT_POOL = ClassName.bestGuess("com.facebook.litho.MountContentPool");
+  ClassName MOUNT_CONTENT_POOL =
+      ClassName.bestGuess("com.facebook.rendercore.MountItemsPool.ItemPool");
 
   ClassName LAYOUT_SPEC = ClassName.bestGuess("com.facebook.litho.annotations.LayoutSpec");
   ClassName MOUNT_SPEC = ClassName.bestGuess("com.facebook.litho.annotations.MountSpec");
@@ -67,28 +69,29 @@ public interface ClassNames {
   ClassName DIFF = ClassName.bestGuess("com.facebook.litho.Diff");
   ClassName SIZE = ClassName.bestGuess("com.facebook.litho.Size");
 
-  ClassName RESOURCE_RESOLVER = ClassName.bestGuess("com.facebook.litho.ResourceResolver");
+  ClassName RESOURCE_RESOLVER = ClassName.bestGuess("com.facebook.rendercore.ResourceResolver");
 
   ClassName TRANSITION = ClassName.bestGuess("com.facebook.litho.Transition");
 
   ClassName COMPONENT_CONTEXT = ClassName.bestGuess("com.facebook.litho.ComponentContext");
   ClassName COMPONENT_LAYOUT = ClassName.bestGuess("com.facebook.litho.ComponentLayout");
+  ClassName COMPONENT_TREE = ClassName.bestGuess("com.facebook.litho.ComponentTree");
 
   ClassName COMPONENT = ClassName.bestGuess("com.facebook.litho.Component");
+  ClassName SPEC_GENERATED_COMPONENT =
+      ClassName.bestGuess("com.facebook.litho.SpecGeneratedComponent");
   ClassName COMPONENT_BUILDER = ClassName.bestGuess("com.facebook.litho.Component.Builder");
-  ClassName COMPONENT_LIFECYCLE = ClassName.bestGuess("com.facebook.litho.ComponentLifecycle");
-  ClassName COMPONENT_LIFECYCLE_MOUNT_TYPE =
-      ClassName.bestGuess("com.facebook.litho.ComponentLifecycle.MountType");
-  ClassName COMPONENT_LIFECYCLE_MOUNT_TYPE_DRAWABLE =
-      ClassName.bestGuess("com.facebook.litho.ComponentLifecycle.MountType.DRAWABLE");
-  ClassName COMPONENT_LIFECYCLE_MOUNT_TYPE_VIEW =
-      ClassName.bestGuess("com.facebook.litho.ComponentLifecycle.MountType.VIEW");
-  ClassName COMPONENT_LIFECYCLE_MOUNT_TYPE_NONE =
-      ClassName.bestGuess("com.facebook.litho.ComponentLifecycle.MountType.NONE");
+  ClassName COMPONENT_MOUNT_TYPE = ClassName.bestGuess("com.facebook.litho.Component.MountType");
+  ClassName COMPONENT_MOUNT_TYPE_DRAWABLE =
+      ClassName.bestGuess("com.facebook.litho.Component.MountType.DRAWABLE");
+  ClassName COMPONENT_MOUNT_TYPE_VIEW =
+      ClassName.bestGuess("com.facebook.litho.Component.MountType.VIEW");
+  ClassName COMPONENT_MOUNT_TYPE_NONE =
+      ClassName.bestGuess("com.facebook.litho.Component.MountType.NONE");
 
   ClassName TRANSITON = ClassName.bestGuess("com.facebook.litho.Transition");
   ClassName TRANSITION_CONTAINER =
-      ClassName.bestGuess("com.facebook.litho.ComponentLifecycle.TransitionContainer");
+      ClassName.bestGuess("com.facebook.litho.SpecGeneratedComponent.TransitionContainer");
 
   ClassName COMPARABLE_DRAWABLE =
       ClassName.bestGuess("com.facebook.litho.drawable.ComparableDrawable");
@@ -99,14 +102,16 @@ public interface ClassNames {
   ClassName COMPONENT_STATE_UPDATE =
       ClassName.bestGuess("com.facebook.litho.StateContainer.StateUpdate");
   ClassName STATE_CONTAINER = ClassName.bestGuess("com.facebook.litho.StateContainer");
-  ClassName RENDER_DATA = ClassName.bestGuess("com.facebook.litho.ComponentLifecycle.RenderData");
+  ClassName INTER_STAGE_PROPS_CONTAINER =
+      ClassName.bestGuess("com.facebook.litho.InterStagePropsContainer");
+  ClassName PREPARE_INTER_STAGE_PROPS_CONTAINER =
+      ClassName.bestGuess("com.facebook.litho.PrepareInterStagePropsContainer");
+  ClassName RENDER_DATA = ClassName.bestGuess("com.facebook.litho.Component.RenderData");
 
-  ClassName EVENT_DISPATCHER =
-      ClassName.bestGuess("com.facebook.litho.EventDispatcher");
+  ClassName EVENT_DISPATCHER = ClassName.bestGuess("com.facebook.litho.EventDispatcher");
   ClassName HAS_EVENT_DISPATCHER_CLASSNAME =
       ClassName.bestGuess("com.facebook.litho.HasEventDispatcher");
   ClassName EVENT_HANDLER = ClassName.bestGuess("com.facebook.litho.EventHandler");
-  ClassName LIFECYCLE_PHASE = ClassName.bestGuess("com.facebook.litho.LifecyclePhase");
 
   ClassName EVENT_TRIGGER_TARGET = ClassName.bestGuess("com.facebook.litho.EventTriggerTarget");
   ClassName EVENT_TRIGGER = ClassName.bestGuess("com.facebook.litho.EventTrigger");
@@ -116,7 +121,11 @@ public interface ClassNames {
   ClassName FROM_EVENT = ClassName.bestGuess("com.facebook.litho.annotations.FromEvent");
 
   ClassName SECTION = ClassName.bestGuess("com.facebook.litho.sections.Section");
+  ClassName SECTION_CONTEXT = ClassName.bestGuess("com.facebook.litho.sections.SectionContext");
   ClassName SECTION_BUILDER = ClassName.bestGuess("com.facebook.litho.sections.Section.Builder");
+
+  ClassName SURFACE = ClassName.bestGuess("com.facebook.surfaces.Surface");
+  ClassName SURFACE_CONTEXT = ClassName.bestGuess("com.facebook.surfaces.SurfaceContext");
 
   ClassName BASE_MATCHER = ClassName.bestGuess("com.facebook.litho.BaseMatcher");
   ClassName BASE_MATCHER_BUILDER = ClassName.bestGuess("com.facebook.litho.BaseMatcherBuilder");
@@ -127,15 +136,13 @@ public interface ClassNames {
   ClassName ASSERTJ_CONDITION = ClassName.bestGuess("org.assertj.core.api.Condition");
   ClassName ASSERTJ_TEXT_DESCRIPTION =
       ClassName.bestGuess("org.assertj.core.description.TextDescription");
-  ClassName ASSERTJ_JAVA6ASSERTIONS = ClassName.bestGuess("org.assertj.core.api.Java6Assertions");
+  ClassName ASSERTJ_ASSERTIONS = ClassName.bestGuess("org.assertj.core.api.Assertions");
 
   ClassName NON_EXISTENT_CLASS = ClassName.bestGuess("error.NonExistentClass");
 
   ClassName WORKING_RANGE = ClassName.bestGuess("com.facebook.litho.WorkingRange");
 
-  ClassName HOTSWAP_MANAGER = ClassName.bestGuess("com.facebook.litho.HotswapManager");
-  ClassName CLASS_LOADER = ClassName.bestGuess("java.lang.ClassLoader");
-  ClassName JAVA_METHOD = ClassName.bestGuess("java.lang.reflect.Method");
-
   ClassName DYNAMIC_VALUE = ClassName.bestGuess("com.facebook.litho.DynamicValue");
+
+  ClassName HANDLE = ClassName.bestGuess("com.facebook.litho.Handle");
 }

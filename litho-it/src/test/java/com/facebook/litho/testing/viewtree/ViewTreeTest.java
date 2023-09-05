@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,13 +16,13 @@
 
 package com.facebook.litho.testing.viewtree;
 
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import android.app.Activity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
-import com.facebook.litho.testing.testrunner.ComponentsTestRunner;
+import com.facebook.litho.testing.testrunner.LithoTestRunner;
 import com.google.common.base.Function;
 import com.google.common.base.Predicates;
 import javax.annotation.Nullable;
@@ -30,11 +30,11 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
+import org.robolectric.annotation.LooperMode;
 
-/**
- * Tests {@link ViewTree}
- */
-@RunWith(ComponentsTestRunner.class)
+/** Tests {@link ViewTree} */
+@LooperMode(LooperMode.Mode.LEGACY)
+@RunWith(LithoTestRunner.class)
 public class ViewTreeTest {
 
   private ViewGroup mRoot;
@@ -85,34 +85,55 @@ public class ViewTreeTest {
 
   @Test
   public void testRespectShouldGoIntoChildren() throws Exception {
-    assertThat(mTree.findChild(
-        Predicates.<View>equalTo(mGrandchild2),
-        Predicates.not(Predicates.equalTo(mChildLayout))))
+    assertThat(
+            mTree.findChild(
+                Predicates.<View>equalTo(mGrandchild2),
+                Predicates.not(Predicates.equalTo(mChildLayout))))
         .isNull();
   }
 
   @Test
   public void testGenerateString() {
     final String expected =
-        getString(mRoot) + " (" + mRoot.hashCode() + ")\n" +
-            "  " + getString(mChild1) + " (" + mChild1.hashCode() + ")\n" +
-            "  " + getString(mChildLayout) + " (" + mChildLayout.hashCode() + ")\n" +
-            "    " + getString(mGrandchild1) + " (" + mGrandchild1.hashCode() + ")\n" +
-            "    " + getString(mGrandchild2) + " (" + mGrandchild2.hashCode() + ")";
+        getString(mRoot)
+            + " ("
+            + mRoot.hashCode()
+            + ")\n"
+            + "  "
+            + getString(mChild1)
+            + " ("
+            + mChild1.hashCode()
+            + ")\n"
+            + "  "
+            + getString(mChildLayout)
+            + " ("
+            + mChildLayout.hashCode()
+            + ")\n"
+            + "    "
+            + getString(mGrandchild1)
+            + " ("
+            + mGrandchild1.hashCode()
+            + ")\n"
+            + "    "
+            + getString(mGrandchild2)
+            + " ("
+            + mGrandchild2.hashCode()
+            + ")";
 
-    assertThat(mTree.makeString(new Function<View, String>() {
+    assertThat(
+            mTree.makeString(
+                new Function<View, String>() {
 
-      @Override
-      public String apply(@Nullable final View input) {
-        return String.valueOf(input.hashCode());
-      }
-    })).isEqualTo(expected);
+                  @Override
+                  public String apply(@Nullable final View input) {
+                    return String.valueOf(input.hashCode());
+                  }
+                }))
+        .isEqualTo(expected);
   }
 
   private String getString(final View view) {
-    return removePrefix(
-      removePrefix(view.toString(), "android.widget."),
-      "android.view.");
+    return removePrefix(removePrefix(view.toString(), "android.widget."), "android.view.");
   }
 
   private static String removePrefix(final String string, final String prefix) {

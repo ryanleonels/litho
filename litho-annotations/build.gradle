@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,7 +15,12 @@
  */
 
 apply plugin: 'java'
-apply plugin: 'maven-publish'
+// Dokka requires the kotlin plugin to be applied, however
+// since this module has no Kotlin, we make it conditional
+if (isDokkaBuild) {
+  apply plugin: 'kotlin'
+  apply plugin: 'org.jetbrains.dokka'
+}
 
 targetCompatibility = rootProject.targetCompatibilityVersion
 sourceCompatibility = rootProject.sourceCompatibilityVersion
@@ -25,4 +30,4 @@ dependencies {
     compileOnly deps.supportAnnotations
 }
 
-apply from: rootProject.file('gradle/release.gradle')
+apply plugin: "com.vanniktech.maven.publish"

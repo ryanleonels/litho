@@ -1,11 +1,11 @@
 /*
- * Copyright 2019-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.litho.intellij.logging;
 
 import com.facebook.litho.intellij.extensions.EventLogger;
@@ -28,12 +29,11 @@ import java.util.concurrent.Executor;
  * Provides logger to track common user flow events: completion action usage, dialog opening, etc.
  */
 public final class LithoLoggerProvider {
-  private static final EventLogger EVENT_LOGGER = new LithoEventLogger();
 
   private LithoLoggerProvider() {}
 
   public static EventLogger getEventLogger() {
-    return EVENT_LOGGER;
+    return LithoEventLogger.INSTANCE;
   }
 
   static class LithoEventLogger implements EventLogger {
@@ -41,6 +41,7 @@ public final class LithoLoggerProvider {
         ExtensionPointName.create("com.facebook.litho.intellij.eventLogger");
     private final EventLogger[] loggers;
     private final Executor executor;
+    static final EventLogger INSTANCE = new LithoEventLogger();
 
     LithoEventLogger() {
       this(Extensions.getExtensions(EP_NAME));

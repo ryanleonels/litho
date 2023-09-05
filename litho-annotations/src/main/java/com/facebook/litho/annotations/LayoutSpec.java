@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -98,8 +98,16 @@ import java.lang.annotation.RetentionPolicy;
  * @see InjectProp
  * @see State
  * @see Param
- * @see FromCreateLayout
+ * @deprecated Use {@link com.facebook.litho.KComponent}s for new derived components instead of
+ *     {@code LayoutSpec}s. Specs should only be used in Java.
+ *     <p>
+ *     <p>If you're new to Kotlin API, read <a href="https://fblitho.com/docs/kotlin/kotlin-intro/">
+ *     Migrating to the Kotlin API docs</a>.
+ *     <p>If you're familiar with it, you can go straight to <a
+ *     href="https://fblitho.com/docs/kotlin/kotlin-api-cheatsheet/">the APIs matching
+ *     cheatsheet</a>.
  */
+@Deprecated
 @Retention(RetentionPolicy.RUNTIME)
 public @interface LayoutSpec {
 
@@ -107,33 +115,26 @@ public @interface LayoutSpec {
    * Class name of the generated component. When not provided defaults to name of the annotated
    * class sans the "Spec" suffix. E.g. "MyComponentSpec" to "MyComponent".
    *
-   * In order to avoid confusion, this should only be used if you have a very good reason for it.
+   * <p>In order to avoid confusion, this should only be used if you have a very good reason for it.
    * For instance to avoid naming collisions.
    */
   String value() default "";
 
   /**
    * @return Boolean indicating whether the generated class should be public. If not, it will be
-   * package-private.
+   *     package-private.
    */
   boolean isPublic() default true;
 
   /**
-   * @return Boolean indicating Whether the component implements a pure render function. If this is
-   * true and the Component didn't change during an update of the ComponentTree measurements and
-   * LayoutOutputs will be reused instead of being calculated again.
-   */
-  boolean isPureRender() default false;
-
-  /**
    * @return List of event POJOs this component can dispatch. Used to generate event dispatch
-   * methods.
+   *     methods.
    */
   Class<?>[] events() default {};
 
   /**
    * @return List of trigger POJOs this component can dispatch. Used to generate trigger creation
-   * methods.
+   *     methods.
    */
   Class<?>[] triggers() default {};
 

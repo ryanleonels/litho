@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,7 +17,9 @@
 package com.facebook.litho.widget;
 
 import androidx.annotation.Nullable;
+import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.recyclerview.widget.SnapHelper;
 import com.facebook.litho.ThreadUtils;
 
 /**
@@ -34,6 +36,8 @@ public class RecyclerEventsController {
   @Nullable private SectionsRecyclerView mSectionsRecyclerView;
 
   @Nullable private OnRecyclerUpdateListener mOnRecyclerUpdateListener;
+
+  @Nullable private SnapHelper mSnapHelper;
 
   private final Runnable mClearRefreshRunnable =
       new Runnable() {
@@ -74,6 +78,35 @@ public class RecyclerEventsController {
     sectionsRecyclerView.getRecyclerView().scrollToPosition(position);
   }
 
+  /**
+   * Send the Recycler a request to scroll the content to a specific item in the binder with the
+   * given offset from resolved layout start. Animation will not be performed.
+   *
+   * <p>If you are just trying to make a position visible, use {@link #requestScrollToPosition(int,
+   * boolean)}.
+   *
+   * <p>Note: This offset is valid for LinearLayout only!
+   *
+   * @param position Index (starting at 0) of the reference item.
+   * @param offset The distance (in pixels) between the start edge of the item view and start edge
+   *     of the RecyclerView.
+   */
+  public void requestScrollToPositionWithOffset(final int position, final int offset) {
+    SectionsRecyclerView sectionsRecyclerView = mSectionsRecyclerView;
+    if (sectionsRecyclerView == null) {
+      return;
+    }
+
+    RecyclerView.LayoutManager layoutManager =
+        sectionsRecyclerView.getRecyclerView().getLayoutManager();
+    if (!(layoutManager instanceof LinearLayoutManager)) {
+      requestScrollToPosition(position, /* animated */ false);
+      return;
+    }
+
+    ((LinearLayoutManager) layoutManager).scrollToPositionWithOffset(position, offset);
+  }
+
   public void clearRefreshing() {
     SectionsRecyclerView sectionsRecyclerView = mSectionsRecyclerView;
     if (sectionsRecyclerView == null || !sectionsRecyclerView.isRefreshing()) {
@@ -98,7 +131,7 @@ public class RecyclerEventsController {
     sectionsRecyclerView.setRefreshing(true);
   }
 
-  void setSectionsRecyclerView(@Nullable SectionsRecyclerView sectionsRecyclerView) {
+  public void setSectionsRecyclerView(@Nullable SectionsRecyclerView sectionsRecyclerView) {
     mSectionsRecyclerView = sectionsRecyclerView;
 
     if (mOnRecyclerUpdateListener != null) {
@@ -115,5 +148,14 @@ public class RecyclerEventsController {
   public void setOnRecyclerUpdateListener(
       @Nullable OnRecyclerUpdateListener onRecyclerUpdateListener) {
     mOnRecyclerUpdateListener = onRecyclerUpdateListener;
+  }
+
+  // todo make this package private once ExperimentalPrimitiveRecycler is moved to this module
+  public void setSnapHelper(@Nullable SnapHelper snapHelper) {
+    mSnapHelper = snapHelper;
+  }
+
+  public @Nullable SnapHelper getSnapHelper() {
+    return mSnapHelper;
   }
 }

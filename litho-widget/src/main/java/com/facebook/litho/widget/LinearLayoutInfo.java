@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,6 +21,7 @@ import static android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
 import static androidx.recyclerview.widget.OrientationHelper.VERTICAL;
 
 import android.content.Context;
+import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.OrientationHelper;
 import androidx.recyclerview.widget.RecyclerView;
@@ -30,8 +31,8 @@ import com.facebook.litho.SizeSpec;
 import java.util.List;
 
 /**
- * An implementation for {@link LayoutInfo} to implement linear lists with a
- * {@link LinearLayoutManager}.
+ * An implementation for {@link LayoutInfo} to implement linear lists with a {@link
+ * LinearLayoutManager}.
  */
 public class LinearLayoutInfo implements LayoutInfo {
 
@@ -48,8 +49,19 @@ public class LinearLayoutInfo implements LayoutInfo {
     this(context.getAndroidContext(), orientation, reverseLayout);
   }
 
+  public LinearLayoutInfo(
+      ComponentContext context, int orientation, boolean reverseLayout, boolean stackFromEnd) {
+    this(context.getAndroidContext(), orientation, reverseLayout, stackFromEnd);
+  }
+
   public LinearLayoutInfo(Context context, int orientation, boolean reverseLayout) {
-    mLinearLayoutManager = new InternalLinearLayoutManager(context, orientation, reverseLayout);
+    this(context, orientation, reverseLayout, false);
+  }
+
+  public LinearLayoutInfo(
+      Context context, int orientation, boolean reverseLayout, boolean stackFromEnd) {
+    mLinearLayoutManager =
+        new InternalLinearLayoutManager(context, orientation, reverseLayout, stackFromEnd);
     mLinearLayoutManager.setMeasurementCacheEnabled(false);
   }
 
@@ -89,8 +101,13 @@ public class LinearLayoutInfo implements LayoutInfo {
   }
 
   @Override
-  public void setRenderInfoCollection(RenderInfoCollection renderInfoCollection) {
+  public void setRenderInfoCollection(@Nullable RenderInfoCollection renderInfoCollection) {
     // Do nothing
+  }
+
+  @Override
+  public void scrollToPositionWithOffset(int position, int offset) {
+    mLinearLayoutManager.scrollToPositionWithOffset(position, offset);
   }
 
   @Override
@@ -104,12 +121,12 @@ public class LinearLayoutInfo implements LayoutInfo {
 
     switch (mLinearLayoutManager.getOrientation()) {
       case LinearLayoutManager.HORIZONTAL:
-        approximateRange = (int)
-            Math.ceil((float) recyclerMeasuredWidth / (float) firstMeasuredItemWidth);
+        approximateRange =
+            (int) Math.ceil((float) recyclerMeasuredWidth / (float) firstMeasuredItemWidth);
         break;
       default:
-        approximateRange = (int)
-            Math.ceil((float) recyclerMeasuredHeight / (float) firstMeasuredItemHeight);
+        approximateRange =
+            (int) Math.ceil((float) recyclerMeasuredHeight / (float) firstMeasuredItemHeight);
         break;
     }
 
@@ -155,8 +172,10 @@ public class LinearLayoutInfo implements LayoutInfo {
 
   private static class InternalLinearLayoutManager extends LinearLayoutManager {
 
-    InternalLinearLayoutManager(Context context, int orientation, boolean reverseLayout) {
+    InternalLinearLayoutManager(
+        Context context, int orientation, boolean reverseLayout, boolean stackFromEnd) {
       super(context, orientation, reverseLayout);
+      setStackFromEnd(stackFromEnd);
     }
 
     @Override

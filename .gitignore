@@ -6,10 +6,19 @@ docs/_site/
 /buck-out/
 /.buckconfig.local
 /.buckd
+/.lsp.buckd
+/.lsp-buck-out
 /gentest/test.html
-.buckversion
+.buck-java11
+
+.cxx
 .externalNativeBuild
 .gradle
+
+gradle/wrapper/dists/*
+gradle/native/*
+gradle/daemon/*
+gradle/caches/*
 
 # Output files
 build/
@@ -17,5 +26,6 @@ docs/.bundle/
 
 # Android Studio/IntelliJ
 .idea
+.idea/libraries
 *.iml
 local.properties

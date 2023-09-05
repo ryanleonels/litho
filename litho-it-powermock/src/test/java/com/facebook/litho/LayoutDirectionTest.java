@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,6 +18,7 @@ package com.facebook.litho;
 
 import static android.os.Build.VERSION_CODES.LOLLIPOP;
 import static android.view.View.LAYOUT_DIRECTION_RTL;
+import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.facebook.litho.testing.TestViewComponent.create;
 import static com.facebook.litho.testing.helper.ComponentTestHelper.mountComponent;
 import static com.facebook.yoga.YogaDirection.LTR;
@@ -30,30 +31,27 @@ import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.view.View;
 import com.facebook.litho.testing.TestComponent;
-import com.facebook.litho.testing.TestDrawableComponent;
+import com.facebook.litho.testing.inlinelayoutspec.InlineLayoutSpec;
 import com.facebook.litho.testing.shadows.LayoutDirectionViewGroupShadow;
 import com.facebook.litho.testing.shadows.LayoutDirectionViewShadow;
-import com.facebook.litho.testing.testrunner.ComponentsTestRunner;
-import com.facebook.litho.testing.util.InlineLayoutSpec;
+import com.facebook.litho.testing.testrunner.LithoTestRunner;
+import com.facebook.litho.widget.SimpleMountSpecTester;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
 @Config(
     manifest = Config.NONE,
     sdk = LOLLIPOP,
-    shadows = {
-        LayoutDirectionViewShadow.class,
-        LayoutDirectionViewGroupShadow.class})
-@RunWith(ComponentsTestRunner.class)
+    shadows = {LayoutDirectionViewShadow.class, LayoutDirectionViewGroupShadow.class})
+@RunWith(LithoTestRunner.class)
 public class LayoutDirectionTest {
   private ComponentContext mContext;
 
   @Before
   public void setup() {
-    mContext = new ComponentContext(RuntimeEnvironment.application);
+    mContext = new ComponentContext(getApplicationContext());
   }
 
   /**
@@ -62,12 +60,8 @@ public class LayoutDirectionTest {
    */
   @Test
   public void testViewChildrenLayoutDirection() {
-    final TestComponent child1 =
-        create(mContext, true, true, true, false)
-            .build();
-    final TestComponent child2 =
-        create(mContext, true, true, true, false)
-            .build();
+    final TestComponent child1 = create(mContext, true, true, false).build();
+    final TestComponent child2 = create(mContext, true, true, false).build();
 
     final LithoView lithoView =
         mountComponent(
@@ -88,17 +82,11 @@ public class LayoutDirectionTest {
     View view1 = lithoView.getChildAt(0);
     View view2 = lithoView.getChildAt(1);
 
-    assertThat(new Rect(
-        view1.getLeft(),
-        view1.getTop(),
-        view1.getRight(),
-        view1.getBottom())).isEqualTo(new Rect(0, 0, 10, 10));
+    assertThat(new Rect(view1.getLeft(), view1.getTop(), view1.getRight(), view1.getBottom()))
+        .isEqualTo(new Rect(0, 0, 10, 10));
 
-    assertThat(new Rect(
-        view2.getLeft(),
-        view2.getTop(),
-        view2.getRight(),
-        view2.getBottom())).isEqualTo(new Rect(10, 0, 20, 10));
+    assertThat(new Rect(view2.getLeft(), view2.getTop(), view2.getRight(), view2.getBottom()))
+        .isEqualTo(new Rect(10, 0, 20, 10));
 
     mountComponent(
         mContext,
@@ -119,17 +107,11 @@ public class LayoutDirectionTest {
     view1 = lithoView.getChildAt(0);
     view2 = lithoView.getChildAt(1);
 
-    assertThat(new Rect(
-        view1.getLeft(),
-        view1.getTop(),
-        view1.getRight(),
-        view1.getBottom())).isEqualTo(new Rect(10, 0, 20, 10));
+    assertThat(new Rect(view1.getLeft(), view1.getTop(), view1.getRight(), view1.getBottom()))
+        .isEqualTo(new Rect(10, 0, 20, 10));
 
-    assertThat(new Rect(
-        view2.getLeft(),
-        view2.getTop(),
-        view2.getRight(),
-        view2.getBottom())).isEqualTo(new Rect(0, 0, 10, 10));
+    assertThat(new Rect(view2.getLeft(), view2.getTop(), view2.getRight(), view2.getBottom()))
+        .isEqualTo(new Rect(0, 0, 10, 10));
   }
 
   /**
@@ -138,10 +120,8 @@ public class LayoutDirectionTest {
    */
   @Test
   public void testDrawableChildrenLayoutDirection() {
-    final TestComponent child1 = TestDrawableComponent.create(mContext)
-        .build();
-    final TestComponent child2 = TestDrawableComponent.create(mContext)
-        .build();
+    final SimpleMountSpecTester child1 = SimpleMountSpecTester.create(mContext).build();
+    final SimpleMountSpecTester child2 = SimpleMountSpecTester.create(mContext).build();
 
     final LithoView lithoView =
         mountComponent(
@@ -194,10 +174,8 @@ public class LayoutDirectionTest {
    */
   @Test
   public void testInheritLayoutDirection() {
-    final TestComponent child1 = TestDrawableComponent.create(mContext)
-        .build();
-    final TestComponent child2 = TestDrawableComponent.create(mContext)
-        .build();
+    final SimpleMountSpecTester child1 = SimpleMountSpecTester.create(mContext).build();
+    final SimpleMountSpecTester child2 = SimpleMountSpecTester.create(mContext).build();
 
     final LithoView lithoView =
         mountComponent(
@@ -232,10 +210,8 @@ public class LayoutDirectionTest {
    */
   @Test
   public void testNestedComponentWithDifferentLayoutDirection() {
-    final TestComponent child1 = TestDrawableComponent.create(mContext)
-        .build();
-    final TestComponent child2 = TestDrawableComponent.create(mContext)
-        .build();
+    final SimpleMountSpecTester child1 = SimpleMountSpecTester.create(mContext).build();
+    final SimpleMountSpecTester child2 = SimpleMountSpecTester.create(mContext).build();
 
     final LithoView lithoView =
         mountComponent(
@@ -271,8 +247,7 @@ public class LayoutDirectionTest {
    */
   @Test
   public void testMargin() {
-    final TestComponent child = TestDrawableComponent.create(mContext)
-        .build();
+    final SimpleMountSpecTester child = SimpleMountSpecTester.create(mContext).build();
 
     final LithoView lithoView =
         mountComponent(
@@ -329,8 +304,7 @@ public class LayoutDirectionTest {
    */
   @Test
   public void testPadding() {
-    final TestComponent child = TestDrawableComponent.create(mContext)
-        .build();
+    final SimpleMountSpecTester child = SimpleMountSpecTester.create(mContext).build();
 
     final LithoView lithoView =
         mountComponent(
@@ -379,8 +353,7 @@ public class LayoutDirectionTest {
    */
   @Test
   public void testLayoutDirectionPropagation() {
-    final TestComponent child = create(mContext)
-        .build();
+    final TestComponent child = create(mContext).build();
 
     LithoView lithoView =
         mountComponent(

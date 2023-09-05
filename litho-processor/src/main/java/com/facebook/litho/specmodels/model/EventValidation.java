@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -29,22 +29,38 @@ import com.facebook.litho.specmodels.internal.ImmutableList;
 import com.facebook.litho.specmodels.internal.RunMode;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.TypeName;
+import com.squareup.javapoet.TypeVariableName;
+import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import javax.annotation.Nullable;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.type.MirroredTypeException;
 
 /**
- * Class for validating that the event declarations and event methods within a {@link SpecModel}
- * are well-formed.
+ * Class for validating that the event declarations and event methods within a {@link SpecModel} are
+ * well-formed.
  */
 public class EventValidation {
+  private static final List<Class<? extends Annotation>> sDefaultPermittedAnnotations =
+      ImmutableList.of(
+          FromEvent.class,
+          Prop.class,
+          InjectProp.class,
+          TreeProp.class,
+          CachedValue.class,
+          State.class,
+          Param.class);
 
-  static List<SpecModelValidationError> validate(SpecModel specModel, EnumSet<RunMode> runMode) {
+  static List<SpecModelValidationError> validate(
+      SpecModel specModel,
+      EnumSet<RunMode> runMode,
+      @Nullable List<Class<? extends Annotation>> extraPermittedEventParamAnnotations) {
     List<SpecModelValidationError> validationErrors = new ArrayList<>();
     validationErrors.addAll(validateEventDeclarations(specModel));
-    validationErrors.addAll(validateOnEventMethods(specModel, runMode));
+    validationErrors.addAll(
+        validateOnEventMethods(specModel, runMode, extraPermittedEventParamAnnotations));
 
     return validationErrors;
   }
@@ -61,9 +77,9 @@ public class EventValidation {
       }
 
       for (FieldModel fieldModel : eventDeclaration.fields) {
-        if (!fieldModel.field.modifiers.contains(Modifier.PUBLIC) ||
-                (fieldModel.field.modifiers.contains(Modifier.FINAL)
-                        && !fieldModel.field.modifiers.contains(Modifier.STATIC))) {
+        if (!fieldModel.field.modifiers.contains(Modifier.PUBLIC)
+            || (fieldModel.field.modifiers.contains(Modifier.FINAL)
+                && !fieldModel.field.modifiers.contains(Modifier.STATIC))) {
           validationErrors.add(
               new SpecModelValidationError(
                   fieldModel.representedObject,
@@ -76,7 +92,9 @@ public class EventValidation {
   }
 
   static List<SpecModelValidationError> validateOnEventMethods(
-      SpecModel specModel, EnumSet<RunMode> runMode) {
+      SpecModel specModel,
+      EnumSet<RunMode> runMode,
+      @Nullable List<Class<? extends Annotation>> extraPermittedEventParamAnnotations) {
     final List<SpecModelValidationError> validationErrors = new ArrayList<>();
 
     final ImmutableList<SpecMethodModel<EventMethod, EventDeclarationModel>> eventMethods =
@@ -88,8 +106,10 @@ public class EventValidation {
           validationErrors.add(
               new SpecModelValidationError(
                   eventMethods.get(i).representedObject,
-                  "Two methods annotated with @OnEvent should not have the same name " +
-                      "(" + eventMethods.get(i).name + ")."));
+                  "Two methods annotated with @OnEvent should not have the same name "
+                      + "("
+                      + eventMethods.get(i).name
+                      + ")."));
         }
       }
     }
@@ -135,12 +155,24 @@ public class EventValidation {
                         + "."));
           }
 
-          if (!hasPermittedAnnotation(methodParam)) {
+          if (!hasPermittedAnnotation(methodParam, extraPermittedEventParamAnnotations)) {
+            String errorMessage =
+                "Param must be annotated with one of @FromEvent, @Prop, @InjectProp, "
+                    + "@TreeProp, @CachedValue, @State";
+
+            if (extraPermittedEventParamAnnotations != null
+                && !extraPermittedEventParamAnnotations.isEmpty()) {
+              errorMessage += ", @Param";
+              for (Class<? extends Annotation> extraPermittedAnnotation :
+                  extraPermittedEventParamAnnotations) {
+                errorMessage += ", @" + extraPermittedAnnotation.getSimpleName();
+              }
+            } else {
+              errorMessage += " or @Param.";
+            }
+
             validationErrors.add(
-                new SpecModelValidationError(
-                    methodParam.getRepresentedObject(),
-                    "Param must be annotated with one of @FromEvent, @Prop, @InjectProp, "
-                        + "@TreeProp, @CachedValue, @State or @Param."));
+                new SpecModelValidationError(methodParam.getRepresentedObject(), errorMessage));
           }
         }
       }
@@ -149,14 +181,24 @@ public class EventValidation {
     return validationErrors;
   }
 
-  private static boolean hasPermittedAnnotation(MethodParamModel methodParam) {
-    return MethodParamModelUtils.isAnnotatedWith(methodParam, FromEvent.class)
-        || MethodParamModelUtils.isAnnotatedWith(methodParam, Prop.class)
-        || MethodParamModelUtils.isAnnotatedWith(methodParam, InjectProp.class)
-        || MethodParamModelUtils.isAnnotatedWith(methodParam, TreeProp.class)
-        || MethodParamModelUtils.isAnnotatedWith(methodParam, CachedValue.class)
-        || MethodParamModelUtils.isAnnotatedWith(methodParam, State.class)
-        || MethodParamModelUtils.isAnnotatedWith(methodParam, Param.class);
+  private static boolean hasPermittedAnnotation(
+      MethodParamModel methodParam,
+      @Nullable List<Class<? extends Annotation>> extraPermittedEventParamAnnotations) {
+    for (Class<? extends Annotation> annotation : sDefaultPermittedAnnotations) {
+      if (MethodParamModelUtils.isAnnotatedWith(methodParam, annotation)) {
+        return true;
+      }
+    }
+
+    if (extraPermittedEventParamAnnotations != null) {
+      for (Class<? extends Annotation> annotation : extraPermittedEventParamAnnotations) {
+        if (MethodParamModelUtils.isAnnotatedWith(methodParam, annotation)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 
   private static boolean hasMatchingField(
@@ -181,6 +223,10 @@ public class EventValidation {
       baseClassType = ClassName.get(fromEvent.baseClass());
     } catch (MirroredTypeException mte) {
       baseClassType = ClassName.get(mte.getTypeMirror());
+    }
+
+    if (eventFieldType instanceof TypeVariableName) {
+      eventFieldType = ClassNames.OBJECT;
     }
     return baseClassType.equals(eventFieldType);
   }

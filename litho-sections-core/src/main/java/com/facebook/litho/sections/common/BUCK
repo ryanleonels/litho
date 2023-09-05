@@ -3,12 +3,28 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-load("//tools/build_defs/oss:litho_defs.bzl", "LITHO_ANDROIDSUPPORT_RECYCLERVIEW_TARGET", "LITHO_ANDROIDSUPPORT_TARGET", "LITHO_JAVA_TARGET", "LITHO_SECTIONS_ANNOTATIONS_TARGET", "LITHO_SECTIONS_CONFIG_TARGET", "LITHO_SECTIONS_PROCESSOR_TARGET", "LITHO_SECTIONS_TARGET", "LITHO_UTILS_TARGET", "LITHO_WIDGET_TARGET", "litho_android_library")
+load("@fbsource//xplat/pfh/FBApp_UIFrameworks_Litho_Litho:DEFS.bzl", "FBApp_UIFrameworks_Litho_Litho")
+load(
+    "//tools/build_defs/oss:litho_defs.bzl",
+    "LITHO_ANDROIDSUPPORT_RECYCLERVIEW_TARGET",
+    "LITHO_ANDROIDSUPPORT_TARGET",
+    "LITHO_JAVA_TARGET",
+    "LITHO_PERF_LOGGER",
+    "LITHO_SECTIONS_ANNOTATIONS_TARGET",
+    "LITHO_SECTIONS_CONFIG_TARGET",
+    "LITHO_SECTIONS_PROCESSOR_TARGET",
+    "LITHO_SECTIONS_TARGET",
+    "LITHO_UTILS_TARGET",
+    "LITHO_WIDGET_TARGET",
+    "litho_android_library",
+    "make_dep_path",
+)
 
 litho_android_library(
     name = "common",
-    srcs = glob(["*.java"]),
-    is_androidx = True,
+    feature = FBApp_UIFrameworks_Litho_Litho,
+    labels = [],
+    language = "JAVA",
     plugins = [
         LITHO_SECTIONS_PROCESSOR_TARGET,
     ],
@@ -16,16 +32,20 @@ litho_android_library(
         LITHO_SECTIONS_ANNOTATIONS_TARGET,
     ],
     required_for_source_only_abi = True,
+    tests = [
+        make_dep_path("litho-it/src/test/java/com/facebook/litho:litho"),
+    ],
     visibility = [
         "PUBLIC",
     ],
     deps = [
-        LITHO_JAVA_TARGET,
-        LITHO_UTILS_TARGET,
-        LITHO_SECTIONS_TARGET,
-        LITHO_SECTIONS_CONFIG_TARGET,
-        LITHO_ANDROIDSUPPORT_TARGET,
-        LITHO_WIDGET_TARGET,
         LITHO_ANDROIDSUPPORT_RECYCLERVIEW_TARGET,
+        LITHO_ANDROIDSUPPORT_TARGET,
+        LITHO_JAVA_TARGET,
+        LITHO_SECTIONS_CONFIG_TARGET,
+        LITHO_SECTIONS_TARGET,
+        LITHO_PERF_LOGGER,
+        LITHO_UTILS_TARGET,
+        LITHO_WIDGET_TARGET,
     ],
 )

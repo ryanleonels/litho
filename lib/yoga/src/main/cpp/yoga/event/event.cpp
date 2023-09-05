@@ -1,16 +1,38 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
- * This source code is licensed under the MIT license found in the LICENSE
- * file in the root directory of this source tree.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #include "event.h"
 #include <atomic>
 #include <memory>
-#include <stdexcept>
 
-namespace facebook {
-namespace yoga {
+namespace facebook::yoga {
+
+const char* LayoutPassReasonToString(const LayoutPassReason value) {
+  switch (value) {
+    case LayoutPassReason::kInitial:
+      return "initial";
+    case LayoutPassReason::kAbsLayout:
+      return "abs_layout";
+    case LayoutPassReason::kStretch:
+      return "stretch";
+    case LayoutPassReason::kMultilineStretch:
+      return "multiline_stretch";
+    case LayoutPassReason::kFlexLayout:
+      return "flex_layout";
+    case LayoutPassReason::kMeasureChild:
+      return "measure";
+    case LayoutPassReason::kAbsMeasureChild:
+      return "abs_measure";
+    case LayoutPassReason::kFlexMeasure:
+      return "flex_measure";
+    default:
+      return "unknown";
+  }
+}
 
 namespace {
 
@@ -51,7 +73,10 @@ void Event::subscribe(std::function<Subscriber>&& subscriber) {
   push(new Node{std::move(subscriber)});
 }
 
-void Event::publish(const YGNode& node, Type eventType, const Data& eventData) {
+void Event::publish(
+    YGNodeConstRef node,
+    Type eventType,
+    const Data& eventData) {
   for (auto subscriber = subscribers.load(std::memory_order_relaxed);
        subscriber != nullptr;
        subscriber = subscriber->next) {
@@ -59,5 +84,4 @@ void Event::publish(const YGNode& node, Type eventType, const Data& eventData) {
   }
 }
 
-} // namespace yoga
-} // namespace facebook
+} // namespace facebook::yoga

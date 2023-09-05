@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +16,7 @@
 
 package com.facebook.litho.specmodels.processor;
 
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 import com.facebook.litho.Component;
@@ -29,10 +29,8 @@ import com.facebook.litho.annotations.OnDetached;
 import com.facebook.litho.annotations.Prop;
 import com.facebook.litho.annotations.State;
 import com.facebook.litho.specmodels.internal.RunMode;
-import com.facebook.litho.specmodels.model.DelegateMethod;
 import com.facebook.litho.specmodels.model.DependencyInjectionHelper;
 import com.facebook.litho.specmodels.model.LayoutSpecModel;
-import com.facebook.litho.specmodels.model.SpecMethodModel;
 import com.google.testing.compile.CompilationRule;
 import javax.annotation.processing.Messager;
 import javax.lang.model.element.TypeElement;
@@ -79,34 +77,23 @@ public class LayoutSpecModelFactoryTest {
   }
 
   @Test
-  public void testCreate() {
-    assertThat(mLayoutSpecModel.getSpecName()).isEqualTo("TestLayoutSpec");
-    assertThat(mLayoutSpecModel.getComponentName()).isEqualTo("TestLayoutComponentName");
+  public void create_forLayoutSpec_populateGenericSpecInfo() {
+    // can't move to helper, because PsiLayoutSpecModelFactoryTest doesn't support qualified names
     assertThat(mLayoutSpecModel.getSpecTypeName().toString()).isEqualTo(TEST_QUALIFIED_SPEC_NAME);
     assertThat(mLayoutSpecModel.getComponentTypeName().toString())
         .isEqualTo(TEST_QUALIFIED_COMPONENT_NAME);
-    assertThat(mLayoutSpecModel.getDelegateMethods()).hasSize(4);
-    assertThat(mLayoutSpecModel.getProps()).hasSize(4);
-    assertThat(mLayoutSpecModel.getStateValues()).hasSize(2);
-    assertThat(mLayoutSpecModel.hasInjectedDependencies()).isTrue();
-    assertThat(mLayoutSpecModel.getDependencyInjectionHelper())
-        .isSameAs(mDependencyInjectionHelper);
+    LayoutSpecModelFactoryTestHelper.create_forLayoutSpec_populateGenericSpecInfo(
+        mLayoutSpecModel, mDependencyInjectionHelper);
   }
 
   @Test
-  public void testOnAttached() {
-    final SpecMethodModel<DelegateMethod, Void> onAttached =
-        mLayoutSpecModel.getDelegateMethods().get(2);
-    assertThat(onAttached.name).isEqualToIgnoringCase("onAttached");
-    assertThat(onAttached.methodParams).hasSize(3);
+  public void create_forLayoutSpec_populateOnAttachInfo() {
+    LayoutSpecModelFactoryTestHelper.create_forLayoutSpec_populateOnAttachInfo(mLayoutSpecModel);
   }
 
   @Test
-  public void testOnDetached() {
-    final SpecMethodModel<DelegateMethod, Void> onDetached =
-        mLayoutSpecModel.getDelegateMethods().get(3);
-    assertThat(onDetached.name).isEqualToIgnoringCase("onDetached");
-    assertThat(onDetached.methodParams).hasSize(3);
+  public void create_forLayoutSpec_populateOnDetachInfo() {
+    LayoutSpecModelFactoryTestHelper.create_forLayoutSpec_populateOnDetachInfo(mLayoutSpecModel);
   }
 
   @LayoutSpec(value = "TestLayoutComponentName")

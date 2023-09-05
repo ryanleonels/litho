@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,11 +16,19 @@
 
 package com.facebook.litho.sections;
 
+import static com.facebook.litho.sections.SectionContext.NO_SCOPE_EVENT_HANDLER;
+
 import androidx.annotation.Nullable;
+import com.facebook.litho.ComponentUtils;
+import com.facebook.litho.ComponentsReporter;
+import com.facebook.litho.EventDispatchInfo;
 import com.facebook.litho.EventDispatcher;
 import com.facebook.litho.EventHandler;
 import com.facebook.litho.EventTrigger;
 import com.facebook.litho.EventTriggerTarget;
+import com.facebook.litho.EventTriggersContainer;
+import com.facebook.litho.Handle;
+import com.facebook.litho.NoOpEventHandler;
 import com.facebook.litho.StateContainer;
 import com.facebook.litho.TreeProps;
 import com.facebook.litho.annotations.OnCreateTreeProp;
@@ -32,7 +40,8 @@ import com.facebook.litho.sections.annotations.OnDiff;
 import com.facebook.litho.widget.SmoothScrollAlignmentType;
 
 public abstract class SectionLifecycle implements EventDispatcher, EventTriggerTarget {
-
+  static final String WRONG_CONTEXT_FOR_EVENT_HANDLER =
+      "SectionLifecycle:WrongContextForEventHandler";
   /**
    * This methods will delegate to the {@link GroupSectionSpec} method annotated with {@link
    * com.facebook.litho.sections.annotations.OnCreateChildren}
@@ -43,22 +52,20 @@ public abstract class SectionLifecycle implements EventDispatcher, EventTriggerT
   }
 
   /**
-   * This method will delegate to the {@link DiffSectionSpec}
-   * method annotated with {@link OnDiff}
+   * This method will delegate to the {@link DiffSectionSpec} method annotated with {@link OnDiff}
    */
   protected void generateChangeSet(
       SectionContext c,
       ChangeSet changeSet,
+      SectionContext previousContext,
       Section previous,
-      Section next) {
-  }
+      SectionContext nextContext,
+      Section next) {}
 
   /**
    * This method will delegate to the {@link Section}Spec method annotated with {@link OnDataBound}
    */
-  protected void dataBound(SectionContext c) {
-
-  }
+  protected void dataBound(SectionContext c) {}
 
   /**
    * This method will delegate to the {@link Section}Spec method annotated with {@link
@@ -71,34 +78,53 @@ public abstract class SectionLifecycle implements EventDispatcher, EventTriggerT
       long uptimeMillis,
       int firstVisibleIndex,
       int lastVisibleIndex,
-      ChangesInfo changesInfo) {}
+      ChangesInfo changesInfo,
+      int globalOffset) {}
 
-  protected void bindService(SectionContext c) {
+  protected void bindService(SectionContext c) {}
 
-  }
+  protected void unbindService(SectionContext c) {}
 
-  protected void unbindService(SectionContext c) {
+  protected void createInitialState(SectionContext c) {}
 
-  }
-
-  protected void createInitialState(SectionContext c) {
-
-  }
-
-  protected void createService(SectionContext c) {
-
-  }
+  protected void createService(SectionContext c) {}
 
   @Nullable
   @Override
-  public Object dispatchOnEvent(EventHandler eventHandler, Object eventState) {
+  public final Object dispatchOnEvent(EventHandler eventHandler, Object eventState) {
+    try {
+      return dispatchOnEventImpl(eventHandler, eventState);
+    } catch (Exception e) {
+      if (eventHandler.dispatchInfo.componentContext != null) {
+        throw ComponentUtils.wrapWithMetadata(eventHandler.dispatchInfo.componentContext, e);
+      } else {
+        throw e;
+      }
+    }
+  }
+
+  protected @Nullable Object dispatchOnEventImpl(EventHandler eventHandler, Object eventState) {
     // Do nothing by default.
     return null;
   }
 
   @Override
   @Nullable
-  public Object acceptTriggerEvent(EventTrigger eventTrigger, Object eventState, Object[] params) {
+  public final Object acceptTriggerEvent(
+      EventTrigger eventTrigger, Object eventState, Object[] params) {
+    try {
+      return acceptTriggerEventImpl(eventTrigger, eventState, params);
+    } catch (Exception e) {
+      if (eventTrigger.mComponentContext != null) {
+        throw ComponentUtils.wrapWithMetadata(eventTrigger.mComponentContext, e);
+      } else {
+        throw e;
+      }
+    }
+  }
+
+  protected @Nullable Object acceptTriggerEventImpl(
+      EventTrigger eventTrigger, Object eventState, Object[] params) {
     // Do nothing by default
     return null;
   }
@@ -109,30 +135,20 @@ public abstract class SectionLifecycle implements EventDispatcher, EventTriggerT
       int lastVisibleItem,
       int totalItemsCount,
       int firstFullyVisibleItem,
-      int lastFullyVisibleItem) {
+      int lastFullyVisibleItem) {}
 
-  }
-
-  protected void refresh(SectionContext sectionContext) {
-
-  }
+  protected void refresh(SectionContext sectionContext) {}
 
   /**
    * Call this to transfer the {@link com.facebook.litho.annotations.State} annotated values between
    * two {@link Section} with the same global scope.
    */
   protected void transferState(
-      StateContainer previousStateContainer, StateContainer nextStateContainer) {}
+      @Nullable StateContainer previousStateContainer,
+      @Nullable StateContainer nextStateContainer) {}
 
-  /**
-   * Call this to transfer the Services between two
-   * {@link Section} with the same global scope.
-   */
-  protected void transferService(
-      SectionContext c,
-      Section oldSection,
-      Section newSection) {
-  }
+  /** Call this to transfer the Services between two {@link Section} with the same global scope. */
+  protected void transferService(SectionContext c, Section oldSection, Section newSection) {}
 
   @Nullable
   protected Object getService(Section section) {
@@ -153,11 +169,31 @@ public abstract class SectionLifecycle implements EventDispatcher, EventTriggerT
       dirty |= next.isInvalidated();
     }
 
-    return dirty || shouldUpdate(previous, next);
+    final SectionContext prevScopedContext = previous == null ? null : previous.getScopedContext();
+    final SectionContext nextScopedContext = next == null ? null : next.getScopedContext();
+
+    return dirty || shouldUpdate(prevScopedContext, previous, nextScopedContext, next);
   }
 
-  protected boolean shouldUpdate(Section previous, Section next) {
-    return !(previous == next || (previous != null && previous.isEquivalentTo(next)));
+  protected boolean shouldUpdate(
+      SectionContext previousScopedContext,
+      Section previous,
+      SectionContext nextScopedContext,
+      Section next) {
+
+    if (previous == next) {
+      return false;
+    }
+
+    if (previous != null) {
+      final StateContainer prevStateContainer =
+          previous == null ? null : previous.getStateContainer();
+      final StateContainer nextStateContainer = next == null ? null : next.getStateContainer();
+      return !previous.isEquivalentTo(next)
+          || !ComponentUtils.hasEquivalentState(prevStateContainer, nextStateContainer);
+    }
+
+    return true;
   }
 
   /**
@@ -168,28 +204,59 @@ public abstract class SectionLifecycle implements EventDispatcher, EventTriggerT
     return false;
   }
 
-  protected static <E> EventHandler<E> newEventHandler(
-      SectionContext c,
-      int id,
-      Object[] params) {
-    final EventHandler eventHandler = c.newEventHandler(id, params);
-    recordEventHandler(c.getSectionScope(), eventHandler);
-
-    return eventHandler;
+  @Nullable
+  protected String verifyChangeSet(SectionContext context) {
+    return null;
   }
 
   protected static <E> EventHandler<E> newEventHandler(
-      Section c,
-      int id,
-      Object[] params) {
-    final EventHandler eventHandler = new EventHandler<E>(c, id, params);
-    recordEventHandler(c, eventHandler);
-
+      final Class<? extends Section> reference,
+      final String className,
+      final SectionContext c,
+      final int id,
+      final Object[] params) {
+    Section section;
+    if (c == null || (section = c.getSectionScope()) == null) {
+      ComponentsReporter.emitMessage(
+          ComponentsReporter.LogLevel.FATAL,
+          NO_SCOPE_EVENT_HANDLER,
+          "Creating event handler without scope.");
+      return NoOpEventHandler.getNoOpEventHandler();
+    } else if (reference != section.getClass()) {
+      ComponentsReporter.emitMessage(
+          ComponentsReporter.LogLevel.ERROR,
+          WRONG_CONTEXT_FOR_EVENT_HANDLER + ":" + section.getSimpleName(),
+          String.format(
+              "A Event handler from %s was created using a context from %s. "
+                  + "Event Handlers must be created using a SectionContext from its Section.",
+              className, section.getSimpleName()));
+    }
+    final EventHandler eventHandler =
+        new EventHandler<>(id, new EventDispatchInfo(section, c), params);
+    final ChangeSetCalculationState calculationState = c.getChangeSetCalculationState();
+    if (calculationState != null && calculationState.isActive()) {
+      calculationState.recordEventHandler(c.getGlobalKey(), eventHandler);
+    }
     return eventHandler;
   }
 
-  protected static <E> EventTrigger<E> newEventTrigger(SectionContext c, String childKey, int id) {
-    return c.newEventTrigger(childKey, id);
+  /**
+   * This variant is used to create an EventTrigger used to register this component as a target in
+   * {@link EventTriggersContainer}
+   */
+  protected static <E> EventTrigger<E> newEventTrigger(
+      SectionContext c, Section section, int methodId) {
+    return c.newEventTrigger(methodId, section.getKey(), section.getHandle());
+  }
+
+  /**
+   * This is used to create a Trigger to be invoked later, e.g. in the context of the deprecated
+   * trigger API TextInput.requestFocusTrigger(c, "my_key").
+   */
+  @Deprecated
+  protected static <E> EventTrigger<E> newEventTrigger(
+      SectionContext c, String childKey, int methodId) {
+    return c.newEventTrigger(methodId, childKey, null);
   }
 
   @Nullable
@@ -208,23 +275,30 @@ public abstract class SectionLifecycle implements EventDispatcher, EventTriggerT
     return trigger;
   }
 
-  private static void recordEventHandler(Section section, EventHandler eventHandler) {
-    section.getScopedContext().getSectionTree().recordEventHandler(section, eventHandler);
+  @Nullable
+  protected static EventTrigger getEventTrigger(SectionContext c, int id, Handle handle) {
+    if (c.getSectionScope() == null) {
+      return null;
+    }
+
+    EventTrigger trigger = c.getSectionTree().getEventTrigger(handle, id);
+
+    if (trigger == null) {
+      return null;
+    }
+
+    return trigger;
   }
 
   /**
-   * Retrieves all of the tree props used by this Section from the TreeProps map
-   * and sets the tree props as fields on the ComponentImpl.
+   * Retrieves all of the tree props used by this Section from the TreeProps map and sets the tree
+   * props as fields on the ComponentImpl.
    */
-  protected void populateTreeProps(TreeProps parentTreeProps) {
-  }
+  protected void populateTreeProps(@Nullable TreeProps parentTreeProps) {}
 
-  /**
-   * Updates the TreeProps map with outputs from all {@link OnCreateTreeProp} methods.
-   */
+  /** Updates the TreeProps map with outputs from all {@link OnCreateTreeProp} methods. */
   protected TreeProps getTreePropsForChildren(
-      SectionContext c,
-      TreeProps previousTreeProps) {
+      SectionContext c, @Nullable TreeProps previousTreeProps) {
     return previousTreeProps;
   }
 

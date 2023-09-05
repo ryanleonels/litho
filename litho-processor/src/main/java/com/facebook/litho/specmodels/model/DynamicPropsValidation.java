@@ -1,11 +1,11 @@
 /*
- * Copyright 2019-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,11 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.litho.specmodels.model;
 
 import com.facebook.litho.annotations.OnBindDynamicValue;
 import com.facebook.litho.annotations.OnCreateMountContent;
 import com.facebook.litho.annotations.Prop;
+import com.google.common.collect.ImmutableList;
 import com.squareup.javapoet.TypeName;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
@@ -31,15 +33,32 @@ import javax.lang.model.element.TypeElement;
 class DynamicPropsValidation {
 
   static List<SpecModelValidationError> validate(SpecModel specModel) {
+
+    // Do not run validations for Test Specs since
+    // the validation will run for the enclosed spec
+    if (specModel instanceof HasEnclosedSpecModel
+        && specModel.getClass().getSimpleName().equals("TestSpecModel")) {
+      return ImmutableList.of();
+    }
+
     if (!(specModel instanceof MountSpecModel)) {
       return validateHasNoDynamicProps(specModel);
     }
 
     final List<SpecModelValidationError> validationErrors = new ArrayList<>();
 
-    final TypeName mountType =
-        SpecModelUtils.getMethodModelWithAnnotation(specModel, OnCreateMountContent.class)
-            .returnType;
+    final SpecMethodModel method =
+        SpecModelUtils.getMethodModelWithAnnotation(specModel, OnCreateMountContent.class);
+    if (method == null) {
+      validationErrors.add(
+          new SpecModelValidationError(
+              specModel.getRepresentedObject(),
+              specModel.getSpecName()
+                  + " does not define @OnCreateMountContent method which is required for all @MountSpecs."));
+      return validationErrors;
+    }
+
+    final TypeName mountType = method.returnType;
 
     final Map<String, List<SpecMethodModel<BindDynamicValueMethod, Void>>> propToMethodMap =
         new HashMap<>();
@@ -91,7 +110,8 @@ class DynamicPropsValidation {
               specModel.getSpecName()
                   + " declares dynamic props "
                   + dynamicProp.getName()
-                  + " (only MountSpecs support dynamic props)."));
+                  + " (only MountSpecs support dynamic props). spec: "
+                  + specModel.getClass().getName()));
     }
 
     if (specModel.getRepresentedObject() instanceof TypeElement) {

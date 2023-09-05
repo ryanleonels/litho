@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,46 +16,60 @@
 
 package com.facebook.litho.sections.widget;
 
+import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
+import static com.facebook.litho.LifecycleStep.getSteps;
+import static com.facebook.litho.SizeSpec.makeSizeSpec;
 import static com.facebook.litho.sections.widget.RecyclerCollectionComponentSpec.LoadingState.EMPTY;
 import static com.facebook.litho.sections.widget.RecyclerCollectionComponentSpec.LoadingState.ERROR;
 import static com.facebook.litho.sections.widget.RecyclerCollectionComponentSpec.LoadingState.LOADED;
 import static com.facebook.litho.sections.widget.RecyclerCollectionComponentSpec.LoadingState.LOADING;
-import static com.facebook.litho.testing.assertj.ComponentConditions.textEquals;
-import static com.facebook.litho.testing.assertj.LithoAssertions.assertThat;
-import static com.facebook.litho.testing.assertj.LithoViewSubComponentDeepExtractor.deepSubComponentWith;
-import static com.facebook.litho.widget.SnapUtil.SNAP_NONE;
-import static org.assertj.core.condition.AnyOf.anyOf;
+import static com.facebook.litho.testing.MeasureSpecTestingUtilsKt.exactly;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.core.Is.is;
 import static org.junit.Assume.assumeThat;
 
+import android.text.TextUtils;
+import android.view.View;
+import android.view.ViewGroup;
+import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import com.facebook.litho.Component;
 import com.facebook.litho.ComponentContext;
+import com.facebook.litho.ComponentTree;
+import com.facebook.litho.LifecycleStep;
 import com.facebook.litho.LithoView;
+import com.facebook.litho.Row;
+import com.facebook.litho.SizeSpec;
 import com.facebook.litho.config.ComponentsConfiguration;
 import com.facebook.litho.sections.SectionContext;
 import com.facebook.litho.sections.common.SingleComponentSection;
-import com.facebook.litho.testing.ComponentsRule;
-import com.facebook.litho.testing.helper.ComponentTestHelper;
+import com.facebook.litho.testing.LegacyLithoViewRule;
+import com.facebook.litho.testing.inlinelayoutspec.InlineLayoutSpec;
 import com.facebook.litho.testing.state.StateUpdatesTestHelper;
-import com.facebook.litho.testing.testrunner.ComponentsTestRunner;
-import com.facebook.litho.testing.util.InlineLayoutSpec;
+import com.facebook.litho.testing.testrunner.LithoTestRunner;
 import com.facebook.litho.testing.viewtree.ViewTree;
 import com.facebook.litho.testing.viewtree.ViewTreeAssert;
+import com.facebook.litho.widget.LayoutSpecWorkingRangeTester;
+import com.facebook.litho.widget.MountSpecWorkingRangeTester;
+import com.facebook.litho.widget.SnapUtil;
 import com.facebook.litho.widget.Text;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.RuntimeEnvironment;
+import org.robolectric.annotation.LooperMode;
 
-/**
- * Tests {@link RecyclerCollectionComponentSpec}
- */
-@RunWith(ComponentsTestRunner.class)
+/** Tests {@link RecyclerCollectionComponentSpec} */
+@LooperMode(LooperMode.Mode.LEGACY)
+@RunWith(LithoTestRunner.class)
 public class RecyclerCollectionComponentSpecTest {
 
-  @Rule public ComponentsRule componentsRule = new ComponentsRule();
+  private final ComponentsConfiguration config =
+      ComponentsConfiguration.create().shouldAddHostViewForRootComponent(true).build();
+
+  @Rule public final LegacyLithoViewRule mLegacyLithoViewRule = new LegacyLithoViewRule(config);
 
   private ComponentContext mComponentContext;
   private Component mLoadingComponent;
@@ -66,13 +80,15 @@ public class RecyclerCollectionComponentSpecTest {
 
   @Before
   public void assumeDebug() {
-    assumeThat("These tests can only be run in debug mode.",
-        ComponentsConfiguration.IS_INTERNAL_BUILD, is(true));
+    assumeThat(
+        "These tests can only be run in debug mode.",
+        ComponentsConfiguration.IS_INTERNAL_BUILD,
+        is(true));
   }
 
   @Before
   public void setup() throws Exception {
-    mComponentContext = new ComponentContext(RuntimeEnvironment.application);
+    mComponentContext = new ComponentContext(getApplicationContext());
 
     mLoadingComponent =
         new InlineLayoutSpec() {
@@ -104,49 +120,43 @@ public class RecyclerCollectionComponentSpecTest {
           }
         };
 
-    mRecyclerCollectionComponent = RecyclerCollectionComponent.create(mComponentContext)
-        .emptyComponent(mEmptyComponent)
-        .loadingComponent(mLoadingComponent)
-        .errorComponent(mErrorComponent)
-        .recyclerConfiguration(new ListRecyclerConfiguration(
-            LinearLayoutManager.VERTICAL,
-            false,
-            SNAP_NONE,
-            null))
-        .section(
-            SingleComponentSection.create(new SectionContext(mComponentContext))
-                .component(mContentComponent)
-                .build())
-        .build();
+    mRecyclerCollectionComponent =
+        RecyclerCollectionComponent.create(mComponentContext)
+            .emptyComponent(mEmptyComponent)
+            .loadingComponent(mLoadingComponent)
+            .errorComponent(mErrorComponent)
+            .recyclerConfiguration(
+                ListRecyclerConfiguration.create().snapMode(SnapUtil.SNAP_NONE).build())
+            .section(
+                SingleComponentSection.create(new SectionContext(mComponentContext))
+                    .component(mContentComponent)
+                    .build())
+            .build();
   }
 
   @Test
   public void testNothingShown() throws Exception {
-    mRecyclerCollectionComponent = RecyclerCollectionComponent.create(mComponentContext)
-        .loadingComponent(mLoadingComponent)
-        .errorComponent(mErrorComponent)
-        .recyclerConfiguration(new ListRecyclerConfiguration())
-        .section(
-            SingleComponentSection.create(new SectionContext(mComponentContext))
-                .component(Text.create(mComponentContext).text("content").build())
-                .build())
-        .build();
+    mRecyclerCollectionComponent =
+        RecyclerCollectionComponent.create(mComponentContext)
+            .loadingComponent(mLoadingComponent)
+            .errorComponent(mErrorComponent)
+            .recyclerConfiguration(ListRecyclerConfiguration.create().build())
+            .section(
+                SingleComponentSection.create(new SectionContext(mComponentContext))
+                    .component(Text.create(mComponentContext).text("content").build())
+                    .build())
+            .build();
+    LithoView view =
+        StateUpdatesTestHelper.getViewAfterStateUpdate(
+            mComponentContext,
+            mRecyclerCollectionComponent,
+            context -> RecyclerCollectionComponent.updateLoadingState(context, EMPTY));
 
-    assertThat(mComponentContext, mRecyclerCollectionComponent)
-        .withStateUpdate(
-            new StateUpdatesTestHelper.StateUpdater() {
-              @Override
-              public void performStateUpdate(ComponentContext c) {
-                RecyclerCollectionComponent.updateLoadingState(c, EMPTY);
-              }
-            })
-        .doesNotHave(
-            deepSubComponentWith(
-                anyOf(
-                    textEquals("loading"),
-                    textEquals("content"),
-                    textEquals("empty"),
-                    textEquals("error"))));
+    ViewTreeAssert.assertThat(ViewTree.of(view))
+        .doesNotHaveVisibleText("loading")
+        .doesNotHaveVisibleText("content")
+        .doesNotHaveVisibleText("empty")
+        .doesNotHaveVisibleText("error");
   }
 
   @Test
@@ -231,14 +241,139 @@ public class RecyclerCollectionComponentSpecTest {
 
   @Test
   public void testInitialState() throws Exception {
-    LithoView view = ComponentTestHelper.mountComponent(
-        mComponentContext,
-        mRecyclerCollectionComponent);
+    mLegacyLithoViewRule
+        .setRoot(mRecyclerCollectionComponent)
+        .setSizeSpecs(makeSizeSpec(10, SizeSpec.EXACTLY), makeSizeSpec(5, SizeSpec.EXACTLY));
+    mLegacyLithoViewRule.attachToWindow().measure().layout().setSizeSpecs(10, 10);
 
-    ViewTreeAssert.assertThat(ViewTree.of(view))
+    ViewTreeAssert.assertThat(ViewTree.of(mLegacyLithoViewRule.getLithoView()))
         .hasVisibleText("loading")
         .hasVisibleText("content")
         .doesNotHaveVisibleText("empty")
         .doesNotHaveVisibleText("error");
+  }
+
+  @Test
+  public void testNestedIncrementalMountDisabled() {
+    mLegacyLithoViewRule.useComponentTree(
+        ComponentTree.create(mComponentContext)
+            .incrementalMount(false)
+            .componentsConfiguration(config)
+            .build());
+    mLegacyLithoViewRule
+        .setRoot(
+            RecyclerCollectionComponent.create(mComponentContext)
+                .section(
+                    SingleComponentSection.create(new SectionContext(mComponentContext))
+                        .component(
+                            Row.create(mComponentContext)
+                                .viewTag("rv_row")
+                                .heightDip(100)
+                                .widthDip(100))
+                        .build())
+                .build())
+        .setSizeSpecs(makeSizeSpec(10, SizeSpec.EXACTLY), makeSizeSpec(5, SizeSpec.EXACTLY));
+    mLegacyLithoViewRule.attachToWindow().measure().layout().setSizeSpecs(10, 10);
+
+    final LithoView childView =
+        (LithoView) findViewWithTag(mLegacyLithoViewRule.getLithoView(), "rv_row").getParent();
+    assertThat(childView).isNotNull();
+    assertThat(childView.getComponentTree().isIncrementalMountEnabled()).isFalse();
+  }
+
+  @Test
+  public void testNestedIncrementalMountNormal() {
+    mLegacyLithoViewRule
+        .setRoot(
+            RecyclerCollectionComponent.create(mComponentContext)
+                .section(
+                    SingleComponentSection.create(new SectionContext(mComponentContext))
+                        .component(
+                            Row.create(mComponentContext)
+                                .viewTag("rv_row")
+                                .heightDip(100)
+                                .widthDip(100))
+                        .build())
+                .build())
+        .setSizeSpecs(makeSizeSpec(10, SizeSpec.EXACTLY), makeSizeSpec(5, SizeSpec.EXACTLY));
+    mLegacyLithoViewRule.attachToWindow().measure().layout().setSizeSpecs(10, 10);
+
+    final LithoView childView =
+        (LithoView) findViewWithTag(mLegacyLithoViewRule.getLithoView(), "rv_row").getParent();
+    assertThat(childView).isNotNull();
+    assertThat(childView.getComponentTree().isIncrementalMountEnabled()).isTrue();
+  }
+
+  @Test
+  public void rcc_insertLayoutSpecWorkingRangeTester_workingRangeIsRegisteredAndEntered() {
+    final ComponentContext componentContext = mLegacyLithoViewRule.getContext();
+    final List<LifecycleStep.StepInfo> info = new ArrayList<>();
+    final Component component =
+        LayoutSpecWorkingRangeTester.create(componentContext).steps(info).heightPx(100).build();
+    final RecyclerCollectionComponent rcc =
+        RecyclerCollectionComponent.create(componentContext)
+            .recyclerConfiguration(
+                ListRecyclerConfiguration.create()
+                    .orientation(LinearLayoutManager.VERTICAL)
+                    .build())
+            .section(
+                SingleComponentSection.create(new SectionContext(componentContext))
+                    .component(component)
+                    .build())
+            .build();
+    mLegacyLithoViewRule.setRoot(rcc).setSizeSpecs(exactly(100), exactly(100));
+
+    mLegacyLithoViewRule.attachToWindow().measure().layout();
+
+    assertThat(getSteps(info))
+        .describedAs("Should register and enter working range in expected order")
+        .containsExactly(LifecycleStep.ON_REGISTER_RANGES, LifecycleStep.ON_ENTERED_RANGE);
+  }
+
+  @Test
+  public void rcc_insertMountSpecWorkingRangeTester_workingRangeIsRegisteredAndEntered() {
+    final ComponentContext componentContext = mLegacyLithoViewRule.getContext();
+    final List<LifecycleStep.StepInfo> info = new ArrayList<>();
+    final Component component =
+        MountSpecWorkingRangeTester.create(componentContext).steps(info).heightPx(100).build();
+    final RecyclerCollectionComponent rcc =
+        RecyclerCollectionComponent.create(componentContext)
+            .recyclerConfiguration(
+                ListRecyclerConfiguration.create().snapMode(SnapUtil.SNAP_NONE).build())
+            .section(
+                SingleComponentSection.create(new SectionContext(componentContext))
+                    .component(component)
+                    .build())
+            .build();
+    mLegacyLithoViewRule.setRoot(rcc).setSizeSpecs(exactly(100), exactly(100));
+
+    mLegacyLithoViewRule.attachToWindow().measure().layout();
+
+    assertThat(getSteps(info))
+        .describedAs("Should register and enter working range in expected order")
+        .containsExactly(LifecycleStep.ON_REGISTER_RANGES, LifecycleStep.ON_ENTERED_RANGE);
+  }
+
+  @Nullable
+  private static View findViewWithTag(@Nullable View root, @Nullable String tag) {
+    if (root == null || TextUtils.isEmpty(tag)) {
+      return null;
+    }
+
+    if (tag.equals(root.getTag())) {
+      return root;
+    }
+
+    if (root instanceof ViewGroup) {
+      ViewGroup vg = (ViewGroup) root;
+      for (int i = 0; i < vg.getChildCount(); i++) {
+        View v = findViewWithTag(vg.getChildAt(i), tag);
+        if (v != null) {
+          return v;
+        }
+      }
+    }
+
+    return null;
   }
 }

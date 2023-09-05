@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +16,7 @@
 
 package com.facebook.litho.sections.specmodels.generator;
 
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.facebook.litho.annotations.Prop;
 import com.facebook.litho.annotations.State;
@@ -77,6 +77,7 @@ public class GroupSectionSpecGeneratorTest {
         int firstVisibleIndex,
         int lastVisibleIndex,
         ChangesInfo changesInfo,
+        int globalOffset,
         @Prop boolean arg0,
         @State int arg1) {}
   }
@@ -119,7 +120,7 @@ public class GroupSectionSpecGeneratorTest {
             "@java.lang.Override\n"
                 + "protected void dataRendered(com.facebook.litho.sections.SectionContext c, boolean isDataChanged,\n"
                 + "    boolean isMounted, long uptimeMillis, int firstVisibleIndex, int lastVisibleIndex,\n"
-                + "    com.facebook.litho.sections.ChangesInfo changesInfo) {\n"
+                + "    com.facebook.litho.sections.ChangesInfo changesInfo, int globalOffset) {\n"
                 + "  TestGroupSectionSpec.onDataRendered(\n"
                 + "    (com.facebook.litho.sections.SectionContext) c,\n"
                 + "    (boolean) isDataChanged,\n"
@@ -128,8 +129,9 @@ public class GroupSectionSpecGeneratorTest {
                 + "    (int) firstVisibleIndex,\n"
                 + "    (int) lastVisibleIndex,\n"
                 + "    (com.facebook.litho.sections.ChangesInfo) changesInfo,\n"
+                + "    (int) globalOffset,\n"
                 + "    (boolean) arg0,\n"
-                + "    (int) mStateContainer.arg1);\n"
+                + "    (int) getStateContainerImpl(c).arg1);\n"
                 + "}\n");
   }
 }

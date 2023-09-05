@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,9 +17,12 @@
 package com.facebook.litho.sections.common;
 
 import static com.facebook.litho.widget.RenderInfoDebugInfoRegistry.SONAR_SECTIONS_DEBUG_INFO_TAG;
+import static com.facebook.litho.widget.RenderInfoDebugInfoRegistry.SONAR_SINGLE_COMPONENT_SECTION_DATA_NEXT;
+import static com.facebook.litho.widget.RenderInfoDebugInfoRegistry.SONAR_SINGLE_COMPONENT_SECTION_DATA_PREV;
 
 import androidx.annotation.Nullable;
 import com.facebook.litho.Component;
+import com.facebook.litho.ComponentsLogger;
 import com.facebook.litho.Diff;
 import com.facebook.litho.annotations.Prop;
 import com.facebook.litho.config.ComponentsConfiguration;
@@ -60,11 +63,20 @@ public class SingleComponentSectionSpec {
       @Prop(optional = true) Diff<Integer> spanSize,
       @Prop(optional = true) Diff<Boolean> isFullSpan,
       @Prop(optional = true) Diff<Map<String, Object>> customAttributes,
-      @Prop(optional = true) Diff<Object> data) {
+      @Prop(optional = true) Diff<Object> data,
+      @Prop(optional = true) Diff<ComponentsLogger> componentsLogger,
+      @Prop(optional = true) Diff<String> logTag,
+      @Prop(optional = true) Diff<Boolean> shouldCompareComponentCommonProps) {
     final Object prevData = data.getPrevious();
     final Object nextData = data.getNext();
+    final Component prevComponent = component.getPrevious();
+    final Component nextComponent = component.getNext();
 
-    if (component.getNext() == null) {
+    if (prevComponent == null && nextComponent == null) {
+      return;
+    }
+
+    if (prevComponent != null && nextComponent == null) {
       changeSet.delete(0, prevData);
       return;
     }
@@ -84,21 +96,27 @@ public class SingleComponentSectionSpec {
       isNextFullSpan = isFullSpan.getNext();
     }
 
-    if (component.getPrevious() == null) {
+    if (prevComponent == null) {
       changeSet.insert(
           0,
-          addCustomAttributes(ComponentRenderInfo.create(), customAttributes.getNext(), context)
-              .component(component.getNext())
+          addCustomAttributes(
+                  ComponentRenderInfo.create(),
+                  customAttributes.getNext(),
+                  context,
+                  component,
+                  componentsLogger)
+              .component(nextComponent)
               .isSticky(isNextSticky)
               .spanSize(nextSpanSize)
               .isFullSpan(isNextFullSpan)
+              .logTag(logTag != null ? logTag.getNext() : null)
               .build(),
           context.getTreePropsCopy(),
           nextData);
       return;
     }
 
-    // Check if update is required.
+    // Both previous and next components are non-null -- check if an update is required.
     boolean isPrevSticky = false;
     if (sticky != null && sticky.getPrevious() != null) {
       isPrevSticky = sticky.getPrevious();
@@ -113,19 +131,30 @@ public class SingleComponentSectionSpec {
     if (isFullSpan != null && isFullSpan.getPrevious() != null) {
       isPrevFullSpan = isFullSpan.getPrevious();
     }
-
     final boolean customAttributesEqual =
         MapDiffUtils.areMapsEqual(customAttributes.getPrevious(), customAttributes.getNext());
+
+    boolean shouldCompareComponentCommonPropsValue = false;
+    if (shouldCompareComponentCommonProps != null
+        && shouldCompareComponentCommonProps.getNext() != null) {
+      shouldCompareComponentCommonPropsValue = shouldCompareComponentCommonProps.getNext();
+    }
 
     if (isPrevSticky != isNextSticky
         || prevSpanSize != nextSpanSize
         || isPrevFullSpan != isNextFullSpan
-        || !component.getPrevious().isEquivalentTo(component.getNext())
-        || !customAttributesEqual) {
+        || !customAttributesEqual
+        || !isComponentEquivalent(
+            prevComponent, nextComponent, shouldCompareComponentCommonPropsValue)) {
       changeSet.update(
           0,
-          addCustomAttributes(ComponentRenderInfo.create(), customAttributes.getNext(), context)
-              .component(component.getNext())
+          addCustomAttributes(
+                  ComponentRenderInfo.create(),
+                  customAttributes.getNext(),
+                  context,
+                  component,
+                  componentsLogger)
+              .component(nextComponent)
               .isSticky(isNextSticky)
               .spanSize(nextSpanSize)
               .isFullSpan(isNextFullSpan)
@@ -136,21 +165,33 @@ public class SingleComponentSectionSpec {
     }
   }
 
+  private static boolean isComponentEquivalent(
+      Component prevComponent, Component nextComponent, boolean shouldCompareCommonProps) {
+    return prevComponent.isEquivalentTo(
+        nextComponent,
+        ComponentsConfiguration.shouldCompareRootCommonPropsInSingleComponentSection
+            || shouldCompareCommonProps);
+  }
+
   private static ComponentRenderInfo.Builder addCustomAttributes(
       ComponentRenderInfo.Builder builder,
       @Nullable Map<String, Object> attributes,
-      SectionContext c) {
+      SectionContext c,
+      Diff<Component> component,
+      @Nullable Diff<ComponentsLogger> componentsLogger) {
     if (ComponentsConfiguration.isRenderInfoDebuggingEnabled()) {
       builder.debugInfo(SONAR_SECTIONS_DEBUG_INFO_TAG, c.getSectionScope());
+      builder.debugInfo(SONAR_SINGLE_COMPONENT_SECTION_DATA_PREV, component.getPrevious());
+      builder.debugInfo(SONAR_SINGLE_COMPONENT_SECTION_DATA_NEXT, component.getNext());
     }
 
-    if (attributes == null) {
-      return builder;
+    if (attributes != null) {
+      for (Map.Entry<String, Object> entry : attributes.entrySet()) {
+        builder.customAttribute(entry.getKey(), entry.getValue());
+      }
     }
 
-    for (Map.Entry<String, Object> entry : attributes.entrySet()) {
-      builder.customAttribute(entry.getKey(), entry.getValue());
-    }
+    builder.componentsLogger(componentsLogger != null ? componentsLogger.getNext() : null);
 
     return builder;
   }

@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,8 +19,10 @@ package com.facebook.litho;
 import android.content.Context;
 import android.view.View;
 import android.view.ViewGroup;
+import androidx.annotation.Nullable;
 import com.facebook.litho.viewcompat.ViewBinder;
 import com.facebook.litho.viewcompat.ViewCreator;
+import com.facebook.rendercore.MountItemsPool;
 
 /**
  * A component that can wrap a view using a {@link ViewBinder} class to bind the view and a {@link
@@ -33,34 +35,33 @@ import com.facebook.litho.viewcompat.ViewCreator;
  *     MountSpec.
  */
 @Deprecated
-public class ViewCompatComponent<V extends View> extends Component {
+public class ViewCompatComponent<V extends View> extends SpecGeneratedComponent {
 
   private static final int UNSPECIFIED_POOL_SIZE = -1;
 
   private final ViewCreator mViewCreator;
+  private final String mComponentName;
   private ViewBinder<V> mViewBinder;
 
   private int mPoolSize = UNSPECIFIED_POOL_SIZE;
 
   public static <V extends View> ViewCompatComponent<V> get(
-      ViewCreator<V> viewCreator,
-      String componentName) {
+      ViewCreator<V> viewCreator, String componentName) {
     return new ViewCompatComponent<>(viewCreator, componentName);
   }
 
   public Builder<V> create(ComponentContext componentContext) {
-    Builder<V> builder = new Builder<>();
-    builder.init(componentContext, this);
-    return builder;
+    return new Builder<>(componentContext, this);
   }
 
   private ViewCompatComponent(ViewCreator viewCreator, String componentName) {
-    super("ViewCompatComponent_" + componentName, System.identityHashCode(viewCreator));
+    super(System.identityHashCode(viewCreator), "ViewCompatComponent_" + componentName);
     mViewCreator = viewCreator;
+    mComponentName = componentName;
   }
 
   @Override
-  public boolean isEquivalentTo(Component other) {
+  public boolean isEquivalentProps(Component other, boolean shouldCompareCommonProps) {
     return this == other;
   }
 
@@ -71,8 +72,13 @@ public class ViewCompatComponent<V extends View> extends Component {
 
   @Override
   protected void onMeasure(
-      ComponentContext c, ComponentLayout layout, int widthSpec, int heightSpec, Size size) {
-    final V toMeasure = (V) ComponentsPools.acquireMountContent(c.getAndroidContext(), this);
+      ComponentContext c,
+      ComponentLayout layout,
+      int widthSpec,
+      int heightSpec,
+      Size size,
+      @Nullable InterStagePropsContainer interStagePropsContainer) {
+    final V toMeasure = (V) MountItemsPool.acquireMountContent(c.getAndroidContext(), this);
     final ViewGroup.LayoutParams layoutParams = new ViewGroup.LayoutParams(size.width, size.height);
 
     toMeasure.setLayoutParams(layoutParams);
@@ -90,7 +96,7 @@ public class ViewCompatComponent<V extends View> extends Component {
 
     mViewBinder.unbind(toMeasure);
 
-    ComponentsPools.release(c.getAndroidContext(), this, toMeasure);
+    MountItemsPool.release(c.getAndroidContext(), this, toMeasure);
   }
 
   @Override
@@ -99,13 +105,18 @@ public class ViewCompatComponent<V extends View> extends Component {
   }
 
   @Override
-  void bind(ComponentContext c, Object mountedContent) {
+  protected void onBind(
+      final ComponentContext c,
+      final Object mountedContent,
+      final @Nullable InterStagePropsContainer interStagePropsContainer) {
     mViewBinder.bind((V) mountedContent);
   }
 
   @Override
-  void unbind(
-      ComponentContext c, Object mountedContent) {
+  protected void onUnbind(
+      final ComponentContext c,
+      final Object mountedContent,
+      final @Nullable InterStagePropsContainer interStagePropsContainer) {
     mViewBinder.unbind((V) mountedContent);
   }
 
@@ -115,7 +126,7 @@ public class ViewCompatComponent<V extends View> extends Component {
   }
 
   @Override
-  public V createMountContent(Context c) {
+  public V onCreateMountContent(Context c) {
     return (V) mViewCreator.createView(c, null);
   }
 
@@ -123,8 +134,8 @@ public class ViewCompatComponent<V extends View> extends Component {
 
     private ViewCompatComponent mViewCompatComponent;
 
-    private void init(ComponentContext context, ViewCompatComponent component) {
-      super.init(context, 0, 0, component);
+    private Builder(ComponentContext context, ViewCompatComponent component) {
+      super(context, 0, 0, component);
       mViewCompatComponent = component;
     }
 
@@ -136,6 +147,11 @@ public class ViewCompatComponent<V extends View> extends Component {
     public Builder<V> contentPoolSize(int size) {
       mViewCompatComponent.mPoolSize = size;
       return this;
+    }
+
+    @Override
+    protected void setComponent(Component component) {
+      mViewCompatComponent = (ViewCompatComponent) component;
     }
 
     @Override
@@ -154,7 +170,7 @@ public class ViewCompatComponent<V extends View> extends Component {
   }
 
   @Override
-  protected int poolSize() {
+  public int poolSize() {
     return mPoolSize == UNSPECIFIED_POOL_SIZE ? super.poolSize() : mPoolSize;
   }
 }

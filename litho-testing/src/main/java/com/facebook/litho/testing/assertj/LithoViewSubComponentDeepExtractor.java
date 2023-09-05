@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,6 +17,7 @@
 package com.facebook.litho.testing.assertj;
 
 import com.facebook.litho.LithoView;
+import com.facebook.litho.config.ComponentsConfiguration;
 import com.facebook.litho.testing.subcomponents.InspectableComponent;
 import java.util.LinkedList;
 import java.util.List;
@@ -31,7 +32,10 @@ import org.assertj.core.util.Preconditions;
  *
  * <p>Components are extracted in a depth-first way so that they match the hierarchy indices when
  * going from top to bottom.
+ *
+ * @deprecated Use {@link LithoViewAssert#containsComponent)} instead.
  */
+@Deprecated
 public final class LithoViewSubComponentDeepExtractor
     implements Extractor<LithoView, List<InspectableComponent>> {
 
@@ -43,10 +47,12 @@ public final class LithoViewSubComponentDeepExtractor
     final Stack<InspectableComponent> stack = new Stack<>();
 
     final InspectableComponent rootInstance = InspectableComponent.getRootInstance(lithoView);
-    Preconditions.checkNotNull(
-        rootInstance,
-        "Could not obtain DebugComponent. "
-            + "Please ensure that ComponentsConfiguration.IS_INTERNAL_BUILD is enabled.");
+    if (rootInstance == null) {
+      Preconditions.checkState(
+          ComponentsConfiguration.IS_INTERNAL_BUILD,
+          "Please ensure that ComponentsConfiguration.IS_INTERNAL_BUILD is enabled");
+      throw new IllegalStateException("Component rendered to <null>");
+    }
     stack.add(rootInstance);
 
     while (!stack.isEmpty()) {

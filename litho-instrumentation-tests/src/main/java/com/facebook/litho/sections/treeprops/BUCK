@@ -15,12 +15,12 @@ load(
     "LITHO_SECTIONS_WIDGET_TARGET",
     "LITHO_SOLOADER_TARGET",
     "LITHO_WIDGET_TARGET",
-    "fb_core_android_library",
+    "litho_android_test_library",
 )
 
-fb_core_android_library(
+litho_android_test_library(
     name = "treeprops",
-    srcs = glob(["*.java"]),
+    language = "JAVA",
     manifest = "AndroidManifest.xml",
     plugins = [
         LITHO_PROCESSOR_TARGET,
@@ -30,14 +30,14 @@ fb_core_android_library(
         "PUBLIC",
     ],
     deps = [
-        LITHO_JSR_TARGET,
+        LITHO_ANDROIDSUPPORT_TARGET,
         LITHO_JAVA_TARGET,
-        LITHO_WIDGET_TARGET,
+        LITHO_JSR_TARGET,
+        LITHO_SECTIONS_ANNOTATIONS_TARGET,
+        LITHO_SECTIONS_COMMON_TARGET,
         LITHO_SECTIONS_TARGET,
         LITHO_SECTIONS_WIDGET_TARGET,
-        LITHO_SECTIONS_ANNOTATIONS_TARGET,
-        LITHO_ANDROIDSUPPORT_TARGET,
-        LITHO_SECTIONS_COMMON_TARGET,
         LITHO_SOLOADER_TARGET,
+        LITHO_WIDGET_TARGET,
     ],
 )

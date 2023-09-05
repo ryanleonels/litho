@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,8 +16,9 @@
 
 package com.facebook.litho.widget;
 
-import static org.assertj.core.api.Java6Assertions.assertThat;
-import static org.mockito.Matchers.any;
+import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -26,14 +27,13 @@ import static org.mockito.Mockito.verify;
 import androidx.recyclerview.widget.RecyclerView;
 import com.facebook.litho.ComponentContext;
 import com.facebook.litho.ThreadUtils;
-import com.facebook.litho.testing.testrunner.ComponentsTestRunner;
+import com.facebook.litho.testing.testrunner.LithoTestRunner;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.RuntimeEnvironment;
 
-@RunWith(ComponentsTestRunner.class)
+@RunWith(LithoTestRunner.class)
 public class RecyclerEventsControllerTest {
 
   private TestSectionsRecyclerView mSectionsRecyclerView;
@@ -44,7 +44,7 @@ public class RecyclerEventsControllerTest {
 
   @Before
   public void setup() {
-    mComponentContext = new ComponentContext(RuntimeEnvironment.application);
+    mComponentContext = new ComponentContext(getApplicationContext());
     mRecyclerView = new RecyclerView(mComponentContext.getAndroidContext());
     mSectionsRecyclerView =
         new TestSectionsRecyclerView(mComponentContext.getAndroidContext(), mRecyclerView);
@@ -73,7 +73,7 @@ public class RecyclerEventsControllerTest {
 
   @Test
   public void testOnRecyclerListener() {
-    verify(mOnRecyclerUpdateListener, never()).onUpdate(any(RecyclerView.class));
+    verify(mOnRecyclerUpdateListener, never()).onUpdate((RecyclerView) any());
 
     mRecyclerEventsController.setOnRecyclerUpdateListener(mOnRecyclerUpdateListener);
     mRecyclerEventsController.setSectionsRecyclerView(null);

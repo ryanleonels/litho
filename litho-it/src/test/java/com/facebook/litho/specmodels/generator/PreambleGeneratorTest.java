@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,7 +17,7 @@
 package com.facebook.litho.specmodels.generator;
 
 import static com.facebook.litho.specmodels.generator.PreambleGenerator.generateConstructor;
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -47,11 +47,12 @@ public class PreambleGeneratorTest {
 
   @Before
   public void setUp() {
-    mSpecModelWithoutDI = SpecModelImpl.newBuilder()
-        .qualifiedSpecClassName(TEST_QUALIFIED_SPEC_NAME)
-        .delegateMethods(ImmutableList.<SpecMethodModel<DelegateMethod, Void>>of())
-        .representedObject(new Object())
-        .build();
+    mSpecModelWithoutDI =
+        SpecModelImpl.newBuilder()
+            .qualifiedSpecClassName(TEST_QUALIFIED_SPEC_NAME)
+            .delegateMethods(ImmutableList.<SpecMethodModel<DelegateMethod, Void>>of())
+            .representedObject(new Object())
+            .build();
 
     mSpecModelWithDI =
         SpecModelImpl.newBuilder()
@@ -64,8 +65,7 @@ public class PreambleGeneratorTest {
 
   @Test
   public void testGenerateConstructorWithoutDependencyInjection() {
-    TypeSpecDataHolder typeSpecDataHolder =
-        generateConstructor(mSpecModelWithoutDI);
+    TypeSpecDataHolder typeSpecDataHolder = generateConstructor(mSpecModelWithoutDI);
 
     assertThat(typeSpecDataHolder.getFieldSpecs()).isEmpty();
     assertThat(typeSpecDataHolder.getMethodSpecs()).hasSize(1);
@@ -83,8 +83,7 @@ public class PreambleGeneratorTest {
             .addStatement("final Object testObject = new TestObject()")
             .build();
 
-    when(mDependencyInjectionHelper.generateConstructor(mSpecModelWithDI))
-        .thenReturn(constructor);
+    when(mDependencyInjectionHelper.generateConstructor(mSpecModelWithDI)).thenReturn(constructor);
 
     TypeSpecDataHolder typeSpecDataHolder = generateConstructor(mSpecModelWithDI);
 

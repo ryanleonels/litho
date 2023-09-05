@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,23 +17,18 @@
 package com.facebook.litho.specmodels.model;
 
 import com.squareup.javapoet.TypeName;
-
 import javax.annotation.concurrent.Immutable;
 
-/**
- * Model that is an abstract representation of implicit methods on Component builders.
- */
+/** Model that is an abstract representation of implicit methods on Component builders. */
 @Immutable
 public class BuilderMethodModel {
-  public static BuilderMethodModel KEY_BUILDER_METHOD = new BuilderMethodModel(
-      ClassNames.STRING,
-      "key");
+  public static BuilderMethodModel KEY_BUILDER_METHOD =
+      new BuilderMethodModel(ClassNames.STRING, "key");
 
   public final String paramName;
   public final TypeName paramType;
 
-  public BuilderMethodModel(
-      TypeName paramType, String paramName) {
+  public BuilderMethodModel(TypeName paramType, String paramName) {
     this.paramName = paramName;
     this.paramType = paramType;
   }

@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,21 +20,19 @@ import android.graphics.Matrix;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.widget.ImageView.ScaleType;
+import com.facebook.infer.annotation.Nullsafe;
+import com.facebook.rendercore.FastMath;
 import javax.annotation.Nullable;
 
-/**
- * Static class containing a factory method for creating a matrix to apply to a drawable.
- */
+/** Static class containing a factory method for creating a matrix to apply to a drawable. */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public final class DrawableMatrix extends Matrix {
 
   private boolean mShouldClipRect;
 
-  private DrawableMatrix() {
-  }
+  private DrawableMatrix() {}
 
-  /**
-   * @return True if this Matrix requires a clipRect() on the bounds of the drawable.
-   */
+  /** @return True if this Matrix requires a clipRect() on the bounds of the drawable. */
   public boolean shouldClipRect() {
     return mShouldClipRect;
   }
@@ -50,7 +48,7 @@ public final class DrawableMatrix extends Matrix {
    * @return The scale matrix or null if the drawable does not need to be scaled.
    */
   public static @Nullable DrawableMatrix create(
-      final Drawable d, ScaleType scaleType, final int width, final int height) {
+      final Drawable d, @Nullable ScaleType scaleType, final int width, final int height) {
 
     if (scaleType == null) {
       scaleType = ScaleType.FIT_CENTER;
@@ -108,9 +106,9 @@ public final class DrawableMatrix extends Matrix {
       if (intrinsicWidth <= width && intrinsicHeight <= height) {
         scale = 1.0f;
       } else {
-        scale = Math.min(
-            (float) width / (float) intrinsicWidth,
-            (float) height / (float) intrinsicHeight);
+        scale =
+            Math.min(
+                (float) width / (float) intrinsicWidth, (float) height / (float) intrinsicHeight);
       }
 
       final float dx = FastMath.round((width - intrinsicWidth * scale) * 0.5f);
@@ -132,7 +130,7 @@ public final class DrawableMatrix extends Matrix {
     return result;
   }
 
-  private static Matrix.ScaleToFit scaleTypeToScaleToFit(ScaleType st)  {
+  private static Matrix.ScaleToFit scaleTypeToScaleToFit(ScaleType st) {
     // ScaleToFit enum to their corresponding Matrix.ScaleToFit values
     switch (st) {
       case FIT_XY:

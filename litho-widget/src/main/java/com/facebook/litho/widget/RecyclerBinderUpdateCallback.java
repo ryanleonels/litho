@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,11 +31,12 @@ import java.util.List;
  * An implementation of {@link ListUpdateCallback} that generates the relevant {@link Component}s
  * when an item is inserted/updated.
  *
- * The user of this API is expected to provide a ComponentRenderer implementation to build a
+ * <p>The user of this API is expected to provide a ComponentRenderer implementation to build a
  * Component from a generic model object.
- *
  */
 public class RecyclerBinderUpdateCallback<T> implements ListUpdateCallback {
+
+  private static final String INCONSISTENT_SIZE = "RecyclerBinderUpdateCallback:InconsistentSize";
 
   public interface ComponentRenderer<T> {
     RenderInfo render(T t, int idx);
@@ -46,8 +47,8 @@ public class RecyclerBinderUpdateCallback<T> implements ListUpdateCallback {
   }
 
   private final int mOldDataSize;
-  private final List<T> mPrevData;
-  private final List<T> mNextData;
+  private final List<? extends T> mPrevData;
+  private final List<? extends T> mNextData;
   private final List<Operation> mOperations;
   private final List<ComponentContainer> mPlaceholders;
   private final List<Diff> mDataHolders;
@@ -55,8 +56,8 @@ public class RecyclerBinderUpdateCallback<T> implements ListUpdateCallback {
   private final OperationExecutor mOperationExecutor;
 
   public RecyclerBinderUpdateCallback(
-      List<T> prevData,
-      List<T> nextData,
+      List<? extends T> prevData,
+      List<? extends T> nextData,
       ComponentRenderer<T> componentRenderer,
       RecyclerBinder recyclerBinder) {
     this(
@@ -64,8 +65,8 @@ public class RecyclerBinderUpdateCallback<T> implements ListUpdateCallback {
   }
 
   public RecyclerBinderUpdateCallback(
-      List<T> prevData,
-      List<T> nextData,
+      List<? extends T> prevData,
+      List<? extends T> nextData,
       ComponentRenderer<T> componentRenderer,
       OperationExecutor operationExecutor) {
     mPrevData = prevData;
@@ -129,7 +130,7 @@ public class RecyclerBinderUpdateCallback<T> implements ListUpdateCallback {
   }
 
   @Override
-  public void onChanged(int position, int count, Object payload) {
+  public void onChanged(int position, int count, @Nullable Object payload) {
     final List<ComponentContainer> placeholders = new ArrayList<>();
     final List<Diff> dataHolders = new ArrayList<>(count);
 
@@ -206,7 +207,10 @@ public class RecyclerBinderUpdateCallback<T> implements ListUpdateCallback {
     }
   }
 
-  private static String getModelName(Object model) {
+  private static String getModelName(@Nullable Object model) {
+    if (model == null) {
+      return "";
+    }
     return model instanceof DataDiffModelName
         ? ((DataDiffModelName) model).getName()
         : model.getClass().getSimpleName();
@@ -243,7 +247,8 @@ public class RecyclerBinderUpdateCallback<T> implements ListUpdateCallback {
       message.append("[").append(mNextData.get(i)).append("], ");
     }
     message.append("]");
-    ComponentsReporter.emitMessage(ComponentsReporter.LogLevel.ERROR, message.toString());
+    ComponentsReporter.emitMessage(
+        ComponentsReporter.LogLevel.ERROR, INCONSISTENT_SIZE, message.toString());
   }
 
   @VisibleForTesting
@@ -303,7 +308,7 @@ public class RecyclerBinderUpdateCallback<T> implements ListUpdateCallback {
     private RenderInfo mRenderInfo;
     private boolean mNeedsComputation;
 
-    public ComponentContainer(RenderInfo renderInfo, boolean needsComputation) {
+    public ComponentContainer(@Nullable RenderInfo renderInfo, boolean needsComputation) {
       mRenderInfo = renderInfo;
       mNeedsComputation = needsComputation;
     }

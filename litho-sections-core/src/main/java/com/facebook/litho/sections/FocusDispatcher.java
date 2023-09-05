@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -62,6 +62,14 @@ class FocusDispatcher {
     queueRequest(index, 0);
   }
 
+  @UiThread
+  void requestSmoothFocus(Object id, int offset, SmoothScrollAlignmentType type) {
+    if (shouldDispatchRequests()) {
+      mTarget.requestSmoothFocus(id, offset, type);
+      return;
+    }
+  }
+
   /**
    * Request focus to a specific index position with an offset.
    *
@@ -76,6 +84,14 @@ class FocusDispatcher {
     }
 
     queueRequest(index, offset);
+  }
+
+  @UiThread
+  void requestFocusWithOffset(Object id, int offset) {
+    if (shouldDispatchRequests()) {
+      mTarget.requestFocusWithOffset(id, offset);
+      return;
+    }
   }
 
   /** Dispatch focus request if there is an existing request and the states are valid. */

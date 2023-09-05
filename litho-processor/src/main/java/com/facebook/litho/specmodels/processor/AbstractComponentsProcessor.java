@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,6 +24,8 @@ import com.facebook.litho.specmodels.model.DependencyInjectionHelperFactory;
 import com.facebook.litho.specmodels.model.SpecModel;
 import com.squareup.javapoet.JavaFile;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -70,11 +72,6 @@ public abstract class AbstractComponentsProcessor extends AbstractProcessor {
     mShouldSavePropNames = shouldSavePropNames;
   }
 
-  /** Use this to force hotswap mode to be turned on. */
-  public void forceHotswapMode() {
-    mRunMode.add(RunMode.HOTSWAP);
-  }
-
   @Override
   public void init(ProcessingEnvironment processingEnv) {
     super.init(processingEnv);
@@ -85,11 +82,8 @@ public abstract class AbstractComponentsProcessor extends AbstractProcessor {
     if (isGeneratingAbi) {
       mRunMode.add(RunMode.ABI);
     }
-
-    boolean generateBuckHotswapCode =
-        Boolean.valueOf(options.getOrDefault("com.facebook.litho.hotswap", "false"));
-    if (generateBuckHotswapCode) {
-      mRunMode.add(RunMode.HOTSWAP);
+    if (Boolean.parseBoolean(options.getOrDefault("com.facebook.litho.testing", "false"))) {
+      mRunMode.add(RunMode.TESTING);
     }
   }
 
@@ -124,6 +118,8 @@ public abstract class AbstractComponentsProcessor extends AbstractProcessor {
         } catch (PrintableException e) {
           e.print(processingEnv.getMessager());
         } catch (Exception e) {
+          final StringWriter stackWriter = new StringWriter();
+          e.printStackTrace(new PrintWriter(stackWriter));
           processingEnv
               .getMessager()
               .printMessage(
@@ -131,9 +127,8 @@ public abstract class AbstractComponentsProcessor extends AbstractProcessor {
                   String.format(
                       "Unexpected error thrown when generating this component spec. "
                           + "Please report stack trace to the components team.\n%s",
-                      e),
+                      stackWriter.toString()),
                   element);
-          e.printStackTrace();
         }
       }
     }

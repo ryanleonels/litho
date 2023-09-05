@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +16,8 @@
 
 package com.facebook.litho.widget;
 
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -24,75 +25,71 @@ import static org.mockito.Mockito.when;
 import android.content.Context;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.RecyclerView.ItemAnimator;
+import androidx.recyclerview.widget.RecyclerView.OnItemTouchListener;
 import androidx.recyclerview.widget.SnapHelper;
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout.OnRefreshListener;
 import com.facebook.litho.Component;
 import com.facebook.litho.ComponentContext;
-import com.facebook.litho.Output;
+import com.facebook.litho.EventHandler;
 import com.facebook.litho.StateContainer;
-import com.facebook.litho.testing.testrunner.ComponentsTestRunner;
+import com.facebook.litho.testing.testrunner.LithoTestRunner;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.RuntimeEnvironment;
 
 /** Tests for {@link RecyclerSpec} */
-@RunWith(ComponentsTestRunner.class)
+@RunWith(LithoTestRunner.class)
 public class RecyclerSpecTest {
 
   private ComponentContext mComponentContext;
   private TestSectionsRecyclerView mSectionsRecyclerView;
   private TestLithoRecyclerView mRecyclerView;
   private ItemAnimator mAnimator;
+  private OnItemTouchListener onItemTouchListener;
 
   @Before
   public void setup() {
-    mComponentContext = new ComponentContext(RuntimeEnvironment.application);
+    mComponentContext = new ComponentContext(getApplicationContext());
     mRecyclerView = new TestLithoRecyclerView(mComponentContext.getAndroidContext());
     mSectionsRecyclerView =
         new TestSectionsRecyclerView(mComponentContext.getAndroidContext(), mRecyclerView);
     mSectionsRecyclerView.setHasBeenDetachedFromWindow(true);
     mAnimator = mock(RecyclerView.ItemAnimator.class);
     mRecyclerView.setItemAnimator(mAnimator);
+    onItemTouchListener = mock(OnItemTouchListener.class);
   }
 
   @Test
   public void testRecyclerSpecOnBind() {
-    OnRefreshListener onRefreshListener = mock(OnRefreshListener.class);
+    EventHandler refreshHandler = mock(EventHandler.class);
     Binder<RecyclerView> binder = mock(Binder.class);
-
-    Output<ItemAnimator> oldAnimator = mock(Output.class);
 
     SnapHelper snapHelper = mock(SnapHelper.class);
 
     final int size = 3;
     List<RecyclerView.OnScrollListener> scrollListeners = createListOfScrollListeners(size);
 
-    LithoRecylerView.TouchInterceptor touchInterceptor =
-        mock(LithoRecylerView.TouchInterceptor.class);
+    LithoRecyclerView.TouchInterceptor touchInterceptor =
+        mock(LithoRecyclerView.TouchInterceptor.class);
 
     RecyclerSpec.onBind(
         mComponentContext,
         mSectionsRecyclerView,
         binder,
-        mAnimator,
         null,
         scrollListeners,
         snapHelper,
         true,
         touchInterceptor,
-        onRefreshListener,
-        oldAnimator);
+        onItemTouchListener,
+        refreshHandler,
+        null);
 
     assertThat(mSectionsRecyclerView.isEnabled()).isTrue();
-    assertThat(mSectionsRecyclerView.getOnRefreshListener()).isEqualTo(onRefreshListener);
 
     assertThat(mSectionsRecyclerView.getRecyclerView()).isSameAs(mRecyclerView);
 
-    verify(oldAnimator).set(mAnimator);
-    assertThat(mRecyclerView.getItemAnimator()).isSameAs(mAnimator);
     verifyAddOnScrollListenerWasCalledNTimes(mRecyclerView, size);
     assertThat(mRecyclerView.getTouchInterceptor()).isSameAs(touchInterceptor);
 
@@ -112,9 +109,13 @@ public class RecyclerSpecTest {
     List<RecyclerView.OnScrollListener> scrollListeners = createListOfScrollListeners(size);
 
     RecyclerSpec.onUnbind(
-        mComponentContext, mSectionsRecyclerView, binder, null, scrollListeners, mAnimator);
+        mComponentContext,
+        mSectionsRecyclerView,
+        binder,
+        null,
+        onItemTouchListener,
+        scrollListeners);
 
-    assertThat(mRecyclerView.getItemAnimator()).isSameAs(mAnimator);
     verify(binder).unbind(mRecyclerView);
     verifyRemoveOnScrollListenerWasCalledNTimes(mRecyclerView, size);
     assertThat(mSectionsRecyclerView.getOnRefreshListener()).isNull();

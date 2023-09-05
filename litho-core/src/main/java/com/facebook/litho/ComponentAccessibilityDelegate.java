@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,6 +15,9 @@
  */
 
 package com.facebook.litho;
+
+import static com.facebook.litho.LithoRenderUnit.getComponentContext;
+import static com.facebook.litho.LithoRenderUnit.getRenderUnit;
 
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
@@ -28,13 +31,13 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat;
 import androidx.core.view.accessibility.AccessibilityNodeProviderCompat;
 import androidx.customview.widget.ExploreByTouchHelper;
+import com.facebook.rendercore.MountItem;
 import java.util.List;
 import javax.annotation.Nullable;
 
 /**
- * Class that is used to set up accessibility for {@link ComponentHost}s.
- * Virtual nodes are only exposed if the component implements support for
- * extra accessibility nodes.
+ * Class that is used to set up accessibility for {@link ComponentHost}s. Virtual nodes are only
+ * exposed if the component implements support for extra accessibility nodes.
  */
 class ComponentAccessibilityDelegate extends ExploreByTouchHelper {
   private static final String TAG = "ComponentAccessibility";
@@ -65,8 +68,8 @@ class ComponentAccessibilityDelegate extends ExploreByTouchHelper {
   }
 
   /**
-   * {@link ComponentHost} contains the logic for setting the {@link NodeInfo} containing the
-   * {@link EventHandler}s for its delegate instance whenever it is set/unset
+   * {@link ComponentHost} contains the logic for setting the {@link NodeInfo} containing the {@link
+   * EventHandler}s for its delegate instance whenever it is set/unset
    *
    * @see ComponentHost#setTag(int, Object)
    */
@@ -75,26 +78,30 @@ class ComponentAccessibilityDelegate extends ExploreByTouchHelper {
   }
 
   @Override
-  public void onInitializeAccessibilityNodeInfo(
-      View host,
-      AccessibilityNodeInfoCompat node) {
+  public void onInitializeAccessibilityNodeInfo(View host, AccessibilityNodeInfoCompat node) {
     final MountItem mountItem = getAccessibleMountItem(mView);
 
-    if (
-      mNodeInfo != null
-      && mNodeInfo.getOnInitializeAccessibilityNodeInfoHandler() != null) {
+    if (mNodeInfo != null && mNodeInfo.getOnInitializeAccessibilityNodeInfoHandler() != null) {
       EventDispatcherUtils.dispatchOnInitializeAccessibilityNodeInfoEvent(
-          mNodeInfo.getOnInitializeAccessibilityNodeInfoHandler(),
-          host,
-          node,
-          mSuperDelegate);
+          mNodeInfo.getOnInitializeAccessibilityNodeInfoHandler(), host, node, mSuperDelegate);
+      dispatchOnPopulateAccessibilityNodeEvent(host, node);
     } else if (mountItem != null) {
       super.onInitializeAccessibilityNodeInfo(host, node);
       // Coalesce the accessible mount item's information with the
       // the root host view's as they are meant to behave as a single
       // node in the accessibility framework.
-      final Component component = mountItem.getComponent();
-      component.onPopulateAccessibilityNode(host, node);
+      final Component component = getRenderUnit(mountItem).getComponent();
+      final ComponentContext scopedContext = getComponentContext(mountItem.getRenderTreeNode());
+      try {
+        dispatchOnPopulateAccessibilityNodeEvent(host, node);
+        if (component instanceof SpecGeneratedComponent) {
+          ((SpecGeneratedComponent) component)
+              .onPopulateAccessibilityNode(
+                  scopedContext, host, node, getInterStageProps(mountItem));
+        }
+      } catch (Exception e) {
+        ComponentUtils.handle(scopedContext, e);
+      }
     } else {
       super.onInitializeAccessibilityNodeInfo(host, node);
     }
@@ -115,6 +122,20 @@ class ComponentAccessibilityDelegate extends ExploreByTouchHelper {
         node.setClassName(AccessibilityRole.NONE);
       }
     }
+
+    if (mNodeInfo != null
+        && mNodeInfo.getAccessibilityHeadingState() != NodeInfo.ACCESSIBILITY_HEADING_UNSET) {
+      node.setHeading(
+          mNodeInfo.getAccessibilityHeadingState() == NodeInfo.ACCESSIBILITY_HEADING_SET_TRUE);
+    }
+  }
+
+  private void dispatchOnPopulateAccessibilityNodeEvent(
+      View host, AccessibilityNodeInfoCompat node) {
+    if (mNodeInfo != null && mNodeInfo.getOnPopulateAccessibilityNodeHandler() != null) {
+      EventDispatcherUtils.dispatchOnPopulateAccessibilityNode(
+          mNodeInfo.getOnPopulateAccessibilityNodeHandler(), host, node);
+    }
   }
 
   @Override
@@ -124,22 +145,30 @@ class ComponentAccessibilityDelegate extends ExploreByTouchHelper {
       return;
     }
 
-    final Component component = mountItem.getComponent();
+    final LithoRenderUnit renderUnit = getRenderUnit(mountItem);
+    if (!(renderUnit.getComponent() instanceof SpecGeneratedComponent)) {
+      return;
+    }
+    final SpecGeneratedComponent component = (SpecGeneratedComponent) renderUnit.getComponent();
+    final ComponentContext scopedContext = getComponentContext(mountItem);
 
-    final int extraAccessibilityNodesCount = component.getExtraAccessibilityNodesCount();
+    try {
+      final int extraAccessibilityNodesCount =
+          component.getExtraAccessibilityNodesCount(scopedContext, getInterStageProps(mountItem));
 
-    // Expose extra accessibility nodes declared by the component to the
-    // accessibility framework. The actual nodes will be populated in
-    // {@link #onPopulateNodeForVirtualView}.
-    for (int i = 0; i < extraAccessibilityNodesCount; i++) {
-      virtualViewIds.add(i);
+      // Expose extra accessibility nodes declared by the component to the
+      // accessibility framework. The actual nodes will be populated in
+      // {@link #onPopulateNodeForVirtualView}.
+      for (int i = 0; i < extraAccessibilityNodesCount; i++) {
+        virtualViewIds.add(i);
+      }
+    } catch (Exception e) {
+      ComponentUtils.handle(scopedContext, e);
     }
   }
 
   @Override
-  protected void onPopulateNodeForVirtualView(
-      int virtualViewId,
-      AccessibilityNodeInfoCompat node) {
+  protected void onPopulateNodeForVirtualView(int virtualViewId, AccessibilityNodeInfoCompat node) {
     final MountItem mountItem = getAccessibleMountItem(mView);
     if (mountItem == null) {
       Log.e(TAG, "No accessible mount item found for view: " + mView);
@@ -153,30 +182,45 @@ class ComponentAccessibilityDelegate extends ExploreByTouchHelper {
     final Drawable drawable = (Drawable) mountItem.getContent();
     final Rect bounds = drawable.getBounds();
 
-    final Component component = mountItem.getComponent();
-    final ComponentLifecycle lifecycle = component;
-
-    node.setClassName(lifecycle.getClass().getName());
-
-    if (virtualViewId >= lifecycle.getExtraAccessibilityNodesCount()) {
-      Log.e(TAG, "Received unrecognized virtual view id: " + virtualViewId);
-
-      // ExploreByTouchHelper insists that we set something.
-      node.setContentDescription("");
-      node.setBoundsInParent(getDefaultBounds());
+    final LithoRenderUnit renderUnit = getRenderUnit(mountItem);
+    if (!(renderUnit.getComponent() instanceof SpecGeneratedComponent)) {
       return;
     }
+    final SpecGeneratedComponent component = (SpecGeneratedComponent) renderUnit.getComponent();
+    final ComponentContext scopedContext = getComponentContext(mountItem);
 
-    lifecycle.onPopulateExtraAccessibilityNode(
-        node,
-        virtualViewId,
-        bounds.left,
-        bounds.top);
+    node.setClassName(component.getClass().getName());
+
+    try {
+      if (virtualViewId
+          >= component.getExtraAccessibilityNodesCount(
+              scopedContext, getInterStageProps(mountItem))) {
+        Log.e(TAG, "Received unrecognized virtual view id: " + virtualViewId);
+
+        // ExploreByTouchHelper insists that we set something.
+        node.setContentDescription("");
+        node.setBoundsInParent(getDefaultBounds());
+        return;
+      }
+
+      if (component instanceof SpecGeneratedComponent) {
+        ((SpecGeneratedComponent) component)
+            .onPopulateExtraAccessibilityNode(
+                scopedContext,
+                node,
+                virtualViewId,
+                bounds.left,
+                bounds.top,
+                getInterStageProps(mountItem));
+      }
+    } catch (Exception e) {
+      ComponentUtils.handle(scopedContext, e);
+    }
   }
 
   /**
-   * Finds extra accessibility nodes under the given event coordinates.
-   * Returns {@link #INVALID_ID} otherwise.
+   * Finds extra accessibility nodes under the given event coordinates. Returns {@link #INVALID_ID}
+   * otherwise.
    */
   @Override
   protected int getVirtualViewAt(float x, float y) {
@@ -185,23 +229,36 @@ class ComponentAccessibilityDelegate extends ExploreByTouchHelper {
       return INVALID_ID;
     }
 
-    final Component component = mountItem.getComponent();
-    final ComponentLifecycle lifecycle = component;
-
-    if (lifecycle.getExtraAccessibilityNodesCount() == 0) {
+    final LithoRenderUnit renderUnit = getRenderUnit(mountItem);
+    if (!(renderUnit.getComponent() instanceof SpecGeneratedComponent)) {
       return INVALID_ID;
     }
+    final SpecGeneratedComponent component = (SpecGeneratedComponent) renderUnit.getComponent();
+    final ComponentContext scopedContext = getComponentContext(mountItem);
 
-    final Drawable drawable = (Drawable) mountItem.getContent();
-    final Rect bounds = drawable.getBounds();
+    try {
+      if (component.getExtraAccessibilityNodesCount(scopedContext, getInterStageProps(mountItem))
+          == 0) {
+        return INVALID_ID;
+      }
 
-    // Try to find an extra accessibility node that intersects with
-    // the given coordinates.
-    final int virtualViewId = lifecycle.getExtraAccessibilityNodeAt(
-        (int) x - bounds.left,
-        (int) y - bounds.top);
+      final Drawable drawable = (Drawable) mountItem.getContent();
+      final Rect bounds = drawable.getBounds();
 
-    return (virtualViewId >= 0 ? virtualViewId : INVALID_ID);
+      // Try to find an extra accessibility node that intersects with
+      // the given coordinates.
+      final int virtualViewId =
+          component.getExtraAccessibilityNodeAt(
+              scopedContext,
+              (int) x - bounds.left,
+              (int) y - bounds.top,
+              getInterStageProps(mountItem));
+
+      return (virtualViewId >= 0 ? virtualViewId : INVALID_ID);
+    } catch (Exception e) {
+      ComponentUtils.handle(scopedContext, e);
+      return INVALID_ID;
+    }
   }
 
   @Override
@@ -212,10 +269,7 @@ class ComponentAccessibilityDelegate extends ExploreByTouchHelper {
   }
 
   @Override
-  protected boolean onPerformActionForVirtualView(
-      int virtualViewId,
-      int action,
-      Bundle arguments) {
+  protected boolean onPerformActionForVirtualView(int virtualViewId, int action, Bundle arguments) {
     return false;
   }
 
@@ -227,8 +281,12 @@ class ComponentAccessibilityDelegate extends ExploreByTouchHelper {
   @Override
   public @Nullable AccessibilityNodeProviderCompat getAccessibilityNodeProvider(View host) {
     final MountItem mountItem = getAccessibleMountItem(mView);
-    if (mountItem != null && mountItem.getComponent().implementsExtraAccessibilityNodes()) {
-      return super.getAccessibilityNodeProvider(host);
+    if (mountItem != null && getRenderUnit(mountItem) != null) {
+      final Component component = getRenderUnit(mountItem).getComponent();
+      if ((component instanceof SpecGeneratedComponent
+          && ((SpecGeneratedComponent) component).implementsExtraAccessibilityNodes())) {
+        return super.getAccessibilityNodeProvider(host);
+      }
     }
 
     return null;
@@ -243,14 +301,10 @@ class ComponentAccessibilityDelegate extends ExploreByTouchHelper {
   }
 
   @Override
-  public void onInitializeAccessibilityEvent(
-      View host, AccessibilityEvent event) {
+  public void onInitializeAccessibilityEvent(View host, AccessibilityEvent event) {
     if (mNodeInfo != null && mNodeInfo.getOnInitializeAccessibilityEventHandler() != null) {
       EventDispatcherUtils.dispatchOnInitializeAccessibilityEvent(
-          mNodeInfo.getOnInitializeAccessibilityEventHandler(),
-          host,
-          event,
-          mSuperDelegate);
+          mNodeInfo.getOnInitializeAccessibilityEventHandler(), host, event, mSuperDelegate);
     } else {
       super.onInitializeAccessibilityEvent(host, event);
     }
@@ -260,10 +314,7 @@ class ComponentAccessibilityDelegate extends ExploreByTouchHelper {
   public void sendAccessibilityEvent(View host, int eventType) {
     if (mNodeInfo != null && mNodeInfo.getSendAccessibilityEventHandler() != null) {
       EventDispatcherUtils.dispatchSendAccessibilityEvent(
-          mNodeInfo.getSendAccessibilityEventHandler(),
-          host,
-          eventType,
-          mSuperDelegate);
+          mNodeInfo.getSendAccessibilityEventHandler(), host, eventType, mSuperDelegate);
     } else {
       super.sendAccessibilityEvent(host, eventType);
     }
@@ -273,10 +324,7 @@ class ComponentAccessibilityDelegate extends ExploreByTouchHelper {
   public void sendAccessibilityEventUnchecked(View host, AccessibilityEvent event) {
     if (mNodeInfo != null && mNodeInfo.getSendAccessibilityEventUncheckedHandler() != null) {
       EventDispatcherUtils.dispatchSendAccessibilityEventUnchecked(
-          mNodeInfo.getSendAccessibilityEventUncheckedHandler(),
-          host,
-          event,
-          mSuperDelegate);
+          mNodeInfo.getSendAccessibilityEventUncheckedHandler(), host, event, mSuperDelegate);
     } else {
       super.sendAccessibilityEventUnchecked(host, event);
     }
@@ -284,12 +332,9 @@ class ComponentAccessibilityDelegate extends ExploreByTouchHelper {
 
   @Override
   public boolean dispatchPopulateAccessibilityEvent(View host, AccessibilityEvent event) {
-    if (mNodeInfo != null && mNodeInfo.getDispatchPopulateAccessibilityEventHandler() != null ) {
+    if (mNodeInfo != null && mNodeInfo.getDispatchPopulateAccessibilityEventHandler() != null) {
       return EventDispatcherUtils.dispatchDispatchPopulateAccessibilityEvent(
-          mNodeInfo.getDispatchPopulateAccessibilityEventHandler(),
-          host,
-          event,
-          mSuperDelegate);
+          mNodeInfo.getDispatchPopulateAccessibilityEventHandler(), host, event, mSuperDelegate);
     }
 
     return super.dispatchPopulateAccessibilityEvent(host, event);
@@ -299,10 +344,7 @@ class ComponentAccessibilityDelegate extends ExploreByTouchHelper {
   public void onPopulateAccessibilityEvent(View host, AccessibilityEvent event) {
     if (mNodeInfo != null && mNodeInfo.getOnPopulateAccessibilityEventHandler() != null) {
       EventDispatcherUtils.dispatchOnPopulateAccessibilityEvent(
-          mNodeInfo.getOnPopulateAccessibilityEventHandler(),
-          host,
-          event,
-          mSuperDelegate);
+          mNodeInfo.getOnPopulateAccessibilityEventHandler(), host, event, mSuperDelegate);
     } else {
       super.onPopulateAccessibilityEvent(host, event);
     }
@@ -310,9 +352,7 @@ class ComponentAccessibilityDelegate extends ExploreByTouchHelper {
 
   @Override
   public boolean onRequestSendAccessibilityEvent(
-      ViewGroup host,
-      View child,
-      AccessibilityEvent event) {
+      ViewGroup host, View child, AccessibilityEvent event) {
     if (mNodeInfo != null && mNodeInfo.getOnRequestSendAccessibilityEventHandler() != null) {
       return EventDispatcherUtils.dispatchOnRequestSendAccessibilityEvent(
           mNodeInfo.getOnRequestSendAccessibilityEventHandler(),
@@ -329,11 +369,7 @@ class ComponentAccessibilityDelegate extends ExploreByTouchHelper {
   public boolean performAccessibilityAction(View host, int action, Bundle args) {
     if (mNodeInfo != null && mNodeInfo.getPerformAccessibilityActionHandler() != null) {
       return EventDispatcherUtils.dispatchPerformAccessibilityActionEvent(
-          mNodeInfo.getPerformAccessibilityActionHandler(),
-          host,
-          action,
-          args,
-          mSuperDelegate);
+          mNodeInfo.getPerformAccessibilityActionHandler(), host, action, args, mSuperDelegate);
     }
 
     return super.performAccessibilityAction(host, action, args);
@@ -346,26 +382,22 @@ class ComponentAccessibilityDelegate extends ExploreByTouchHelper {
   private class SuperDelegate extends AccessibilityDelegateCompat {
 
     @Override
-    public boolean dispatchPopulateAccessibilityEvent(
-        View host, AccessibilityEvent event) {
+    public boolean dispatchPopulateAccessibilityEvent(View host, AccessibilityEvent event) {
       return ComponentAccessibilityDelegate.super.dispatchPopulateAccessibilityEvent(host, event);
     }
 
     @Override
-    public void onInitializeAccessibilityEvent(
-        View host, AccessibilityEvent event) {
+    public void onInitializeAccessibilityEvent(View host, AccessibilityEvent event) {
       ComponentAccessibilityDelegate.super.onInitializeAccessibilityEvent(host, event);
     }
 
     @Override
-    public void onInitializeAccessibilityNodeInfo(
-        View host, AccessibilityNodeInfoCompat node) {
+    public void onInitializeAccessibilityNodeInfo(View host, AccessibilityNodeInfoCompat node) {
       ComponentAccessibilityDelegate.super.onInitializeAccessibilityNodeInfo(host, node);
     }
 
     @Override
-    public void onPopulateAccessibilityEvent(
-        View host, AccessibilityEvent event) {
+    public void onPopulateAccessibilityEvent(View host, AccessibilityEvent event) {
       ComponentAccessibilityDelegate.super.onPopulateAccessibilityEvent(host, event);
     }
 
@@ -373,9 +405,7 @@ class ComponentAccessibilityDelegate extends ExploreByTouchHelper {
     public boolean onRequestSendAccessibilityEvent(
         ViewGroup host, View child, AccessibilityEvent event) {
       return ComponentAccessibilityDelegate.super.onRequestSendAccessibilityEvent(
-          host,
-          child,
-          event);
+          host, child, event);
     }
 
     @Override
@@ -389,9 +419,12 @@ class ComponentAccessibilityDelegate extends ExploreByTouchHelper {
     }
 
     @Override
-    public void sendAccessibilityEventUnchecked(
-        View host, AccessibilityEvent event) {
+    public void sendAccessibilityEventUnchecked(View host, AccessibilityEvent event) {
       ComponentAccessibilityDelegate.super.sendAccessibilityEventUnchecked(host, event);
     }
+  }
+
+  public static @Nullable InterStagePropsContainer getInterStageProps(MountItem item) {
+    return LithoLayoutData.getInterStageProps(item.getRenderTreeNode().getLayoutData());
   }
 }

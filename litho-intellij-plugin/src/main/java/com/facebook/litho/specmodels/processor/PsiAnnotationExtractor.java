@@ -1,11 +1,11 @@
 /*
- * Copyright 2017-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,16 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.litho.specmodels.processor;
 
+import com.facebook.litho.intellij.PsiSearchUtils;
 import com.facebook.litho.specmodels.internal.ImmutableList;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiAnnotation;
 import com.intellij.psi.PsiClass;
-import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.psi.search.PsiShortNamesCache;
 import com.squareup.javapoet.AnnotationSpec;
-import com.squareup.javapoet.ClassName;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
@@ -39,7 +38,8 @@ public class PsiAnnotationExtractor {
     for (PsiAnnotation annotation : psiClass.getModifierList().getAnnotations()) {
       if (isValidAnnotation(project, annotation)) {
         annotations.add(
-            AnnotationSpec.builder(ClassName.bestGuess(annotation.getQualifiedName())).build());
+            AnnotationSpec.builder(PsiTypeUtils.guessClassName(annotation.getQualifiedName()))
+                .build());
       }
     }
 
@@ -54,30 +54,18 @@ public class PsiAnnotationExtractor {
    */
   private static boolean isValidAnnotation(Project project, PsiAnnotation psiAnnotation) {
     final String text = psiAnnotation.getQualifiedName();
-    final PsiClass[] foundClasses =
-        PsiShortNamesCache.getInstance(project)
-            .getClassesByName(
-                text.substring(text.lastIndexOf('.') + 1), GlobalSearchScope.allScope(project));
-
-    if (foundClasses.length <= 0) {
-      throw new RuntimeException("Annotation class not found, text is: " + text);
+    if (text.startsWith("com.facebook.")) {
+      return false;
     }
-
-    PsiClass annotationClass = null;
-    for (PsiClass psiClass : foundClasses) {
-      if (psiClass.getQualifiedName().contains(text)) {
-        annotationClass = psiClass;
-        break;
-      }
+    PsiClass annotationClass =
+        PsiSearchUtils.getInstance().findClass(project, psiAnnotation.getQualifiedName());
+    if (annotationClass == null) {
+      return false;
     }
 
     final Retention retention =
         PsiAnnotationProxyUtils.findAnnotationInHierarchy(annotationClass, Retention.class);
 
-    if (retention != null && retention.value() == RetentionPolicy.SOURCE) {
-      return false;
-    }
-
-    return !text.startsWith("com.facebook.");
+    return retention == null || retention.value() != RetentionPolicy.SOURCE;
   }
 }

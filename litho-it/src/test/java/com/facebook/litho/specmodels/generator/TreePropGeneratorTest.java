@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +16,7 @@
 
 package com.facebook.litho.specmodels.generator;
 
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -24,11 +24,13 @@ import com.facebook.litho.annotations.OnCreateTreeProp;
 import com.facebook.litho.annotations.Prop;
 import com.facebook.litho.annotations.State;
 import com.facebook.litho.specmodels.internal.ImmutableList;
+import com.facebook.litho.specmodels.internal.RunMode;
 import com.facebook.litho.specmodels.model.ClassNames;
 import com.facebook.litho.specmodels.model.DelegateMethod;
 import com.facebook.litho.specmodels.model.MethodParamModelFactory;
 import com.facebook.litho.specmodels.model.SpecMethodModel;
 import com.facebook.litho.specmodels.model.SpecModel;
+import com.facebook.litho.specmodels.model.StateParamModel;
 import com.facebook.litho.specmodels.model.TreePropModel;
 import com.facebook.litho.specmodels.model.TypeSpec;
 import com.squareup.javapoet.AnnotationSpec;
@@ -79,6 +81,7 @@ public class TreePropGeneratorTest {
                         new ArrayList<Annotation>(),
                         new ArrayList<AnnotationSpec>(),
                         new ArrayList<Class<? extends Annotation>>(),
+                        ImmutableList.of(),
                         true,
                         null),
                     MethodParamModelFactory.create(
@@ -87,6 +90,7 @@ public class TreePropGeneratorTest {
                         ImmutableList.of(createAnnotation(Prop.class)),
                         new ArrayList<AnnotationSpec>(),
                         new ArrayList<Class<? extends Annotation>>(),
+                        ImmutableList.of(),
                         true,
                         null),
                     MethodParamModelFactory.create(
@@ -95,6 +99,7 @@ public class TreePropGeneratorTest {
                         ImmutableList.of(createAnnotation(State.class)),
                         new ArrayList<AnnotationSpec>(),
                         new ArrayList<Class<? extends Annotation>>(),
+                        ImmutableList.of(),
                         true,
                         null)))
             .build();
@@ -109,6 +114,21 @@ public class TreePropGeneratorTest {
     when(mSpecModel.getDelegateMethods())
         .thenReturn(ImmutableList.of(mOnCreateTreePropMethodModel));
     when(mSpecModel.getTreeProps()).thenReturn(ImmutableList.of(mTreeProp));
+
+    ImmutableList<StateParamModel> states =
+        ImmutableList.of(
+            new StateParamModel(
+                MethodParamModelFactory.create(
+                    new TypeSpec(TypeName.INT),
+                    "state",
+                    ImmutableList.of(createAnnotation(State.class)),
+                    new ArrayList<AnnotationSpec>(),
+                    new ArrayList<Class<? extends Annotation>>(),
+                    ImmutableList.of(),
+                    true,
+                    null),
+                false));
+    when(mSpecModel.getStateValues()).thenReturn(states);
 
     mGenericOnCreateTreePropMethodModel =
         SpecMethodModel.<DelegateMethod, Void>builder()
@@ -128,8 +148,8 @@ public class TreePropGeneratorTest {
                     ClassName.get(GenericObject.class),
                     GenericObject.class.getName(),
                     () -> new TypeSpec(TypeName.OBJECT),
-                    ImmutableList.of(),
-                    ImmutableList.of(new TypeSpec(TypeName.INT))))
+                    () -> ImmutableList.of(),
+                    () -> ImmutableList.of(new TypeSpec(TypeName.INT))))
             .typeVariables(ImmutableList.<TypeVariableName>of())
             .methodParams(
                 ImmutableList.of(
@@ -139,6 +159,7 @@ public class TreePropGeneratorTest {
                         new ArrayList<Annotation>(),
                         new ArrayList<AnnotationSpec>(),
                         new ArrayList<Class<? extends Annotation>>(),
+                        ImmutableList.of(),
                         true,
                         null),
                     MethodParamModelFactory.create(
@@ -146,12 +167,13 @@ public class TreePropGeneratorTest {
                             ClassName.get(GenericObject.class),
                             GenericObject.class.getName(),
                             () -> new TypeSpec(TypeName.OBJECT),
-                            ImmutableList.of(),
-                            ImmutableList.of(new TypeSpec(TypeName.INT))),
+                            () -> ImmutableList.of(),
+                            () -> ImmutableList.of(new TypeSpec(TypeName.INT))),
                         "prop",
                         ImmutableList.of(createAnnotation(Prop.class)),
                         new ArrayList<AnnotationSpec>(),
                         new ArrayList<Class<? extends Annotation>>(),
+                        ImmutableList.of(),
                         true,
                         null)))
             .representedObject(null)
@@ -175,38 +197,41 @@ public class TreePropGeneratorTest {
   @Test
   public void testGenerate() {
     TypeSpecDataHolder typeSpecDataHolder =
-        TreePropGenerator.generate(mSpecModel);
+        TreePropGenerator.generate(mSpecModel, RunMode.normal());
 
     assertThat(typeSpecDataHolder.getFieldSpecs()).isEmpty();
     assertThat(typeSpecDataHolder.getMethodSpecs()).hasSize(2);
     assertThat(typeSpecDataHolder.getTypeSpecs()).isEmpty();
 
-    assertThat(typeSpecDataHolder.getMethodSpecs().get(0).toString()).isEqualTo(
-        "@java.lang.Override\n" +
-            "protected void populateTreeProps(com.facebook.litho.TreeProps treeProps) {\n" +
-            "  if (treeProps == null) {\n" +
-            "    return;\n" +
-            "  }\n" +
-            "  treeProp = treeProps.get(int.class);\n" +
-            "}\n");
+    assertThat(typeSpecDataHolder.getMethodSpecs().get(0).toString())
+        .isEqualTo(
+            "@java.lang.Override\n"
+                + "protected void populateTreeProps(com.facebook.litho.TreeProps treeProps) {\n"
+                + "  if (treeProps == null) {\n"
+                + "    return;\n"
+                + "  }\n"
+                + "  treeProp = treeProps.get(int.class);\n"
+                + "}\n");
 
     assertThat(typeSpecDataHolder.getMethodSpecs().get(1).toString())
         .isEqualTo(
             "@java.lang.Override\n"
-                + "protected com.facebook.litho.TreeProps getTreePropsForChildren(com.facebook.litho.ComponentContext c,\n"
-                + "    com.facebook.litho.TreeProps parentTreeProps) {\n"
+                + "protected com.facebook.litho.TreeProps getTreePropsForChildren(\n"
+                + "    com.facebook.litho.ComponentContext c, com.facebook.litho.TreeProps parentTreeProps) {\n"
                 + "  final com.facebook.litho.TreeProps childTreeProps = com.facebook.litho.TreeProps.acquire(parentTreeProps);\n"
+                + "  TestStateContainer _state = getStateContainerImpl(c);\n"
                 + "  childTreeProps.put(boolean.class, TestSpec.onCreateTreeProp(\n"
                 + "      (com.facebook.litho.ComponentContext) c,\n"
                 + "      prop,\n"
-                + "      mStateContainer.state));\n"
+                + "      _state.state));\n"
                 + "  return childTreeProps;\n"
                 + "}\n");
   }
 
   @Test
   public void testGenericGenerate() {
-    TypeSpecDataHolder typeSpecDataHolder = TreePropGenerator.generate(mGenericSpecModel);
+    TypeSpecDataHolder typeSpecDataHolder =
+        TreePropGenerator.generate(mGenericSpecModel, RunMode.normal());
 
     assertThat(typeSpecDataHolder.getFieldSpecs()).isEmpty();
     assertThat(typeSpecDataHolder.getMethodSpecs()).hasSize(2);
@@ -226,8 +251,8 @@ public class TreePropGeneratorTest {
     assertThat(typeSpecDataHolder.getMethodSpecs().get(1).toString())
         .isEqualTo(
             "@java.lang.Override\n"
-                + "protected com.facebook.litho.TreeProps getTreePropsForChildren(com.facebook.litho.ComponentContext c,\n"
-                + "    com.facebook.litho.TreeProps parentTreeProps) {\n"
+                + "protected com.facebook.litho.TreeProps getTreePropsForChildren(\n"
+                + "    com.facebook.litho.ComponentContext c, com.facebook.litho.TreeProps parentTreeProps) {\n"
                 + "  final com.facebook.litho.TreeProps childTreeProps = com.facebook.litho.TreeProps.acquire(parentTreeProps);\n"
                 + "  childTreeProps.put(com.facebook.litho.specmodels.generator.TreePropGeneratorTest.GenericObject.class, TestSpec.onCreateTreeProp(\n"
                 + "      (com.facebook.litho.ComponentContext) c,\n"

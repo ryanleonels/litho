@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -27,7 +27,6 @@ import com.facebook.litho.EventHandler;
 import com.facebook.litho.LithoView;
 import com.facebook.litho.LithoViewTestHelper;
 import com.facebook.litho.StateContainer;
-import com.facebook.litho.drawable.ComparableDrawable;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -47,9 +46,7 @@ public class InspectableComponent {
     mComponent = component;
   }
 
-  /**
-   * @return The root {@link InspectableComponent} of a LithoView.
-   */
+  /** @return The root {@link InspectableComponent} of a LithoView. */
   @Nullable
   public static InspectableComponent getRootInstance(LithoView view) {
     final DebugComponent rootInstance = DebugComponent.getRootInstance(view);
@@ -89,9 +86,7 @@ public class InspectableComponent {
     return mComponent.getComponent().getSimpleName();
   }
 
-  /**
-   * @return The class of the underlying Component.
-   */
+  /** @return The class of the underlying Component. */
   public Class getComponentClass() {
     return mComponent.getComponent().getClass();
   }
@@ -149,6 +144,23 @@ public class InspectableComponent {
   }
 
   /**
+   * Returns this component's testKey or null if none is set.
+   *
+   * <p>Unlike {@link #getTestKey()}, this function can return a test key set on any Component,
+   * including container Components which resolve into LayoutNodes.
+   */
+  @Nullable
+  public String getComponentTestKey() {
+    return mComponent.getComponentTestKey();
+  }
+
+  /** @return This component's componentTag or null if none is set. */
+  @Nullable
+  public Object getComponentTag() {
+    return mComponent.getComponentTag();
+  }
+
+  /**
    * @return The text content of the component wrapped by the debug component, or null if no
    *     TextContent/TextView are found.
    */
@@ -183,7 +195,7 @@ public class InspectableComponent {
 
   /** @return The background drawable asscociated with this debug component. May be null. */
   @Nullable
-  public ComparableDrawable getBackground() {
+  public Drawable getBackground() {
     final DebugLayoutNode layout = mComponent.getLayoutNode();
     return layout == null ? null : layout.getBackground();
   }

@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -40,9 +40,14 @@ public class GridLayoutInfo implements LayoutInfo {
 
   private final GridLayoutManager mGridLayoutManager;
   private final GridSpanSizeLookup mGridSpanSizeLookup;
-  private final boolean mAllowGridMeasureOverride;
 
   private RenderInfoCollection mRenderInfoCollection;
+
+  public GridLayoutInfo(GridLayoutManager gridLayoutManager) {
+    mGridLayoutManager = gridLayoutManager;
+    mGridSpanSizeLookup = new GridSpanSizeLookup();
+    mGridLayoutManager.setSpanSizeLookup(mGridSpanSizeLookup);
+  }
 
   public GridLayoutInfo(
       Context context,
@@ -50,13 +55,10 @@ public class GridLayoutInfo implements LayoutInfo {
       int orientation,
       boolean reverseLayout,
       boolean allowGridMeasuresOverride) {
-    mAllowGridMeasureOverride = allowGridMeasuresOverride;
-    mGridLayoutManager =
-        mAllowGridMeasureOverride
+    this(
+        allowGridMeasuresOverride
             ? new GridLayoutManager(context, spanCount, orientation, reverseLayout)
-            : new LithoGridLayoutManager(context, spanCount, orientation, reverseLayout);
-    mGridSpanSizeLookup = new GridSpanSizeLookup();
-    mGridLayoutManager.setSpanSizeLookup(mGridSpanSizeLookup);
+            : new LithoGridLayoutManager(context, spanCount, orientation, reverseLayout));
   }
 
   public GridLayoutInfo(Context context, int spanCount, int orientation, boolean reverseLayout) {
@@ -108,6 +110,11 @@ public class GridLayoutInfo implements LayoutInfo {
   }
 
   @Override
+  public void scrollToPositionWithOffset(int position, int offset) {
+    mGridLayoutManager.scrollToPositionWithOffset(position, offset);
+  }
+
+  @Override
   public int approximateRangeSize(
       int firstMeasuredItemWidth,
       int firstMeasuredItemHeight,
@@ -116,13 +123,13 @@ public class GridLayoutInfo implements LayoutInfo {
     final int spanCount = mGridLayoutManager.getSpanCount();
     switch (mGridLayoutManager.getOrientation()) {
       case GridLayoutManager.HORIZONTAL:
-        final int colCount = (int) Math.ceil(
-            (double) recyclerMeasuredWidth / (double) firstMeasuredItemWidth);
+        final int colCount =
+            (int) Math.ceil((double) recyclerMeasuredWidth / (double) firstMeasuredItemWidth);
 
         return colCount * spanCount;
       default:
-        final int rowCount = (int) Math.ceil(
-            (double) recyclerMeasuredHeight / (double) firstMeasuredItemHeight);
+        final int rowCount =
+            (int) Math.ceil((double) recyclerMeasuredHeight / (double) firstMeasuredItemHeight);
 
         return rowCount * spanCount;
     }

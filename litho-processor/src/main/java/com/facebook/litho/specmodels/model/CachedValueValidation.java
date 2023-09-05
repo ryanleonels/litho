@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -79,13 +79,15 @@ public class CachedValueValidation {
     for (SpecMethodModel<DelegateMethod, Void> onCalculateCachedValueMethod :
         onCalculateCachedValueMethods) {
       for (MethodParamModel param : onCalculateCachedValueMethod.methodParams) {
-        if (!(param instanceof PropModel)
+        if (!(MethodParamModelUtils.isComponentContextParam(param))
+            && !(param instanceof TreePropModel)
+            && !(param instanceof PropModel)
             && !(param instanceof StateParamModel)
             && !(param instanceof InjectPropModel)) {
           validationErrors.add(
               new SpecModelValidationError(
                   param.getRepresentedObject(),
-                  "@OnCalculateCachedValue methods may only take Props, @InjectProps and State as params."));
+                  "@OnCalculateCachedValue methods may only take ComponentContext, @Prop, @TreeProp, @InjectProp and @State as params."));
         }
       }
     }

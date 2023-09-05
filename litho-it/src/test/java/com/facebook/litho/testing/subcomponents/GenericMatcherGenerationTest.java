@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +16,7 @@
 
 package com.facebook.litho.testing.subcomponents;
 
-import static com.facebook.litho.testing.assertj.LithoAssertions.assertThat;
+import static com.facebook.litho.testing.assertj.LegacyLithoAssertions.assertThat;
 import static com.facebook.litho.testing.assertj.SubComponentDeepExtractor.deepSubComponentWith;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assume.assumeThat;
@@ -26,19 +26,21 @@ import com.facebook.litho.ComponentContext;
 import com.facebook.litho.EventDispatcher;
 import com.facebook.litho.HasEventDispatcher;
 import com.facebook.litho.config.ComponentsConfiguration;
-import com.facebook.litho.testing.ComponentsRule;
+import com.facebook.litho.testing.LegacyLithoViewRule;
 import com.facebook.litho.testing.specmodels.MyGeneric;
 import com.facebook.litho.testing.specmodels.TestMyGeneric;
-import com.facebook.litho.testing.testrunner.ComponentsTestRunner;
+import com.facebook.litho.testing.testrunner.LithoTestRunner;
 import org.assertj.core.api.Condition;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.LooperMode;
 
-@RunWith(ComponentsTestRunner.class)
+@LooperMode(LooperMode.Mode.LEGACY)
+@RunWith(LithoTestRunner.class)
 public class GenericMatcherGenerationTest {
-  @Rule public ComponentsRule mComponentsRule = new ComponentsRule();
+  @Rule public LegacyLithoViewRule mLegacyLithoViewRule = new LegacyLithoViewRule();
 
   private final GenericProp mGenericProp = new GenericProp();
 
@@ -52,7 +54,7 @@ public class GenericMatcherGenerationTest {
 
   @Test
   public void testGenericPropMatching() {
-    final ComponentContext c = mComponentsRule.getContext();
+    final ComponentContext c = mLegacyLithoViewRule.getContext();
     final Component component =
         new MyGeneric<>(c.getAndroidContext()).create(c).genericProp(mGenericProp).build();
     final Condition<InspectableComponent> matcher =

@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,35 +18,51 @@ package com.facebook.litho.sections.widget;
 
 import androidx.annotation.Nullable;
 import com.facebook.litho.ComponentLogParams;
-import com.facebook.litho.LithoHandler;
+import com.facebook.litho.ErrorEventHandler;
 import com.facebook.litho.config.ComponentsConfiguration;
 import com.facebook.litho.config.LayoutThreadPoolConfiguration;
 import com.facebook.litho.sections.SectionTree;
 import com.facebook.litho.sections.config.SectionsConfiguration;
+import com.facebook.litho.widget.ComponentWarmer;
 import com.facebook.litho.widget.LayoutHandlerFactory;
+import com.facebook.litho.widget.LithoViewFactory;
 import com.facebook.litho.widget.RecyclerBinder;
+import com.facebook.rendercore.RunnableHandler;
 import java.util.List;
 
 /** Configuration setting for {@link RecyclerBinder}. */
 public class RecyclerBinderConfiguration {
+  /**
+   * Used to pass through configuration flags to the componentTree that can be read directly from
+   * this componentsConfiguration instance.
+   */
+  private final @Nullable ComponentsConfiguration mComponentsConfiguration;
+
   private final float mRangeRatio;
   @Nullable private final LayoutHandlerFactory mLayoutHandlerFactory;
   private final boolean mIsCircular;
   private final boolean mIsWrapContent;
-  private final boolean mMoveLayoutsBetweenThreads;
-  private final boolean mUseCancelableLayoutFutures;
+  private final @Nullable ComponentWarmer mComponentWarmer;
+  private final @Nullable LithoViewFactory mLithoViewFactory;
   // TODO T34627443 make all fields final after removing setters
   private boolean mHasDynamicItemHeight;
   private boolean mUseBackgroundChangeSets = SectionsConfiguration.useBackgroundChangeSets;
   private boolean mHScrollAsyncMode;
   private boolean mEnableStableIds;
+  private final boolean mEnableItemPrefetch;
+  private final int mItemViewCacheSize;
+  private final boolean mRequestMountForPrefetchedItems;
   private LayoutThreadPoolConfiguration mThreadPoolConfiguration =
       ComponentsConfiguration.threadPoolConfiguration;
-  private boolean mAsyncInitRange = ComponentsConfiguration.asyncInitRange;
   @Nullable private List<ComponentLogParams> mInvalidStateLogParamsList;
-  private final boolean mSplitLayoutForMeasureAndRangeEstimation;
-  @Nullable private LithoHandler mChangeSetThreadHandler;
-  private final boolean mEnableDetach;
+  @Nullable private RunnableHandler mChangeSetThreadHandler;
+  private final boolean mIsReconciliationEnabled;
+  private final boolean mIsLayoutDiffingEnabled;
+  private final boolean mPostToFrontOfQueueForFirstChangeset;
+  private final int mEstimatedViewportCount;
+  @Nullable private final ErrorEventHandler mErrorEventHandler;
+
+  private final boolean mShouldPreallocatePerMountContent;
 
   public static Builder create() {
     return new Builder();
@@ -59,22 +75,30 @@ public class RecyclerBinderConfiguration {
   private RecyclerBinderConfiguration(
       float rangeRatio,
       @Nullable LayoutHandlerFactory layoutHandlerFactory,
+      @Nullable ComponentsConfiguration componentsConfiguration,
       boolean circular,
       boolean wrapContent,
       @Nullable List<ComponentLogParams> invalidStateLogParamsList,
-      LayoutThreadPoolConfiguration threadPoolConfiguration,
+      @Nullable LayoutThreadPoolConfiguration threadPoolConfiguration,
       boolean dynamicItemHeight,
       boolean useBackgroundChangeSets,
       boolean hScrollAsyncMode,
       boolean enableStableIds,
-      boolean asyncInitRange,
-      boolean splitLayoutForMeasureAndRangeEstimation,
-      boolean enableDetach,
-      @Nullable LithoHandler changeSetThreadHandler,
-      boolean moveLayoutsBetweenThreads,
-      boolean useCancelableLayoutFutures) {
+      boolean enableItemPrefetch,
+      int itemViewCacheSize,
+      boolean requestMountForPrefetchedItems,
+      @Nullable RunnableHandler changeSetThreadHandler,
+      boolean isReconciliationEnabled,
+      boolean isLayoutDiffingEnabled,
+      boolean postToFrontOfQueueForFirstChangeset,
+      @Nullable ComponentWarmer componentWarmer,
+      int estimatedViewportCount,
+      @Nullable LithoViewFactory lithoViewFactory,
+      @Nullable ErrorEventHandler errorEventHandler,
+      boolean shouldPreallocatePerMountContent) {
     mRangeRatio = rangeRatio;
     mLayoutHandlerFactory = layoutHandlerFactory;
+    mComponentsConfiguration = componentsConfiguration;
     mIsCircular = circular;
     mIsWrapContent = wrapContent;
     mInvalidStateLogParamsList = invalidStateLogParamsList;
@@ -83,12 +107,22 @@ public class RecyclerBinderConfiguration {
     mUseBackgroundChangeSets = useBackgroundChangeSets;
     mHScrollAsyncMode = hScrollAsyncMode;
     mEnableStableIds = enableStableIds;
-    mAsyncInitRange = asyncInitRange;
-    mSplitLayoutForMeasureAndRangeEstimation = splitLayoutForMeasureAndRangeEstimation;
-    mEnableDetach = enableDetach;
     mChangeSetThreadHandler = changeSetThreadHandler;
-    mMoveLayoutsBetweenThreads = moveLayoutsBetweenThreads;
-    mUseCancelableLayoutFutures = useCancelableLayoutFutures;
+    mIsReconciliationEnabled = isReconciliationEnabled;
+    mIsLayoutDiffingEnabled = isLayoutDiffingEnabled;
+    mPostToFrontOfQueueForFirstChangeset = postToFrontOfQueueForFirstChangeset;
+    mComponentWarmer = componentWarmer;
+    mEstimatedViewportCount = estimatedViewportCount;
+    mLithoViewFactory = lithoViewFactory;
+    mErrorEventHandler = errorEventHandler;
+    mEnableItemPrefetch = enableItemPrefetch;
+    mItemViewCacheSize = itemViewCacheSize;
+    mRequestMountForPrefetchedItems = requestMountForPrefetchedItems;
+    mShouldPreallocatePerMountContent = shouldPreallocatePerMountContent;
+  }
+
+  public boolean shouldPreallocatePerMountContent() {
+    return mShouldPreallocatePerMountContent;
   }
 
   public float getRangeRatio() {
@@ -107,7 +141,7 @@ public class RecyclerBinderConfiguration {
     return mIsWrapContent;
   }
 
-  boolean hasDynamicItemHeight() {
+  public boolean hasDynamicItemHeight() {
     return mHasDynamicItemHeight;
   }
 
@@ -119,66 +153,96 @@ public class RecyclerBinderConfiguration {
     return mHScrollAsyncMode;
   }
 
+  @Nullable
   public LayoutThreadPoolConfiguration getThreadPoolConfiguration() {
     return mThreadPoolConfiguration;
-  }
-
-  public boolean getAsyncInitRange() {
-    return mAsyncInitRange;
   }
 
   public boolean getEnableStableIds() {
     return mEnableStableIds;
   }
 
+  public boolean getEnableItemPrefetch() {
+    return mEnableItemPrefetch;
+  }
+
+  public int getItemViewCacheSize() {
+    return mItemViewCacheSize;
+  }
+
+  public boolean getRequestMountForPrefetchedItems() {
+    return mRequestMountForPrefetchedItems;
+  }
+
   public @Nullable List<ComponentLogParams> getInvalidStateLogParamsList() {
     return mInvalidStateLogParamsList;
   }
 
-  public @Nullable LithoHandler getChangeSetThreadHandler() {
+  public @Nullable RunnableHandler getChangeSetThreadHandler() {
     return mChangeSetThreadHandler;
   }
 
-  public boolean splitLayoutForMeasureAndRangeEstimation() {
-    return mSplitLayoutForMeasureAndRangeEstimation;
+  public boolean isReconciliationEnabled() {
+    return mIsReconciliationEnabled;
   }
 
-  public boolean useCancelableLayoutFutures() {
-    return mUseCancelableLayoutFutures;
+  public boolean isLayoutDiffingEnabled() {
+    return mIsLayoutDiffingEnabled;
   }
 
-  public boolean moveLayoutsBetweenThreads() {
-    return mMoveLayoutsBetweenThreads;
+  public boolean isPostToFrontOfQueueForFirstChangeset() {
+    return mPostToFrontOfQueueForFirstChangeset;
   }
 
-  public boolean getEnableDetach() {
-    return mEnableDetach;
+  public @Nullable ComponentWarmer getComponentWarmer() {
+    return mComponentWarmer;
+  }
+
+  public @Nullable LithoViewFactory getLithoViewFactory() {
+    return mLithoViewFactory;
+  }
+
+  public int getEstimatedViewportCount() {
+    return mEstimatedViewportCount;
+  }
+
+  public @Nullable ErrorEventHandler getErrorEventHandler() {
+    return mErrorEventHandler;
+  }
+
+  public @Nullable ComponentsConfiguration getComponentsConfiguration() {
+    return mComponentsConfiguration;
   }
 
   public static class Builder {
     public static final LayoutThreadPoolConfiguration DEFAULT_THREAD_POOL_CONFIG =
         ComponentsConfiguration.threadPoolConfiguration;
     static final float DEFAULT_RANGE = RecyclerBinder.Builder.DEFAULT_RANGE_RATIO;
+    public static final int UNSET = -1;
 
     @Nullable private LayoutHandlerFactory mLayoutHandlerFactory;
     @Nullable private List<ComponentLogParams> mInvalidStateLogParamsList;
     private LayoutThreadPoolConfiguration mThreadPoolConfiguration = DEFAULT_THREAD_POOL_CONFIG;
+    private @Nullable ComponentsConfiguration mComponentsConfiguration;
     private float mRangeRatio = DEFAULT_RANGE;
     private boolean mCircular = false;
     private boolean mWrapContent = false;
     private boolean mDynamicItemHeight = false;
     private boolean mHScrollAsyncMode = false;
-    private boolean mEnableStableIds = false;
+    private boolean mEnableStableIds = ComponentsConfiguration.enableRecyclerBinderStableId;
+    private boolean mEnableItemPrefetch = false;
+    private int mItemViewCacheSize = 0;
+    private boolean mRequestMountForPrefetchedItems = false;
     private boolean mUseBackgroundChangeSets = SectionsConfiguration.useBackgroundChangeSets;
-    private boolean mAsyncInitRange = ComponentsConfiguration.asyncInitRange;
-    private boolean mSplitLayoutForMeasureAndRangeEstimation =
-        ComponentsConfiguration.splitLayoutForMeasureAndRangeEstimation;
-    private boolean mUseCancelableLayoutFutures =
-        ComponentsConfiguration.useCancelableLayoutFutures;
-    private boolean mMoveLayoutsBetweenThreads =
-        ComponentsConfiguration.canInterruptAndMoveLayoutsBetweenThreads;
-    private boolean mEnableDetach = false;
-    @Nullable private LithoHandler mChangeSetThreadHandler;
+    @Nullable private RunnableHandler mChangeSetThreadHandler;
+    private boolean mIsReconciliationEnabled = ComponentsConfiguration.isReconciliationEnabled;
+    private boolean mIsLayoutDiffingEnabled = ComponentsConfiguration.isLayoutDiffingEnabled;
+    private boolean mPostToFrontOfQueueForFirstChangeset;
+    private @Nullable ComponentWarmer mComponentWarmer;
+    private int mEstimatedViewportCount = UNSET;
+    private LithoViewFactory mLithoViewFactory;
+    private ErrorEventHandler mErrorEventHandler;
+    private boolean mShouldPreallocatePerMountContent;
 
     Builder() {}
 
@@ -186,6 +250,7 @@ public class RecyclerBinderConfiguration {
       this.mLayoutHandlerFactory = configuration.mLayoutHandlerFactory;
       this.mInvalidStateLogParamsList = configuration.mInvalidStateLogParamsList;
       this.mThreadPoolConfiguration = configuration.mThreadPoolConfiguration;
+      this.mComponentsConfiguration = configuration.mComponentsConfiguration;
       this.mRangeRatio = configuration.mRangeRatio;
       this.mCircular = configuration.mIsCircular;
       this.mWrapContent = configuration.mIsWrapContent;
@@ -193,13 +258,19 @@ public class RecyclerBinderConfiguration {
       this.mHScrollAsyncMode = configuration.mHScrollAsyncMode;
       this.mEnableStableIds = configuration.mEnableStableIds;
       this.mUseBackgroundChangeSets = configuration.mUseBackgroundChangeSets;
-      this.mAsyncInitRange = configuration.mAsyncInitRange;
-      this.mSplitLayoutForMeasureAndRangeEstimation =
-          configuration.mSplitLayoutForMeasureAndRangeEstimation;
-      this.mUseCancelableLayoutFutures = configuration.mUseCancelableLayoutFutures;
-      this.mMoveLayoutsBetweenThreads = configuration.mMoveLayoutsBetweenThreads;
-      this.mEnableDetach = configuration.mEnableDetach;
       this.mChangeSetThreadHandler = configuration.mChangeSetThreadHandler;
+      this.mIsReconciliationEnabled = configuration.mIsReconciliationEnabled;
+      this.mIsLayoutDiffingEnabled = configuration.mIsLayoutDiffingEnabled;
+      this.mPostToFrontOfQueueForFirstChangeset =
+          configuration.mPostToFrontOfQueueForFirstChangeset;
+      this.mComponentWarmer = configuration.mComponentWarmer;
+      this.mEstimatedViewportCount = configuration.mEstimatedViewportCount;
+      this.mLithoViewFactory = configuration.mLithoViewFactory;
+      this.mErrorEventHandler = configuration.mErrorEventHandler;
+      this.mEnableItemPrefetch = configuration.mEnableItemPrefetch;
+      this.mItemViewCacheSize = configuration.mItemViewCacheSize;
+      this.mRequestMountForPrefetchedItems = configuration.mRequestMountForPrefetchedItems;
+      mShouldPreallocatePerMountContent = configuration.mShouldPreallocatePerMountContent;
     }
 
     /**
@@ -293,35 +364,92 @@ public class RecyclerBinderConfiguration {
       return this;
     }
 
-    public Builder asyncInitRange(boolean asyncInitRange) {
-      mAsyncInitRange = asyncInitRange;
+    /**
+     * Experimental. See {@link RecyclerBinder.Builder#recyclerViewItemPrefetch(boolean)} for more
+     * info.
+     */
+    public Builder enableItemPrefetch(boolean enableItemPrefetch) {
+      mEnableItemPrefetch = enableItemPrefetch;
       return this;
     }
 
-    public Builder splitLayoutForMeasureAndRangeEstimation(
-        boolean splitLayoutForMeasureAndRangeEstimation) {
-      mSplitLayoutForMeasureAndRangeEstimation = splitLayoutForMeasureAndRangeEstimation;
+    /** Experimental. See {@link RecyclerBinder.Builder#setItemViewCacheSize(int)} for more info. */
+    public Builder setItemViewCacheSize(int cacheSize) {
+      mItemViewCacheSize = cacheSize;
       return this;
     }
 
-    public Builder canInterruptAndMoveLayoutsBetweenThreads(boolean isEnabled) {
-      this.mMoveLayoutsBetweenThreads = isEnabled;
+    /**
+     * Experimental. See {@link RecyclerBinder.Builder#requestMountForPrefetchedItems(boolean)} for
+     * more info.
+     */
+    public Builder setRequestMountForPrefetchedItems(boolean isEnabled) {
+      mRequestMountForPrefetchedItems = isEnabled;
       return this;
     }
 
-    public Builder useCancelableLayoutFutures(boolean isEnabled) {
-      this.mUseCancelableLayoutFutures = isEnabled;
+    public Builder componentsConfiguration(ComponentsConfiguration componentsConfiguration) {
+      this.mComponentsConfiguration = componentsConfiguration;
       return this;
     }
 
-    public Builder changeSetThreadHandler(@Nullable LithoHandler changeSetThreadHandler) {
+    public Builder changeSetThreadHandler(@Nullable RunnableHandler changeSetThreadHandler) {
       mChangeSetThreadHandler = changeSetThreadHandler;
       return this;
     }
 
-    /** If true, detach components under the hood when RecyclerBinder#detach() is called. */
-    public Builder enableDetach(boolean enableDetach) {
-      mEnableDetach = enableDetach;
+    public Builder isReconciliationEnabled(boolean isEnabled) {
+      mIsReconciliationEnabled = isEnabled;
+      return this;
+    }
+
+    public Builder isLayoutDiffingEnabled(boolean isEnabled) {
+      mIsLayoutDiffingEnabled = isEnabled;
+      return this;
+    }
+
+    public Builder postToFrontOfQueueForFirstChangeset(
+        boolean postToFrontOfQueueForFirstChangeset) {
+      mPostToFrontOfQueueForFirstChangeset = postToFrontOfQueueForFirstChangeset;
+      return this;
+    }
+
+    public Builder componentWarmer(ComponentWarmer componentWarmer) {
+      mComponentWarmer = componentWarmer;
+      return this;
+    }
+
+    public Builder lithoViewFactory(LithoViewFactory lithoViewFactory) {
+      mLithoViewFactory = lithoViewFactory;
+      return this;
+    }
+
+    public Builder errorEventHandler(@Nullable ErrorEventHandler errorEventHandler) {
+      mErrorEventHandler = errorEventHandler;
+      return this;
+    }
+
+    /**
+     * Whether this Recycler children should preallocate mount content after being generated. This
+     * will only work if the root {@link com.facebook.litho.ComponentTree} has set a preallocation
+     * handler, since it will try to use it to run the preallocation.
+     */
+    public Builder shouldPreallocatePerMountContent(boolean shouldPreallocatePerMountContent) {
+      mShouldPreallocatePerMountContent = shouldPreallocatePerMountContent;
+      return this;
+    }
+
+    /**
+     * This is a temporary hack that allows a surface to manually provide an estimated range. It
+     * will go away so don't depend on it.
+     */
+    @Deprecated
+    public Builder estimatedViewportCount(int estimatedViewportCount) {
+      if (estimatedViewportCount <= 0) {
+        throw new IllegalArgumentException(
+            "Estimated viewport count must be > 0: " + estimatedViewportCount);
+      }
+      mEstimatedViewportCount = estimatedViewportCount;
       return this;
     }
 
@@ -329,6 +457,7 @@ public class RecyclerBinderConfiguration {
       return new RecyclerBinderConfiguration(
           mRangeRatio,
           mLayoutHandlerFactory,
+          mComponentsConfiguration,
           mCircular,
           mWrapContent,
           mInvalidStateLogParamsList,
@@ -337,12 +466,18 @@ public class RecyclerBinderConfiguration {
           mUseBackgroundChangeSets,
           mHScrollAsyncMode,
           mEnableStableIds,
-          mAsyncInitRange,
-          mSplitLayoutForMeasureAndRangeEstimation,
-          mEnableDetach,
+          mEnableItemPrefetch,
+          mItemViewCacheSize,
+          mRequestMountForPrefetchedItems,
           mChangeSetThreadHandler,
-          mMoveLayoutsBetweenThreads,
-          mUseCancelableLayoutFutures);
+          mIsReconciliationEnabled,
+          mIsLayoutDiffingEnabled,
+          mPostToFrontOfQueueForFirstChangeset,
+          mComponentWarmer,
+          mEstimatedViewportCount,
+          mLithoViewFactory,
+          mErrorEventHandler,
+          mShouldPreallocatePerMountContent);
     }
   }
 }

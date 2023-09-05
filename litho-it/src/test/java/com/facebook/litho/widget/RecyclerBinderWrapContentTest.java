@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,18 +16,20 @@
 
 package com.facebook.litho.widget;
 
+import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.facebook.litho.SizeSpec.AT_MOST;
 import static com.facebook.litho.SizeSpec.EXACTLY;
 import static com.facebook.litho.SizeSpec.makeSizeSpec;
 import static com.facebook.litho.widget.RecyclerBinderTest.NO_OP_CHANGE_SET_COMPLETE_CALLBACK;
-import static org.assertj.core.api.Java6Assertions.assertThat;
-import static org.mockito.Matchers.anyLong;
-import static org.mockito.Matchers.eq;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 
 import android.os.Looper;
+import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.OrientationHelper;
 import com.facebook.litho.Component;
 import com.facebook.litho.ComponentContext;
@@ -36,37 +38,49 @@ import com.facebook.litho.EventHandler;
 import com.facebook.litho.Size;
 import com.facebook.litho.testing.TestDrawableComponent;
 import com.facebook.litho.testing.Whitebox;
-import com.facebook.litho.testing.testrunner.ComponentsTestRunner;
-import com.facebook.litho.testing.util.InlineLayoutSpec;
+import com.facebook.litho.testing.inlinelayoutspec.InlineLayoutSpec;
+import com.facebook.litho.testing.testrunner.LithoTestRunner;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
+import org.robolectric.annotation.LooperMode;
 import org.robolectric.shadows.ShadowLooper;
 
 /** Tests for {@link RecyclerBinder} with wrap content enabled. */
-@RunWith(ComponentsTestRunner.class)
+@LooperMode(LooperMode.Mode.LEGACY)
+@RunWith(LithoTestRunner.class)
 public class RecyclerBinderWrapContentTest {
 
   private static final float RANGE_RATIO = 2.0f;
 
   private ComponentContext mComponentContext;
+  private @Nullable ShadowLooper mResolveThreadShadowLooper;
   private ShadowLooper mLayoutThreadShadowLooper;
 
   private TestRecyclerView mRecyclerView;
 
   @Before
   public void setup() {
-    mComponentContext = new ComponentContext(RuntimeEnvironment.application);
+    mComponentContext = new ComponentContext(getApplicationContext());
     mRecyclerView = new TestRecyclerView(mComponentContext.getAndroidContext());
-
+    mResolveThreadShadowLooper =
+        Shadows.shadowOf(
+            (Looper) Whitebox.invokeMethod(ComponentTree.class, "getDefaultResolveThreadLooper"));
     mLayoutThreadShadowLooper =
         Shadows.shadowOf(
             (Looper) Whitebox.invokeMethod(ComponentTree.class, "getDefaultLayoutThreadLooper"));
+  }
+
+  private void runToEndOfTasks() {
+    if (mResolveThreadShadowLooper != null) {
+      mResolveThreadShadowLooper.runToEndOfTasks();
+    }
+
+    mLayoutThreadShadowLooper.runToEndOfTasks();
   }
 
   @Test
@@ -104,7 +118,8 @@ public class RecyclerBinderWrapContentTest {
     }
 
     // Verify remeasure is triggered through View#postOnAnimation(Runnable)
-    verifyPostOnAnimationWasCalledNTimesWith(mRecyclerView, 10, recyclerBinder.mRemeasureRunnable);
+    verifyPostOnAnimationWasCalledAtLeastNTimesWith(
+        mRecyclerView, 10, recyclerBinder.mRemeasureRunnable);
 
     recyclerBinder.measure(size, widthSpec, heightSpec, mock(EventHandler.class));
     assertThat(size.height).isEqualTo(1000);
@@ -148,7 +163,8 @@ public class RecyclerBinderWrapContentTest {
     recyclerBinder.notifyChangeSetComplete(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
 
     // Verify remeasure is triggered through View#postOnAnimation(Runnable)
-    verifyPostOnAnimationWasCalledNTimesWith(mRecyclerView, 1, recyclerBinder.mRemeasureRunnable);
+    verifyPostOnAnimationWasCalledAtLeastNTimesWith(
+        mRecyclerView, 1, recyclerBinder.mRemeasureRunnable);
 
     recyclerBinder.measure(size, widthSpec, heightSpec, mock(EventHandler.class));
     assertThat(size.height).isEqualTo(1000);
@@ -169,7 +185,8 @@ public class RecyclerBinderWrapContentTest {
     recyclerBinder.notifyChangeSetComplete(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
 
     // Verify remeasure is triggered through View#postOnAnimation(Runnable)
-    verifyPostOnAnimationWasCalledNTimesWith(mRecyclerView, 1, recyclerBinder.mRemeasureRunnable);
+    verifyPostOnAnimationWasCalledAtLeastNTimesWith(
+        mRecyclerView, 1, recyclerBinder.mRemeasureRunnable);
 
     Size size = new Size();
     recyclerBinder.measure(size, widthSpec, heightSpec, mock(EventHandler.class));
@@ -191,7 +208,8 @@ public class RecyclerBinderWrapContentTest {
     recyclerBinder.notifyChangeSetComplete(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
 
     // Verify remeasure is triggered through View#postOnAnimation(Runnable)
-    verifyPostOnAnimationWasCalledNTimesWith(mRecyclerView, 1, recyclerBinder.mRemeasureRunnable);
+    verifyPostOnAnimationWasCalledAtLeastNTimesWith(
+        mRecyclerView, 1, recyclerBinder.mRemeasureRunnable);
 
     Size size = new Size();
     recyclerBinder.measure(size, widthSpec, heightSpec, mock(EventHandler.class));
@@ -220,11 +238,158 @@ public class RecyclerBinderWrapContentTest {
     recyclerBinder.notifyChangeSetComplete(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
 
     // Verify remeasure is triggered through View#postOnAnimation(Runnable)
-    verifyPostOnAnimationWasCalledNTimesWith(mRecyclerView, 1, recyclerBinder.mRemeasureRunnable);
+    verifyPostOnAnimationWasCalledAtLeastNTimesWith(
+        mRecyclerView, 1, recyclerBinder.mRemeasureRunnable);
 
     Size size = new Size();
     recyclerBinder.measure(size, widthSpec, heightSpec, mock(EventHandler.class));
     assertThat(size.height).isEqualTo(900);
+  }
+
+  @Test
+  public void testWrapContentVerticalWithUpdateWithEquivalentTotalSizeNoRemeasure() {
+    final int widthSpec = makeSizeSpec(1000, EXACTLY);
+    final int heightSpec = makeSizeSpec(1000, AT_MOST);
+
+    final RecyclerBinder recyclerBinder =
+        prepareBinderWithMeasuredChildSize(
+            widthSpec, heightSpec, 8, OrientationHelper.VERTICAL, 100);
+
+    recyclerBinder.mount(mRecyclerView);
+    Size size = new Size();
+    recyclerBinder.measure(size, widthSpec, heightSpec, mock(EventHandler.class));
+    assertThat(size.height).isEqualTo(800);
+
+    final Component newComponent1 =
+        new InlineLayoutSpec() {
+          @Override
+          protected Component onCreateLayout(ComponentContext c) {
+            return TestDrawableComponent.create(c).measuredHeight(80).build();
+          }
+        };
+    final Component newComponent2 =
+        new InlineLayoutSpec() {
+          @Override
+          protected Component onCreateLayout(ComponentContext c) {
+            return TestDrawableComponent.create(c).measuredHeight(120).build();
+          }
+        };
+    recyclerBinder.updateItemAt(0, newComponent1);
+    recyclerBinder.updateItemAt(1, newComponent2);
+    recyclerBinder.notifyChangeSetComplete(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
+
+    // Verify remeasure is triggered through View#postOnAnimation(Runnable)
+    verifyPostOnAnimationWasNotCalled(mRecyclerView, recyclerBinder.mRemeasureRunnable);
+
+    recyclerBinder.measure(size, widthSpec, heightSpec, mock(EventHandler.class));
+    assertThat(size.height).isEqualTo(800);
+  }
+
+  @Test
+  public void testWrapContentVerticalWithUpdateWithNonEquivalentTotalSizePerformRemeasure() {
+    final int widthSpec = makeSizeSpec(1000, EXACTLY);
+    final int heightSpec = makeSizeSpec(1000, AT_MOST);
+
+    final RecyclerBinder recyclerBinder =
+        prepareBinderWithMeasuredChildSize(
+            widthSpec, heightSpec, 8, OrientationHelper.VERTICAL, 100);
+
+    recyclerBinder.mount(mRecyclerView);
+    Size size = new Size();
+    recyclerBinder.measure(size, widthSpec, heightSpec, mock(EventHandler.class));
+    assertThat(size.height).isEqualTo(800);
+
+    final Component newComponent1 =
+        new InlineLayoutSpec() {
+          @Override
+          protected Component onCreateLayout(ComponentContext c) {
+            return TestDrawableComponent.create(c).measuredHeight(81).build();
+          }
+        };
+    final Component newComponent2 =
+        new InlineLayoutSpec() {
+          @Override
+          protected Component onCreateLayout(ComponentContext c) {
+            return TestDrawableComponent.create(c).measuredHeight(120).build();
+          }
+        };
+    recyclerBinder.updateItemAt(0, newComponent1);
+    recyclerBinder.updateItemAt(1, newComponent2);
+    recyclerBinder.notifyChangeSetComplete(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
+
+    // Verify remeasure is triggered through View#postOnAnimation(Runnable)
+    verifyPostOnAnimationWasCalledAtLeastNTimesWith(
+        mRecyclerView, 1, recyclerBinder.mRemeasureRunnable);
+
+    recyclerBinder.measure(size, widthSpec, heightSpec, mock(EventHandler.class));
+    assertThat(size.height).isEqualTo(801);
+  }
+
+  @Test
+  public void testWrapContentVerticalWithInsertDeleteWithEquivalentTotalSizeNoRemeasure() {
+    final int widthSpec = makeSizeSpec(1000, EXACTLY);
+    final int heightSpec = makeSizeSpec(1000, AT_MOST);
+
+    final RecyclerBinder recyclerBinder =
+        prepareBinderWithMeasuredChildSize(
+            widthSpec, heightSpec, 8, OrientationHelper.VERTICAL, 100);
+
+    recyclerBinder.mount(mRecyclerView);
+    Size size = new Size();
+    recyclerBinder.measure(size, widthSpec, heightSpec, mock(EventHandler.class));
+    assertThat(size.height).isEqualTo(800);
+
+    final Component newComponent =
+        new InlineLayoutSpec() {
+          @Override
+          protected Component onCreateLayout(ComponentContext c) {
+            return TestDrawableComponent.create(c).measuredHeight(300).build();
+          }
+        };
+
+    recyclerBinder.removeRangeAt(0, 3);
+    recyclerBinder.insertItemAt(0, newComponent);
+    recyclerBinder.notifyChangeSetComplete(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
+
+    // Verify remeasure is triggered through View#postOnAnimation(Runnable)
+    verifyPostOnAnimationWasNotCalled(mRecyclerView, recyclerBinder.mRemeasureRunnable);
+
+    recyclerBinder.measure(size, widthSpec, heightSpec, mock(EventHandler.class));
+    assertThat(size.height).isEqualTo(800);
+  }
+
+  @Test
+  public void testWrapContentVerticalWithInsertDeleteWithNonEquivalentTotalSizePerformRemeasure() {
+    final int widthSpec = makeSizeSpec(1000, EXACTLY);
+    final int heightSpec = makeSizeSpec(1000, AT_MOST);
+
+    final RecyclerBinder recyclerBinder =
+        prepareBinderWithMeasuredChildSize(
+            widthSpec, heightSpec, 8, OrientationHelper.VERTICAL, 100);
+
+    recyclerBinder.mount(mRecyclerView);
+    Size size = new Size();
+    recyclerBinder.measure(size, widthSpec, heightSpec, mock(EventHandler.class));
+    assertThat(size.height).isEqualTo(800);
+
+    final Component newComponent =
+        new InlineLayoutSpec() {
+          @Override
+          protected Component onCreateLayout(ComponentContext c) {
+            return TestDrawableComponent.create(c).measuredHeight(301).build();
+          }
+        };
+
+    recyclerBinder.removeRangeAt(0, 3);
+    recyclerBinder.insertItemAt(0, newComponent);
+    recyclerBinder.notifyChangeSetComplete(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
+
+    // Verify remeasure is triggered through View#postOnAnimation(Runnable)
+    verifyPostOnAnimationWasCalledAtLeastNTimesWith(
+        mRecyclerView, 1, recyclerBinder.mRemeasureRunnable);
+
+    recyclerBinder.measure(size, widthSpec, heightSpec, mock(EventHandler.class));
+    assertThat(size.height).isEqualTo(801);
   }
 
   @Test
@@ -249,7 +414,8 @@ public class RecyclerBinderWrapContentTest {
     recyclerBinder.notifyChangeSetComplete(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
 
     // Verify remeasure is triggered through View#postOnAnimation(Runnable)
-    verifyPostOnAnimationWasCalledNTimesWith(mRecyclerView, 1, recyclerBinder.mRemeasureRunnable);
+    verifyPostOnAnimationWasCalledAtLeastNTimesWith(
+        mRecyclerView, 1, recyclerBinder.mRemeasureRunnable);
 
     Size size = new Size();
     recyclerBinder.measure(size, widthSpec, heightSpec, mock(EventHandler.class));
@@ -275,7 +441,7 @@ public class RecyclerBinderWrapContentTest {
     recyclerBinder.insertItemAtAsync(0, renderInfo);
     recyclerBinder.notifyChangeSetCompleteAsync(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
 
-    mLayoutThreadShadowLooper.runToEndOfTasks();
+    runToEndOfTasks();
 
     final int widthSpec = makeSizeSpec(1000, EXACTLY);
     final int heightSpec = makeSizeSpec(1000, AT_MOST);
@@ -292,7 +458,7 @@ public class RecyclerBinderWrapContentTest {
       recyclerBinder.notifyChangeSetCompleteAsync(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
     }
 
-    mLayoutThreadShadowLooper.runToEndOfTasks();
+    runToEndOfTasks();
 
     // Verify remeasure is triggered through View#postOnAnimation(Runnable)
     verifyPostOnAnimationWasCalledAtLeastNTimesWith(
@@ -324,7 +490,7 @@ public class RecyclerBinderWrapContentTest {
     recyclerBinder.insertRangeAtAsync(0, renderInfos);
     recyclerBinder.notifyChangeSetCompleteAsync(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
 
-    mLayoutThreadShadowLooper.runToEndOfTasks();
+    runToEndOfTasks();
 
     final int widthSpec = makeSizeSpec(1000, EXACTLY);
     final int heightSpec = makeSizeSpec(1000, AT_MOST);
@@ -343,7 +509,7 @@ public class RecyclerBinderWrapContentTest {
     recyclerBinder.insertRangeAtAsync(0, newRenderInfos);
     recyclerBinder.notifyChangeSetCompleteAsync(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
 
-    mLayoutThreadShadowLooper.runToEndOfTasks();
+    runToEndOfTasks();
 
     // Verify remeasure is triggered through View#postOnAnimation(Runnable)
     verifyPostOnAnimationWasCalledAtLeastNTimesWith(
@@ -368,7 +534,7 @@ public class RecyclerBinderWrapContentTest {
     recyclerBinder.removeItemAtAsync(0);
     recyclerBinder.notifyChangeSetCompleteAsync(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
 
-    mLayoutThreadShadowLooper.runToEndOfTasks();
+    runToEndOfTasks();
 
     // Verify remeasure is triggered through View#postOnAnimation(Runnable)
     verifyPostOnAnimationWasCalledAtLeastNTimesWith(
@@ -379,7 +545,6 @@ public class RecyclerBinderWrapContentTest {
     assertThat(size.height).isEqualTo(700);
   }
 
-  @Ignore("t33888191") // TODO(t33888191): Support wrapContent with insertAsync
   @Test
   public void testWrapContentWithRemoveRangeAsyncOnVertical() {
     final int widthSpec = makeSizeSpec(1000, EXACTLY);
@@ -394,7 +559,7 @@ public class RecyclerBinderWrapContentTest {
     recyclerBinder.removeRangeAtAsync(0, 3);
     recyclerBinder.notifyChangeSetCompleteAsync(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
 
-    mLayoutThreadShadowLooper.runToEndOfTasks();
+    runToEndOfTasks();
 
     // Verify remeasure is triggered through View#postOnAnimation(Runnable)
     verifyPostOnAnimationWasCalledAtLeastNTimesWith(
@@ -429,7 +594,7 @@ public class RecyclerBinderWrapContentTest {
     recyclerBinder.updateItemAtAsync(0, renderInfo);
     recyclerBinder.notifyChangeSetCompleteAsync(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
 
-    mLayoutThreadShadowLooper.runToEndOfTasks();
+    runToEndOfTasks();
 
     // Verify remeasure is triggered through View#postOnAnimation(Runnable)
     verifyPostOnAnimationWasCalledAtLeastNTimesWith(
@@ -462,7 +627,7 @@ public class RecyclerBinderWrapContentTest {
     recyclerBinder.updateRangeAtAsync(0, newRenderInfos);
     recyclerBinder.notifyChangeSetCompleteAsync(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
 
-    mLayoutThreadShadowLooper.runToEndOfTasks();
+    runToEndOfTasks();
 
     // Verify remeasure is triggered through View#postOnAnimation(Runnable)
     verifyPostOnAnimationWasCalledAtLeastNTimesWith(
@@ -509,7 +674,8 @@ public class RecyclerBinderWrapContentTest {
     }
 
     // Verify remeasure is triggered through View#postOnAnimation(Runnable)
-    verifyPostOnAnimationWasCalledNTimesWith(mRecyclerView, 10, recyclerBinder.mRemeasureRunnable);
+    verifyPostOnAnimationWasCalledAtLeastNTimesWith(
+        mRecyclerView, 10, recyclerBinder.mRemeasureRunnable);
 
     recyclerBinder.measure(size, widthSpec, heightSpec, mock(EventHandler.class));
     assertThat(size.width).isEqualTo(1000);
@@ -556,7 +722,8 @@ public class RecyclerBinderWrapContentTest {
     recyclerBinder.notifyChangeSetComplete(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
 
     // Verify remeasure is triggered through View#postOnAnimation(Runnable)
-    verifyPostOnAnimationWasCalledNTimesWith(mRecyclerView, 1, recyclerBinder.mRemeasureRunnable);
+    verifyPostOnAnimationWasCalledAtLeastNTimesWith(
+        mRecyclerView, 1, recyclerBinder.mRemeasureRunnable);
 
     recyclerBinder.measure(size, widthSpec, heightSpec, mock(EventHandler.class));
     assertThat(size.width).isEqualTo(1000);
@@ -577,7 +744,8 @@ public class RecyclerBinderWrapContentTest {
     recyclerBinder.notifyChangeSetComplete(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
 
     // Verify remeasure is triggered through View#postOnAnimation(Runnable)
-    verifyPostOnAnimationWasCalledNTimesWith(mRecyclerView, 1, recyclerBinder.mRemeasureRunnable);
+    verifyPostOnAnimationWasCalledAtLeastNTimesWith(
+        mRecyclerView, 1, recyclerBinder.mRemeasureRunnable);
 
     Size size = new Size();
     recyclerBinder.measure(size, widthSpec, heightSpec, mock(EventHandler.class));
@@ -599,7 +767,8 @@ public class RecyclerBinderWrapContentTest {
     recyclerBinder.notifyChangeSetComplete(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
 
     // Verify remeasure is triggered through View#postOnAnimation(Runnable)
-    verifyPostOnAnimationWasCalledNTimesWith(mRecyclerView, 1, recyclerBinder.mRemeasureRunnable);
+    verifyPostOnAnimationWasCalledAtLeastNTimesWith(
+        mRecyclerView, 1, recyclerBinder.mRemeasureRunnable);
 
     Size size = new Size();
     recyclerBinder.measure(size, widthSpec, heightSpec, mock(EventHandler.class));
@@ -628,7 +797,8 @@ public class RecyclerBinderWrapContentTest {
     recyclerBinder.notifyChangeSetComplete(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
 
     // Verify remeasure is triggered through View#postOnAnimation(Runnable)
-    verifyPostOnAnimationWasCalledNTimesWith(mRecyclerView, 1, recyclerBinder.mRemeasureRunnable);
+    verifyPostOnAnimationWasCalledAtLeastNTimesWith(
+        mRecyclerView, 1, recyclerBinder.mRemeasureRunnable);
 
     Size size = new Size();
     recyclerBinder.measure(size, widthSpec, heightSpec, mock(EventHandler.class));
@@ -657,7 +827,8 @@ public class RecyclerBinderWrapContentTest {
     recyclerBinder.notifyChangeSetComplete(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
 
     // Verify remeasure is triggered through View#postOnAnimation(Runnable)
-    verifyPostOnAnimationWasCalledNTimesWith(mRecyclerView, 1, recyclerBinder.mRemeasureRunnable);
+    verifyPostOnAnimationWasCalledAtLeastNTimesWith(
+        mRecyclerView, 1, recyclerBinder.mRemeasureRunnable);
 
     Size size = new Size();
     recyclerBinder.measure(size, widthSpec, heightSpec, mock(EventHandler.class));
@@ -685,7 +856,7 @@ public class RecyclerBinderWrapContentTest {
     recyclerBinder.insertItemAtAsync(0, renderInfo);
     recyclerBinder.notifyChangeSetCompleteAsync(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
 
-    mLayoutThreadShadowLooper.runToEndOfTasks();
+    runToEndOfTasks();
 
     final int widthSpec = makeSizeSpec(1000, AT_MOST);
     final int heightSpec = makeSizeSpec(1000, EXACTLY);
@@ -702,10 +873,11 @@ public class RecyclerBinderWrapContentTest {
       recyclerBinder.notifyChangeSetCompleteAsync(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
     }
 
-    mLayoutThreadShadowLooper.runToEndOfTasks();
+    runToEndOfTasks();
 
     // Verify remeasure is triggered through View#postOnAnimation(Runnable)
-    verifyPostOnAnimationWasCalledNTimesWith(mRecyclerView, 20, recyclerBinder.mRemeasureRunnable);
+    verifyPostOnAnimationWasCalledAtLeastNTimesWith(
+        mRecyclerView, 20, recyclerBinder.mRemeasureRunnable);
 
     recyclerBinder.measure(size, widthSpec, heightSpec, mock(EventHandler.class));
     assertThat(size.width).isEqualTo(1000);
@@ -735,7 +907,7 @@ public class RecyclerBinderWrapContentTest {
     recyclerBinder.insertRangeAtAsync(0, renderInfos);
     recyclerBinder.notifyChangeSetCompleteAsync(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
 
-    mLayoutThreadShadowLooper.runToEndOfTasks();
+    runToEndOfTasks();
 
     final int widthSpec = makeSizeSpec(1000, AT_MOST);
     final int heightSpec = makeSizeSpec(1000, EXACTLY);
@@ -754,10 +926,11 @@ public class RecyclerBinderWrapContentTest {
     recyclerBinder.insertRangeAtAsync(0, newRenderInfos);
     recyclerBinder.notifyChangeSetCompleteAsync(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
 
-    mLayoutThreadShadowLooper.runToEndOfTasks();
+    runToEndOfTasks();
 
     // Verify remeasure is triggered through View#postOnAnimation(Runnable)
-    verifyPostOnAnimationWasCalledNTimesWith(mRecyclerView, 2, recyclerBinder.mRemeasureRunnable);
+    verifyPostOnAnimationWasCalledAtLeastNTimesWith(
+        mRecyclerView, 2, recyclerBinder.mRemeasureRunnable);
 
     recyclerBinder.measure(size, widthSpec, heightSpec, mock(EventHandler.class));
     assertThat(size.width).isEqualTo(1000);
@@ -778,7 +951,7 @@ public class RecyclerBinderWrapContentTest {
     recyclerBinder.removeItemAt(0);
     recyclerBinder.notifyChangeSetComplete(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
 
-    mLayoutThreadShadowLooper.runToEndOfTasks();
+    runToEndOfTasks();
 
     // Verify remeasure is triggered through View#postOnAnimation(Runnable)
     verifyPostOnAnimationWasCalledAtLeastNTimesWith(
@@ -787,6 +960,37 @@ public class RecyclerBinderWrapContentTest {
     Size size = new Size();
     recyclerBinder.measure(size, widthSpec, heightSpec, mock(EventHandler.class));
     assertThat(size.width).isEqualTo(700);
+  }
+
+  @Test
+  public void testUpdateWithWrapContent() {
+    final int widthSpec = makeSizeSpec(10, EXACTLY);
+    final int heightSpec = makeSizeSpec(10, EXACTLY);
+    Size size = new Size();
+    final RecyclerBinder recyclerBinder =
+        prepareBinderWithMeasuredChildSize(
+            widthSpec, heightSpec, 2, OrientationHelper.VERTICAL, 1000, false);
+    recyclerBinder.measure(size, widthSpec, heightSpec, mock(EventHandler.class));
+
+    recyclerBinder.mount(mRecyclerView);
+    final boolean[] wasCreated = new boolean[1];
+    wasCreated[0] = false;
+
+    final Component component =
+        new InlineLayoutSpec() {
+          @Override
+          protected Component onCreateLayout(ComponentContext c) {
+            TestDrawableComponent.Builder builder = TestDrawableComponent.create(c);
+            wasCreated[0] = true;
+            return builder.build();
+          }
+        };
+    recyclerBinder.updateItemAt(1, ComponentRenderInfo.create().component(component).build());
+    recyclerBinder.notifyChangeSetComplete(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
+
+    runToEndOfTasks();
+
+    assertThat(wasCreated[0]).isTrue();
   }
 
   @Ignore("t33888191") // TODO(t33888191): Support wrapContent with insertAsync
@@ -804,7 +1008,7 @@ public class RecyclerBinderWrapContentTest {
     recyclerBinder.removeRangeAt(0, 3);
     recyclerBinder.notifyChangeSetComplete(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
 
-    mLayoutThreadShadowLooper.runToEndOfTasks();
+    runToEndOfTasks();
 
     // Verify remeasure is triggered through View#postOnAnimation(Runnable)
     verifyPostOnAnimationWasCalledAtLeastNTimesWith(
@@ -837,7 +1041,7 @@ public class RecyclerBinderWrapContentTest {
     recyclerBinder.updateItemAt(0, newComponent);
     recyclerBinder.notifyChangeSetComplete(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
 
-    mLayoutThreadShadowLooper.runToEndOfTasks();
+    runToEndOfTasks();
 
     // Verify remeasure is triggered through View#postOnAnimation(Runnable)
     verifyPostOnAnimationWasCalledAtLeastNTimesWith(
@@ -870,7 +1074,7 @@ public class RecyclerBinderWrapContentTest {
     recyclerBinder.updateRangeAt(0, newRenderInfos);
     recyclerBinder.notifyChangeSetComplete(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
 
-    mLayoutThreadShadowLooper.runToEndOfTasks();
+    runToEndOfTasks();
 
     // Verify remeasure is triggered through View#postOnAnimation(Runnable)
     verifyPostOnAnimationWasCalledAtLeastNTimesWith(
@@ -883,8 +1087,8 @@ public class RecyclerBinderWrapContentTest {
 
   @Test
   public void testOnDataRenderedWithNoChanges() {
-    final LithoRecylerView recyclerView =
-        new LithoRecylerView(mComponentContext.getAndroidContext());
+    final LithoRecyclerView recyclerView =
+        new LithoRecyclerView(mComponentContext.getAndroidContext());
     final ChangeSetCompleteCallback changeSetCompleteCallback =
         mock(ChangeSetCompleteCallback.class);
     final RecyclerBinder recyclerBinder =
@@ -910,7 +1114,7 @@ public class RecyclerBinderWrapContentTest {
     recyclerBinder.notifyChangeSetComplete(false, changeSetCompleteCallback);
 
     verify(changeSetCompleteCallback).onDataRendered(eq(true), anyLong());
-    verifyPostOnAnimationWasCalledNTimesWith(mRecyclerView, 0, recyclerBinder.mRemeasureRunnable);
+    verifyPostOnAnimationWasNotCalled(mRecyclerView, recyclerBinder.mRemeasureRunnable);
   }
 
   private RecyclerBinder prepareBinderWithMeasuredChildSize(
@@ -955,7 +1159,7 @@ public class RecyclerBinderWrapContentTest {
     if (async) {
       recyclerBinder.insertRangeAtAsync(0, components);
       recyclerBinder.notifyChangeSetCompleteAsync(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
-      mLayoutThreadShadowLooper.runToEndOfTasks();
+      runToEndOfTasks();
     } else {
       recyclerBinder.insertRangeAt(0, components);
       recyclerBinder.notifyChangeSetComplete(true, NO_OP_CHANGE_SET_COMPLETE_CALLBACK);
@@ -964,19 +1168,22 @@ public class RecyclerBinderWrapContentTest {
     return recyclerBinder;
   }
 
-  private static void verifyPostOnAnimationWasCalledNTimesWith(
-      TestRecyclerView recyclerView, int times, Runnable runnable) {
-    assertThat(recyclerView.getPostAnimationRunnableList().size()).isEqualTo(times);
+  private static void verifyPostOnAnimationWasNotCalled(
+      TestRecyclerView recyclerView, Runnable runnable) {
+    boolean found = false;
     for (Runnable r : recyclerView.getPostAnimationRunnableList()) {
-      assertThat(runnable).isSameAs(r);
+      found |= r == runnable;
     }
+    assertThat(found).isFalse();
   }
 
   private static void verifyPostOnAnimationWasCalledAtLeastNTimesWith(
       TestRecyclerView recyclerView, int times, Runnable runnable) {
     assertThat(recyclerView.getPostAnimationRunnableList().size()).isGreaterThanOrEqualTo(times);
+    boolean found = false;
     for (Runnable r : recyclerView.getPostAnimationRunnableList()) {
-      assertThat(runnable).isSameAs(r);
+      found |= r == runnable;
     }
+    assertThat(found).isTrue();
   }
 }

@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,31 +23,26 @@ import android.view.View;
 import androidx.test.espresso.matcher.ViewMatchers;
 import com.facebook.litho.Component;
 import com.facebook.litho.ComponentHost;
-import com.facebook.litho.ComponentLifecycle;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 
-/**
- * Espresso matchers for {@link ComponentHost}.
- */
+/** Espresso matchers for {@link ComponentHost}. */
 public class ComponentHostMatchers {
 
   /**
    * Matches a view that is a ComponentHost that matches subMatcher.
    *
-   * In Espresso tests, when you need to match a View, we recommend
-   * using this matcher and nest any of the other matchers in this
-   * class along with it. For example
-   * <code>componentHost(withText("foobar"))</code> or
-   * <code>componentHost(withContentDescription("foobar"))</code>.
+   * <p>In Espresso tests, when you need to match a View, we recommend using this matcher and nest
+   * any of the other matchers in this class along with it. For example <code>
+   * componentHost(withText("foobar"))</code> or <code>
+   * componentHost(withContentDescription("foobar"))</code>.
    *
-   * While it's definitely possible to use Espresso's ViewMatchers
-   * directly to match ComponentHosts, using these methods ensure that
-   * we can handle weirdness in the view hierarchy that comes from the
-   * component stack.
+   * <p>While it's definitely possible to use Espresso's ViewMatchers directly to match
+   * ComponentHosts, using these methods ensure that we can handle weirdness in the view hierarchy
+   * that comes from the component stack.
    */
   public static Matcher<View> componentHost(final Matcher<? extends ComponentHost> subMatcher) {
     return new BaseMatcher<View>() {
@@ -69,11 +64,11 @@ public class ComponentHostMatchers {
   }
 
   /**
-   * Matches a ComponentHost that has mounted a Component with a
-   * lifecycle that's matched by the {@code lifecycleMatcher}.
+   * Matches a ComponentHost that has mounted a Component with a lifecycle that's matched by the
+   * {@code lifecycleMatcher}.
    */
   public static Matcher<ComponentHost> withLifecycle(
-      final Matcher<? extends ComponentLifecycle> lifecycleMatcher) {
+      final Matcher<? extends Component> lifecycleMatcher) {
     return new BaseMatcher<ComponentHost>() {
       private StringBuilder mTypes = new StringBuilder();
 
@@ -120,10 +115,7 @@ public class ComponentHostMatchers {
     };
   }
 
-  /**
-   * Matches a ComponentHost which is displaying text that matches
-   * {@code textMatcher}
-   */
+  /** Matches a ComponentHost which is displaying text that matches {@code textMatcher} */
   public static Matcher<View> componentHostWithText(final Matcher<String> textMatcher) {
     return componentHost(withText(textMatcher));
   }
@@ -137,7 +129,7 @@ public class ComponentHostMatchers {
         }
 
         ComponentHost host = (ComponentHost) item;
-        for (CharSequence foundText : host.getTextContent().getTextItems()) {
+        for (CharSequence foundText : host.getTextContentText()) {
           if (foundText != null && textMatcher.matches(foundText.toString())) {
             return true;
           }
@@ -155,8 +147,8 @@ public class ComponentHostMatchers {
   }
 
   /**
-   * Matches a ComponentHost which is displaying {@code text}. This
-   * is equivalent to {@code componentHostWithText(is(text))}.
+   * Matches a ComponentHost which is displaying {@code text}. This is equivalent to {@code
+   * componentHostWithText(is(text))}.
    */
   public static Matcher<View> componentHostWithText(final String text) {
     return componentHost(withText(text));
@@ -209,6 +201,5 @@ public class ComponentHostMatchers {
     };
   }
 
-  private ComponentHostMatchers() {
-  }
+  private ComponentHostMatchers() {}
 }

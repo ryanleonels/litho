@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,8 +34,8 @@ import com.facebook.litho.annotations.PropDefault;
 import com.facebook.litho.annotations.ResType;
 
 /**
- * A component that paints rounded edges to mimic a clipping operation on the
- * component being rendered below it. Used in {@link CardSpec}.
+ * A component that paints rounded edges to mimic a clipping operation on the component being
+ * rendered below it. Used in {@link CardSpec}.
  *
  * @prop clippingColor Color for corner clipping.
  * @prop cornerRadius Radius for corner clipping.
@@ -67,10 +67,10 @@ class CardClipSpec {
     cardClipDrawable.setClippingColor(clippingColor);
     cardClipDrawable.setCornerRadius(cornerRadius);
     int clipEdge =
-        (disableClipTopLeft ? TOP_LEFT : NONE) |
-        (disableClipTopRight ? TOP_RIGHT : NONE) |
-        (disableClipBottomLeft ? BOTTOM_LEFT : NONE) |
-        (disableClipBottomRight ? BOTTOM_RIGHT : NONE);
+        (disableClipTopLeft ? TOP_LEFT : NONE)
+            | (disableClipTopRight ? TOP_RIGHT : NONE)
+            | (disableClipBottomLeft ? BOTTOM_LEFT : NONE)
+            | (disableClipBottomRight ? BOTTOM_RIGHT : NONE);
     cardClipDrawable.setDisableClip(clipEdge);
   }
 

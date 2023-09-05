@@ -1,11 +1,11 @@
 /*
- * Copyright 2019-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,34 +13,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.litho.intellij.foldings;
 
-import com.facebook.litho.intellij.LithoPluginTestHelper;
+import com.facebook.litho.intellij.LithoPluginIntellijTest;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.rt.execution.junit.FileComparisonFailure;
-import org.junit.After;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
 
-public class DefaultPropertyFoldingBuilderTest {
+public class DefaultPropertyFoldingBuilderTest extends LithoPluginIntellijTest {
 
-  private final LithoPluginTestHelper testHelper = new LithoPluginTestHelper("testdata/foldings");
-
-  @Before
-  public void setUp() throws Exception {
-    testHelper.setUp();
-  }
-
-  @After
-  public void tearDown() throws Exception {
-    testHelper.tearDown();
+  public DefaultPropertyFoldingBuilderTest() {
+    super("testdata/foldings");
   }
 
   @Test
-  public void testFolding() {
-    String clsName = "DefaultPropertyFoldingTest.java";
+  public void folding_forLayoutSpec_matchingTemplate() {
+    testFoldingForClassname("FoldingTestLayoutSpec.java");
+  }
 
+  @Test
+  public void folding_forGroupSectionSpec_matchingTemplate() {
+    testFoldingForClassname("FoldingTestGroupSectionSpec.java");
+  }
+
+  private void testFoldingForClassname(String clsName) {
     ApplicationManager.getApplication()
         .invokeAndWait(
             () -> {

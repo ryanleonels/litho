@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,14 +32,17 @@ import androidx.annotation.Dimension;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.Px;
+import com.facebook.rendercore.ResourceResolver;
+import com.facebook.rendercore.primitives.Equivalence;
 import com.facebook.yoga.YogaEdge;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.Arrays;
 
 /**
  * Represents a collection of attributes that describe how a border should be applied to a layout
  */
-public class Border {
+public class Border implements Equivalence<Border> {
   static final int EDGE_LEFT = 0;
   static final int EDGE_TOP = 1;
   static final int EDGE_RIGHT = 2;
@@ -48,9 +51,8 @@ public class Border {
 
   @Retention(RetentionPolicy.SOURCE)
   @IntDef(
-    flag = true,
-    value = {Corner.TOP_LEFT, Corner.TOP_RIGHT, Corner.BOTTOM_RIGHT, Corner.BOTTOM_LEFT}
-  )
+      flag = true,
+      value = {Corner.TOP_LEFT, Corner.TOP_RIGHT, Corner.BOTTOM_RIGHT, Corner.BOTTOM_LEFT})
   public @interface Corner {
     int TOP_LEFT = 0;
     int TOP_RIGHT = 1;
@@ -125,7 +127,7 @@ public class Border {
     return true;
   }
 
-  private static void setEdgeValue(int[] edges, YogaEdge edge, int value) {
+  public static void setEdgeValue(int[] edges, YogaEdge edge, int value) {
     switch (edge) {
       case ALL:
         for (int i = 0; i < EDGE_COUNT; ++i) {
@@ -179,7 +181,7 @@ public class Border {
     private int mNumPathEffects;
 
     Builder(ComponentContext context) {
-      mResourceResolver = new ResourceResolver(context);
+      mResourceResolver = context.getResourceResolver();
       mBorder = new Border();
     }
 
@@ -314,6 +316,9 @@ public class Border {
       if (corner < 0 || corner >= RADIUS_COUNT) {
         throw new IllegalArgumentException("Given invalid corner: " + corner);
       }
+      if (radius < 0f) {
+        throw new IllegalArgumentException("Can't have a negative radius value");
+      }
       mBorder.mRadius[corner] = radius;
       return this;
     }
@@ -393,22 +398,6 @@ public class Border {
     }
 
     /**
-     * Applies a corner effect to the border
-     *
-     * @deprecated Please use {@link #radiusPx(int)} instead
-     * @param radius The amount to round sharp angles when drawing the border
-     */
-    @Deprecated
-    public Builder cornerEffect(float radius) {
-      checkNotBuilt();
-      if (radius < 0f) {
-        throw new IllegalArgumentException("Can't have a negative radius value");
-      }
-      radiusPx(Math.round(radius));
-      return this;
-    }
-
-    /**
      * Applies a discrete effect to the border
      *
      * <p>Specifying two effects will compose them where the first specified effect acts as the
@@ -446,7 +435,6 @@ public class Border {
 
     public Border build() {
       checkNotBuilt();
-      mResourceResolver.release();
       mResourceResolver = null;
 
       if (mNumPathEffects == MAX_PATH_EFFECTS) {
@@ -473,5 +461,21 @@ public class Border {
         throw new IllegalArgumentException("You cannot specify more than 2 effects to compose");
       }
     }
+  }
+
+  @Override
+  public boolean isEquivalentTo(@Nullable Border other) {
+    if (this == other) {
+      return true;
+    }
+
+    if (other == null) {
+      return false;
+    }
+
+    return Arrays.equals(mRadius, other.mRadius)
+        && Arrays.equals(mEdgeWidths, other.mEdgeWidths)
+        && Arrays.equals(mEdgeColors, other.mEdgeColors)
+        && mPathEffect == other.mPathEffect;
   }
 }

@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -54,6 +54,7 @@ public class EventMethodExtractor {
 
   private static final List<Class<? extends Annotation>> METHOD_PARAM_ANNOTATIONS =
       new ArrayList<>();
+
   static {
     METHOD_PARAM_ANNOTATIONS.add(FromEvent.class);
     METHOD_PARAM_ANNOTATIONS.add(Param.class);
@@ -70,6 +71,7 @@ public class EventMethodExtractor {
           Elements elements,
           TypeElement typeElement,
           List<Class<? extends Annotation>> permittedInterStageInputAnnotations,
+          List<Class<? extends Annotation>> permittedLayoutInterStageInputAnnotations,
           Messager messager,
           EnumSet<RunMode> runMode) {
     final List<SpecMethodModel<EventMethod, EventDeclarationModel>> delegateMethods =
@@ -88,8 +90,10 @@ public class EventMethodExtractor {
             getMethodParams(
                 executableElement,
                 messager,
-                getPermittedMethodParamAnnotations(permittedInterStageInputAnnotations),
+                getPermittedMethodParamAnnotations(
+                    permittedInterStageInputAnnotations, permittedLayoutInterStageInputAnnotations),
                 permittedInterStageInputAnnotations,
+                permittedLayoutInterStageInputAnnotations,
                 ImmutableList.<Class<? extends Annotation>>of());
 
         final DeclaredType eventClassDeclaredType =
@@ -97,14 +101,24 @@ public class EventMethodExtractor {
                 elements, executableElement, OnEvent.class, "value", DeclaredType.class);
         final Element eventClass = eventClassDeclaredType.asElement();
 
+        // In full mode, we get the return type from the Event class so that we can verify that it
+        // matches the return type of the method. In ABI mode, we can't access the Event class so
+        // we just use the method return type and leave validation for the full build.
         final TypeName returnType =
             runMode.contains(RunMode.ABI)
-                ? TypeName.VOID
+                ? TypeName.get(executableElement.getReturnType())
                 : EventDeclarationsExtractor.getReturnType(elements, eventClass);
         final ImmutableList<FieldModel> fields =
             runMode.contains(RunMode.ABI)
                 ? ImmutableList.of()
                 : FieldsExtractor.extractFields(eventClass);
+
+        TypeName name;
+        try {
+          name = TypeName.get(eventClass.asType());
+        } catch (Exception e) {
+          name = ClassName.bestGuess(eventClass.toString());
+        }
 
         final SpecMethodModel<EventMethod, EventDeclarationModel> eventMethod =
             SpecMethodModel.<EventMethod, EventDeclarationModel>builder()
@@ -115,9 +129,7 @@ public class EventMethodExtractor {
                 .typeVariables(ImmutableList.copyOf(getTypeVariables(executableElement)))
                 .methodParams(ImmutableList.copyOf(methodParams))
                 .representedObject(executableElement)
-                .typeModel(
-                    new EventDeclarationModel(
-                        ClassName.bestGuess(eventClass.toString()), returnType, fields, eventClass))
+                .typeModel(new EventDeclarationModel(name, returnType, fields, eventClass))
                 .build();
         delegateMethods.add(eventMethod);
       }
@@ -127,10 +139,12 @@ public class EventMethodExtractor {
   }
 
   static List<Class<? extends Annotation>> getPermittedMethodParamAnnotations(
-      List<Class<? extends Annotation>> permittedInterStageInputAnnotations) {
+      List<Class<? extends Annotation>> permittedInterStageInputAnnotations,
+      List<Class<? extends Annotation>> permittedLayoutInterStageInputAnnotations) {
     final List<Class<? extends Annotation>> permittedMethodParamAnnotations =
         new ArrayList<>(METHOD_PARAM_ANNOTATIONS);
     permittedMethodParamAnnotations.addAll(permittedInterStageInputAnnotations);
+    permittedMethodParamAnnotations.addAll(permittedLayoutInterStageInputAnnotations);
 
     return permittedMethodParamAnnotations;
   }

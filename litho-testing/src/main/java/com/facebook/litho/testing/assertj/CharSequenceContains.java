@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +16,6 @@
 
 package com.facebook.litho.testing.assertj;
 
-import org.hamcrest.Factory;
 import org.hamcrest.Matcher;
 
 /** Tests if the argument is a string that contains a substring. */
@@ -36,7 +35,6 @@ public class CharSequenceContains extends SubCharSequenceMatcher {
   }
 
   /** Alias for {@link #containsCharSequence(CharSequence)} for better discoverability. */
-  @Factory
   public static Matcher<CharSequence> containsString(CharSequence substring) {
     return new CharSequenceContains(substring);
   }
@@ -52,7 +50,6 @@ public class CharSequenceContains extends SubCharSequenceMatcher {
    * @param substring the substring that the returned matcher will expect to find within any
    *     examined string
    */
-  @Factory
   public static Matcher<CharSequence> containsCharSequence(CharSequence substring) {
     return new CharSequenceContains(substring);
   }

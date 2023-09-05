@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,9 +16,12 @@
 
 package com.facebook.litho.testing.state;
 
+import static com.facebook.litho.Component.isLayoutSpecWithSizeSpec;
+
 import com.facebook.litho.Component;
 import com.facebook.litho.ComponentContext;
 import com.facebook.litho.ComponentTree;
+import com.facebook.litho.LithoTree;
 import com.facebook.litho.LithoView;
 import com.facebook.litho.LithoViewTestHelper;
 import com.facebook.litho.testing.Whitebox;
@@ -37,7 +40,8 @@ public final class StateUpdatesTestHelper {
 
   /**
    * Call a state update as specified in {@link StateUpdater#performStateUpdate(ComponentContext)}
-   *   on the component and return the updated view.
+   * on the component and return the updated view.
+   *
    * @param context context
    * @param component the component to update
    * @param stateUpdater implementation of {@link StateUpdater} that triggers the state update
@@ -48,13 +52,9 @@ public final class StateUpdatesTestHelper {
       ComponentContext context,
       Component component,
       StateUpdater stateUpdater,
-      ShadowLooper layoutThreadShadowLooper) throws Exception {
+      ShadowLooper layoutThreadShadowLooper) {
     return getViewAfterStateUpdate(
-        context,
-        component,
-        stateUpdater,
-        layoutThreadShadowLooper,
-        false);
+        context, component, stateUpdater, layoutThreadShadowLooper, false, false);
   }
 
   /**
@@ -64,8 +64,7 @@ public final class StateUpdatesTestHelper {
    * @param component the component to update
    * @return the updated LithoView after the state update was applied
    */
-  public static LithoView getViewAfterStateUpdate(ComponentContext context, Component component)
-      throws Exception {
+  public static LithoView getViewAfterStateUpdate(ComponentContext context, Component component) {
     return getViewAfterStateUpdate(
         context,
         component,
@@ -74,6 +73,7 @@ public final class StateUpdatesTestHelper {
           public void performStateUpdate(ComponentContext ignored) {}
         },
         ComponentTestHelper.getDefaultLayoutThreadShadowLooper(),
+        false,
         false);
   }
 
@@ -87,12 +87,13 @@ public final class StateUpdatesTestHelper {
    * @return the updated LithoView after the state update was applied
    */
   public static LithoView getViewAfterStateUpdate(
-      ComponentContext context, Component component, StateUpdater stateUpdater) throws Exception {
+      ComponentContext context, Component component, StateUpdater stateUpdater) {
     return getViewAfterStateUpdate(
         context,
         component,
         stateUpdater,
-        ComponentTestHelper.getDefaultLayoutThreadShadowLooper(),
+        ComponentTestHelper.getDefaultThreadShadowLoopers(),
+        false,
         false);
   }
 
@@ -110,14 +111,15 @@ public final class StateUpdatesTestHelper {
       ComponentContext context,
       Component component,
       StateUpdater stateUpdater,
-      boolean incrementalMountEnabled)
-      throws Exception {
+      boolean incrementalMountEnabled,
+      boolean visibilityProcessingEnabled) {
     return getViewAfterStateUpdate(
         context,
         component,
         stateUpdater,
-        new ShadowLooper[] {ComponentTestHelper.getDefaultLayoutThreadShadowLooper()},
-        incrementalMountEnabled);
+        ComponentTestHelper.getDefaultThreadShadowLoopers(),
+        incrementalMountEnabled,
+        visibilityProcessingEnabled);
   }
 
   /**
@@ -136,24 +138,26 @@ public final class StateUpdatesTestHelper {
       Component component,
       StateUpdater stateUpdater,
       ShadowLooper layoutThreadShadowLooper,
-      boolean incrementalMountEnabled)
-      throws Exception {
+      boolean incrementalMountEnabled,
+      boolean visibilityProcessingEnabled) {
     return getViewAfterStateUpdate(
         context,
         component,
         stateUpdater,
-        new ShadowLooper[]{layoutThreadShadowLooper},
-        incrementalMountEnabled);
+        new ShadowLooper[] {layoutThreadShadowLooper},
+        incrementalMountEnabled,
+        visibilityProcessingEnabled);
   }
 
   /**
-   *  Call a state update as specified in {@link StateUpdater#performStateUpdate(ComponentContext)}
-   *   on the component and return the updated view with the option to incrementally mount.
+   * Call a state update as specified in {@link StateUpdater#performStateUpdate(ComponentContext)}
+   * on the component and return the updated view with the option to incrementally mount.
+   *
    * @param context context
    * @param component the component to update
    * @param stateUpdater implementation of {@link StateUpdater} that triggers the state update
    * @param loopers shadow loopers to post messages to the main thread, run in the same order they
-   * are specified
+   *     are specified
    * @param incrementalMountEnabled whether or not to enable incremental mount for the component
    * @return the updated LithoView after the state update was applied
    */
@@ -162,23 +166,30 @@ public final class StateUpdatesTestHelper {
       Component component,
       StateUpdater stateUpdater,
       ShadowLooper[] loopers,
-      boolean incrementalMountEnabled) throws Exception {
+      boolean incrementalMountEnabled,
+      boolean visibilityProcessingEnabled) {
     // This is for working around component immutability, to be able to retrieve the updated
     // instance of the component.
     Whitebox.invokeMethod(component, "setKey", "bogusKeyForTest");
-    final ComponentTree componentTree = ComponentTree.create(context, component)
-        .incrementalMount(incrementalMountEnabled)
-        .layoutDiffing(false)
-        .build();
+    final ComponentTree componentTree =
+        ComponentTree.create(context, component)
+            .incrementalMount(incrementalMountEnabled)
+            .visibilityProcessing(visibilityProcessingEnabled)
+            .layoutDiffing(false)
+            .build();
 
     final LithoView lithoView = new LithoView(context);
     ComponentTestHelper.mountComponent(lithoView, componentTree);
 
-    Whitebox.setInternalState(component, "mGlobalKey", "bogusKeyForTest");
     Whitebox.setInternalState(component, "mId", 457282882);
 
+    Whitebox.setInternalState(context, "mGlobalKey", "$bogusKeyForTest");
     Whitebox.setInternalState(context, "mComponentScope", component);
-    Whitebox.setInternalState(context, "mComponentTree", componentTree);
+    Whitebox.setInternalState(context, "mLithoTree", LithoTree.Companion.create(componentTree));
+
+    if (isLayoutSpecWithSizeSpec(component)) {
+      Whitebox.setInternalState(context, "isNestedTreeContext", true);
+    }
 
     final LithoViewTestHelper.InternalNodeRef rootLayoutNode =
         LithoViewTestHelper.getRootLayoutRef(lithoView);

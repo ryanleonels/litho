@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -140,14 +140,13 @@ import java.util.concurrent.atomic.AtomicReference;
  * @prop linkColor The color to apply to links within the text.
  */
 @MountSpec(
-  isPureRender = true,
-  events = {
-    TextChangedEvent.class,
-    SelectionChangedEvent.class,
-    KeyUpEvent.class,
-    SetTextEvent.class
-  }
-)
+    isPureRender = true,
+    events = {
+      TextChangedEvent.class,
+      SelectionChangedEvent.class,
+      KeyUpEvent.class,
+      SetTextEvent.class
+    })
 @Deprecated
 class EditTextSpec {
 
@@ -167,13 +166,21 @@ class EditTextSpec {
   @PropDefault protected static final int maxLength = Integer.MAX_VALUE;
   @PropDefault protected static final int shadowColor = Color.GRAY;
   @PropDefault protected static final int textColor = DEFAULT_COLOR;
-  @PropDefault protected static final ColorStateList textColorStateList =
-      new ColorStateList(DEFAULT_TEXT_COLOR_STATE_LIST_STATES,DEFAULT_TEXT_COLOR_STATE_LIST_COLORS);
+
+  @PropDefault
+  protected static final ColorStateList textColorStateList =
+      new ColorStateList(
+          DEFAULT_TEXT_COLOR_STATE_LIST_STATES, DEFAULT_TEXT_COLOR_STATE_LIST_COLORS);
+
   @PropDefault protected static final int hintColor = DEFAULT_HINT_COLOR;
-  @PropDefault protected static final ColorStateList hintColorStateList =
-      new ColorStateList(DEFAULT_HINT_COLOR_STATE_LIST_STATES,DEFAULT_HINT_COLOR_STATE_LIST_COLORS);
+
+  @PropDefault
+  protected static final ColorStateList hintColorStateList =
+      new ColorStateList(
+          DEFAULT_HINT_COLOR_STATE_LIST_STATES, DEFAULT_HINT_COLOR_STATE_LIST_COLORS);
+
   @PropDefault protected static final int linkColor = DEFAULT_COLOR;
-  @PropDefault protected static final int textSize = 13;
+  @PropDefault protected static final int textSize = TextSpec.UNSET;
   @PropDefault protected static final int textStyle = DEFAULT_TYPEFACE.getStyle();
   @PropDefault protected static final Typeface typeface = DEFAULT_TYPEFACE;
   @PropDefault protected static final float spacingMultiplier = 1.0f;
@@ -181,8 +188,11 @@ class EditTextSpec {
   @PropDefault protected static final int gravity = DEFAULT_GRAVITY;
   @PropDefault protected static final boolean editable = true;
   @PropDefault protected static final int selection = -1;
-  @PropDefault protected static final int inputType =
+
+  @PropDefault
+  protected static final int inputType =
       EditorInfo.TYPE_CLASS_TEXT | EditorInfo.TYPE_TEXT_FLAG_MULTI_LINE;
+
   @PropDefault protected static final int rawInputType = EditorInfo.TYPE_NULL;
   @PropDefault protected static final int imeOptions = EditorInfo.IME_NULL;
   @PropDefault protected static final boolean isSingleLineWrap = false;
@@ -376,8 +386,7 @@ class EditTextSpec {
     }
 
     editText.measure(
-        MeasureUtils.getViewMeasureSpec(widthSpec),
-        MeasureUtils.getViewMeasureSpec(heightSpec));
+        MeasureUtils.getViewMeasureSpec(widthSpec), MeasureUtils.getViewMeasureSpec(heightSpec));
 
     size.width = editText.getMeasuredWidth();
     size.height = editText.getMeasuredHeight();
@@ -553,7 +562,6 @@ class EditTextSpec {
 
   @OnCreateInitialState
   static void onCreateInitialState(
-      final ComponentContext c,
       StateValue<AtomicReference<EditTextWithEventHandlers>> mountedView,
       StateValue<AtomicBoolean> configuredInitialText) {
     mountedView.set(new AtomicReference<EditTextWithEventHandlers>());
@@ -598,6 +606,12 @@ class EditTextSpec {
       boolean isSingleLineWrap,
       boolean requestFocus,
       int cursorDrawableRes) {
+
+    if (textSize == TextSpec.UNSET) {
+      editText.setTextSize(TypedValue.COMPLEX_UNIT_SP, TextSpec.DEFAULT_TEXT_SIZE_SP);
+    } else {
+      editText.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize);
+    }
 
     // We only want to change the input type if it actually needs changing, and we need to take
     // isSingleLine into account so that we get the correct input type.
@@ -655,7 +669,6 @@ class EditTextSpec {
     editText.setShadowLayer(shadowRadius, shadowDx, shadowDy, shadowColor);
     editText.setLinkTextColor(linkColor);
     editText.setHighlightColor(highlightColor);
-    editText.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize);
     editText.setLineSpacing(extraSpacing, spacingMultiplier);
     editText.setTypeface(typeface, textStyle);
     editText.setGravity(gravity);
@@ -695,14 +708,19 @@ class EditTextSpec {
     }
 
     if (cursorDrawableRes != -1) {
-      try {
-        // Uses reflection because there is no public API to change cursor color programmatically.
-        // Based on http://stackoverflow.com/questions/25996032/how-to-change-programatically-edittext-cursor-color-in-android.
-        Field f = TextView.class.getDeclaredField("mCursorDrawableRes");
-        f.setAccessible(true);
-        f.set(editText, cursorDrawableRes);
-      } catch (Exception exception) {
-        // no-op don't set cursor drawable
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        editText.setTextCursorDrawable(cursorDrawableRes);
+      } else {
+        try {
+          // Uses reflection because there is no public API to change cursor color programmatically.
+          // Based on
+          // http://stackoverflow.com/questions/25996032/how-to-change-programatically-edittext-cursor-color-in-android.
+          Field f = TextView.class.getDeclaredField("mCursorDrawableRes");
+          f.setAccessible(true);
+          f.set(editText, cursorDrawableRes);
+        } catch (Exception exception) {
+          // no-op don't set cursor drawable
+        }
       }
     }
 

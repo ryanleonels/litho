@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +16,7 @@
 
 package com.facebook.litho.specmodels.model;
 
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -72,13 +72,15 @@ public class StateValidationTest {
     when(mSpecModel.getProps()).thenReturn(ImmutableList.<PropModel>of());
     when(mSpecModel.getInjectProps()).thenReturn(ImmutableList.<InjectPropModel>of());
     when(mSpecModel.getTreeProps()).thenReturn(ImmutableList.<TreePropModel>of());
+    when(mSpecModel.getInterStageInputs()).thenReturn(ImmutableList.of());
+    when(mSpecModel.getPrepareInterStageInputs()).thenReturn(ImmutableList.of());
 
     List<SpecModelValidationError> validationErrors =
         StateValidation.validateStateValues(mSpecModel);
     assertThat(validationErrors).hasSize(1);
     assertThat(validationErrors.get(0).element).isEqualTo(mRepresentedObject2);
-    assertThat(validationErrors.get(0).message).isEqualTo(
-        "State values with the same name must have the same type.");
+    assertThat(validationErrors.get(0).message)
+        .isEqualTo("State values with the same name must have the same type.");
   }
 
   @Test
@@ -96,14 +98,17 @@ public class StateValidationTest {
     when(mSpecModel.getProps()).thenReturn(ImmutableList.<PropModel>of());
     when(mSpecModel.getInjectProps()).thenReturn(ImmutableList.<InjectPropModel>of());
     when(mSpecModel.getTreeProps()).thenReturn(ImmutableList.<TreePropModel>of());
+    when(mSpecModel.getInterStageInputs()).thenReturn(ImmutableList.of());
+    when(mSpecModel.getPrepareInterStageInputs()).thenReturn(ImmutableList.of());
 
     List<SpecModelValidationError> validationErrors =
         StateValidation.validateStateValues(mSpecModel);
     assertThat(validationErrors).hasSize(1);
     assertThat(validationErrors.get(0).element).isEqualTo(mRepresentedObject2);
-    assertThat(validationErrors.get(0).message).isEqualTo(
-        "State values with the same name must have the same annotated value for " +
-            "canUpdateLazily().");
+    assertThat(validationErrors.get(0).message)
+        .isEqualTo(
+            "State values with the same name must have the same annotated value for "
+                + "canUpdateLazily().");
   }
 
   @Test
@@ -146,8 +151,9 @@ public class StateValidationTest {
         .isEqualTo("Parameters annotated with @Param should not have the same name as a @Prop.");
     assertThat(validationErrors.get(1).element).isSameAs(mRepresentedObject2);
     assertThat(validationErrors.get(1).message)
-        .isEqualTo("Parameters annotated with @Param should not have the same name as a @State " +
-            "value.");
+        .isEqualTo(
+            "Parameters annotated with @Param should not have the same name as a @State "
+                + "value.");
   }
 
   @Test
@@ -201,23 +207,27 @@ public class StateValidationTest {
     assertThat(validationErrors).hasSize(4);
     assertThat(validationErrors.get(0).element).isSameAs(mRepresentedObject1);
     assertThat(validationErrors.get(0).message)
-        .isEqualTo("Only state parameters and parameters annotated with @Param are permitted in " +
-            "@OnUpdateState method, and all state parameters must be of type " +
-            "com.facebook.litho.StateValue, but name1 is of type int.");
+        .isEqualTo(
+            "Only state parameters and parameters annotated with @Param are permitted in "
+                + "@OnUpdateState method, and all state parameters must be of type "
+                + "com.facebook.litho.StateValue, but name1 is of type int.");
     assertThat(validationErrors.get(1).element).isSameAs(mRepresentedObject2);
     assertThat(validationErrors.get(1).message)
-        .isEqualTo("Only state parameters and parameters annotated with @Param are permitted in " +
-            "@OnUpdateState method, and all state parameters must be of type " +
-            "com.facebook.litho.StateValue, but name2 is of " +
-            "type com.facebook.litho.Output<T>.");
+        .isEqualTo(
+            "Only state parameters and parameters annotated with @Param are permitted in "
+                + "@OnUpdateState method, and all state parameters must be of type "
+                + "com.facebook.litho.StateValue, but name2 is of "
+                + "type com.facebook.litho.Output<T>.");
     assertThat(validationErrors.get(2).element).isSameAs(mRepresentedObject3);
     assertThat(validationErrors.get(2).message)
-        .isEqualTo("All parameters of type com.facebook.litho.StateValue must define a type " +
-            "argument, name3 in method methodName does not.");
+        .isEqualTo(
+            "All parameters of type com.facebook.litho.StateValue must define a type "
+                + "argument, name3 in method methodName does not.");
     assertThat(validationErrors.get(3).element).isSameAs(mRepresentedObject4);
     assertThat(validationErrors.get(3).message)
-        .isEqualTo("All parameters of type com.facebook.litho.StateValue must define a type " +
-            "argument, name4 in method methodName does not.");
+        .isEqualTo(
+            "All parameters of type com.facebook.litho.StateValue must define a type "
+                + "argument, name4 in method methodName does not.");
   }
 
   @Test
@@ -248,8 +258,9 @@ public class StateValidationTest {
     assertThat(validationErrors).hasSize(1);
     assertThat(validationErrors.get(0).element).isSameAs(mRepresentedObject1);
     assertThat(validationErrors.get(0).message)
-        .isEqualTo("Names of parameters of type StateValue must match the name and type of a " +
-            "parameter annotated with @State.");
+        .isEqualTo(
+            "Names of parameters of type StateValue must match the name and type of a "
+                + "parameter annotated with @State.");
   }
 
   @Test
@@ -329,6 +340,8 @@ public class StateValidationTest {
     when(mSpecModel.getProps()).thenReturn(ImmutableList.of(prop));
     when(mSpecModel.getInjectProps()).thenReturn(ImmutableList.<InjectPropModel>of());
     when(mSpecModel.getTreeProps()).thenReturn(ImmutableList.<TreePropModel>of());
+    when(mSpecModel.getInterStageInputs()).thenReturn(ImmutableList.of());
+    when(mSpecModel.getPrepareInterStageInputs()).thenReturn(ImmutableList.of());
 
     final List<SpecModelValidationError> validationErrors =
         StateValidation.validateStateValues(mSpecModel);
@@ -352,11 +365,6 @@ public class StateValidationTest {
           public Class<? extends Annotation> annotationType() {
             return InjectProp.class;
           }
-
-          @Override
-          public boolean isLazy() {
-            return false;
-          }
         };
     when(injectProp.getAnnotations())
         .thenReturn(ImmutableList.<Annotation>of(injectPropAnnotation));
@@ -365,6 +373,8 @@ public class StateValidationTest {
     when(mSpecModel.getProps()).thenReturn(ImmutableList.<PropModel>of());
     when(mSpecModel.getInjectProps()).thenReturn(ImmutableList.of(injectProp));
     when(mSpecModel.getTreeProps()).thenReturn(ImmutableList.<TreePropModel>of());
+    when(mSpecModel.getInterStageInputs()).thenReturn(ImmutableList.of());
+    when(mSpecModel.getPrepareInterStageInputs()).thenReturn(ImmutableList.of());
 
     final List<SpecModelValidationError> validationErrors =
         StateValidation.validateStateValues(mSpecModel);
@@ -396,6 +406,8 @@ public class StateValidationTest {
     when(mSpecModel.getProps()).thenReturn(ImmutableList.<PropModel>of());
     when(mSpecModel.getInjectProps()).thenReturn(ImmutableList.<InjectPropModel>of());
     when(mSpecModel.getTreeProps()).thenReturn(ImmutableList.of(treeProp));
+    when(mSpecModel.getInterStageInputs()).thenReturn(ImmutableList.of());
+    when(mSpecModel.getPrepareInterStageInputs()).thenReturn(ImmutableList.of());
 
     final List<SpecModelValidationError> validationErrors =
         StateValidation.validateStateValues(mSpecModel);

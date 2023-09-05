@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,7 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.litho.specmodels.generator;
+
+import static com.facebook.litho.specmodels.model.ClassNames.OBJECT;
 
 import com.facebook.litho.annotations.FromEvent;
 import com.facebook.litho.annotations.Param;
@@ -28,6 +31,7 @@ import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
+import com.squareup.javapoet.TypeVariableName;
 
 /** Generator for the cases within the event handler switch clause. */
 public class EventCaseGenerator {
@@ -52,8 +56,7 @@ public class EventCaseGenerator {
 
     if (mWithErrorPropagation) {
       boolean hasErrorHandler =
-          mEventMethodModels
-              .stream()
+          mEventMethodModels.stream()
               .anyMatch(e -> e.name.toString().equals(INTERNAL_ON_ERROR_HANDLER_NAME));
 
       if (!hasErrorHandler) {
@@ -64,9 +67,10 @@ public class EventCaseGenerator {
 
   private void writePropagatingErrorCase(MethodSpec.Builder methodBuilder) {
     methodBuilder
+        .addComment(INTERNAL_ON_ERROR_HANDLER_NAME)
         .beginControlFlow("case $L:", INTERNAL_ON_ERROR_HANDLER_NAME.toString().hashCode())
         .addStatement(
-            "dispatchErrorEvent(($L) eventHandler.params[0], ($L) eventState)",
+            "dispatchErrorEvent(($L) eventHandler.dispatchInfo.componentContext, ($L) eventState)",
             mContextClass,
             ClassNames.ERROR_EVENT)
         .addStatement("return null")
@@ -76,32 +80,45 @@ public class EventCaseGenerator {
   private void writeCase(
       MethodSpec.Builder methodBuilder,
       SpecMethodModel<EventMethod, EventDeclarationModel> eventMethodModel) {
-    methodBuilder.beginControlFlow("case $L:", eventMethodModel.name.toString().hashCode());
+    methodBuilder
+        .addComment("$L", eventMethodModel.name.toString())
+        .beginControlFlow("case $L:", eventMethodModel.name.toString().hashCode());
 
     final String eventVariableName = "_event";
 
     methodBuilder.addStatement(
         "$T $L = ($T) $L",
-        eventMethodModel.typeModel.name,
+        eventMethodModel.typeModel.getRawName(),
         eventVariableName,
-        eventMethodModel.typeModel.name,
+        eventMethodModel.typeModel.getRawName(),
         "eventState");
 
     final CodeBlock.Builder eventHandlerParams =
-        CodeBlock.builder().indent().add("\n$L", "eventHandler.mHasEventDispatcher");
+        CodeBlock.builder().indent().add("\n$L", "eventHandler.dispatchInfo.hasEventDispatcher");
 
     int paramIndex = 0;
     for (MethodParamModel methodParamModel : eventMethodModel.methodParams) {
       if (MethodParamModelUtils.isAnnotatedWith(methodParamModel, FromEvent.class)) {
+        TypeName type = methodParamModel.getTypeName();
+        if (type instanceof TypeVariableName) {
+          type =
+              ((TypeVariableName) type).bounds.isEmpty()
+                  ? OBJECT
+                  : ((TypeVariableName) type).bounds.get(0);
+        }
         eventHandlerParams.add(
-            ",\n($T) $L.$L",
-            methodParamModel.getTypeName(),
-            eventVariableName,
-            methodParamModel.getName());
-      } else if (MethodParamModelUtils.isAnnotatedWith(methodParamModel, Param.class)
-          || methodParamModel.getTypeName().equals(mContextClass)) {
-        eventHandlerParams.add(
-            ",\n($T) eventHandler.params[$L]", methodParamModel.getTypeName(), paramIndex++);
+            ",\n($T) $L.$L", type, eventVariableName, methodParamModel.getName());
+      } else if (methodParamModel.getTypeName().equals(mContextClass) && paramIndex == 0) {
+        eventHandlerParams.add(",\n($T) eventHandler.dispatchInfo.componentContext", mContextClass);
+      } else if (MethodParamModelUtils.isAnnotatedWith(methodParamModel, Param.class)) {
+        TypeName type = methodParamModel.getTypeName();
+        if (type instanceof TypeVariableName) {
+          type =
+              ((TypeVariableName) type).bounds.isEmpty()
+                  ? OBJECT
+                  : ((TypeVariableName) type).bounds.get(0);
+        }
+        eventHandlerParams.add(",\n($T) eventHandler.params[$L]", type, paramIndex++);
       }
     }
 

@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,11 +23,10 @@ import com.squareup.javapoet.TypeName;
 import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.Objects;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
-/**
- * Model that is an abstract representation of a {@link com.facebook.litho.annotations.Prop}.
- */
+/** Model that is an abstract representation of a {@link com.facebook.litho.annotations.Prop}. */
 @Immutable
 public class PropModel implements MethodParamModel {
   private final MethodParamModel mParamModel;
@@ -47,7 +46,7 @@ public class PropModel implements MethodParamModel {
       ResType resType,
       String varArg) {
     mParamModel = paramModel;
-    mIsOptional = isOptional;
+    mIsOptional = isOptional || (varArg != null && !varArg.isEmpty());
     mIsCommonProp = isCommonProp;
     mOverrideCommonPropBehavior = overrideCommonPropBehavior;
     mIsDynamic = dynamic;
@@ -115,17 +114,22 @@ public class PropModel implements MethodParamModel {
 
   /**
    * @return true if this prop has a default specified in the given set of defaults, false
-   * otherwise.
+   *     otherwise.
    */
   public boolean hasDefault(ImmutableList<PropDefaultModel> propDefaults) {
+    return getDefault(propDefaults) != null;
+  }
+
+  @Nullable
+  public PropDefaultModel getDefault(ImmutableList<PropDefaultModel> propDefaults) {
     for (PropDefaultModel propDefault : propDefaults) {
       if (propDefault.mType.equals(mParamModel.getTypeName())
           && propDefault.mName.equals(mParamModel.getName())) {
-        return true;
+        return propDefault;
       }
     }
 
-    return false;
+    return null;
   }
 
   /** @return a new {@link PropModel} instance with the given name overridden. */

@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,9 +32,7 @@ import com.facebook.litho.widget.SmoothScrollAlignmentType;
 import com.facebook.litho.widget.ViewportInfo.ViewportChanged;
 import java.util.List;
 
-/**
- * Implementation of {@link Target} that uses a {@link RecyclerBinder}.
- */
+/** Implementation of {@link Target} that uses a {@link RecyclerBinder}. */
 public class SectionBinderTarget implements Target, Binder<RecyclerView> {
 
   private final RecyclerBinder mRecyclerBinder;
@@ -121,8 +119,7 @@ public class SectionBinderTarget implements Target, Binder<RecyclerView> {
   }
 
   @Override
-  public void updateRange(
-      int index, int count, List<RenderInfo> renderInfos) {
+  public void updateRange(int index, int count, List<RenderInfo> renderInfos) {
     if (mUseBackgroundChangeSets) {
       mRecyclerBinder.updateRangeAtAsync(index, renderInfos);
     } else {
@@ -165,6 +162,16 @@ public class SectionBinderTarget implements Target, Binder<RecyclerView> {
   }
 
   @Override
+  public void requestSmoothFocus(Object id, int offset, SmoothScrollAlignmentType type) {
+    mRecyclerBinder.scrollSmoothToPosition(id, offset, type);
+  }
+
+  @Override
+  public void requestFocusWithOffset(Object id, int offset) {
+    mRecyclerBinder.scrollToPositionWithOffset(id, offset);
+  }
+
+  @Override
   public void delete(int index) {
     if (mUseBackgroundChangeSets) {
       mRecyclerBinder.removeItemAtAsync(index);
@@ -200,6 +207,11 @@ public class SectionBinderTarget implements Target, Binder<RecyclerView> {
   @Override
   public boolean supportsBackgroundChangeSets() {
     return mUseBackgroundChangeSets;
+  }
+
+  @Override
+  public void changeConfig(DynamicConfig dynamicConfig) {
+    mRecyclerBinder.setCommitPolicy(dynamicConfig.mChangeSetsCommitPolicy);
   }
 
   @Override

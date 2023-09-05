@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +16,6 @@
 
 package com.facebook.litho.specmodels.processor;
 
-import com.facebook.litho.annotations.FromBind;
 import com.facebook.litho.annotations.FromBoundsDefined;
 import com.facebook.litho.annotations.FromMeasure;
 import com.facebook.litho.annotations.FromMeasureBaseline;
@@ -59,17 +58,17 @@ import javax.lang.model.util.Types;
 
 /** Factory for creating {@link MountSpecModel}s. */
 public class MountSpecModelFactory implements SpecModelFactory<MountSpecModel> {
-  private static final List<Class<? extends Annotation>> INTER_STAGE_INPUT_ANNOTATIONS =
+  public static final List<Class<? extends Annotation>> DELEGATE_METHOD_ANNOTATIONS =
       new ArrayList<>();
-  private static final List<Class<? extends Annotation>> DELEGATE_METHOD_ANNOTATIONS =
+  static final List<Class<? extends Annotation>> INTER_STAGE_INPUT_ANNOTATIONS = new ArrayList<>();
+  static final List<Class<? extends Annotation>> PREPARE_INTER_STAGE_INPUT_ANNOTATIONS =
       new ArrayList<>();
 
   static {
-    INTER_STAGE_INPUT_ANNOTATIONS.add(FromPrepare.class);
+    PREPARE_INTER_STAGE_INPUT_ANNOTATIONS.add(FromPrepare.class);
     INTER_STAGE_INPUT_ANNOTATIONS.add(FromMeasureBaseline.class);
     INTER_STAGE_INPUT_ANNOTATIONS.add(FromMeasure.class);
     INTER_STAGE_INPUT_ANNOTATIONS.add(FromBoundsDefined.class);
-    INTER_STAGE_INPUT_ANNOTATIONS.add(FromBind.class);
     DELEGATE_METHOD_ANNOTATIONS.addAll(
         DelegateMethodDescriptions.MOUNT_SPEC_DELEGATE_METHODS_MAP.keySet());
     DELEGATE_METHOD_ANNOTATIONS.add(OnCreateTreeProp.class);
@@ -115,18 +114,44 @@ public class MountSpecModelFactory implements SpecModelFactory<MountSpecModel> {
             element,
             DELEGATE_METHOD_ANNOTATIONS,
             INTER_STAGE_INPUT_ANNOTATIONS,
-            ImmutableList.<Class<? extends Annotation>>of(ShouldUpdate.class),
+            PREPARE_INTER_STAGE_INPUT_ANNOTATIONS,
+            ImmutableList.of(ShouldUpdate.class),
             messager),
         EventMethodExtractor.getOnEventMethods(
-            elements, element, INTER_STAGE_INPUT_ANNOTATIONS, messager, runMode),
+            elements,
+            element,
+            INTER_STAGE_INPUT_ANNOTATIONS,
+            PREPARE_INTER_STAGE_INPUT_ANNOTATIONS,
+            messager,
+            runMode),
         TriggerMethodExtractor.getOnTriggerMethods(
-            elements, element, INTER_STAGE_INPUT_ANNOTATIONS, messager, runMode),
+            elements,
+            element,
+            INTER_STAGE_INPUT_ANNOTATIONS,
+            PREPARE_INTER_STAGE_INPUT_ANNOTATIONS,
+            messager,
+            runMode),
         WorkingRangesMethodExtractor.getRegisterMethod(
-            element, INTER_STAGE_INPUT_ANNOTATIONS, messager),
+            element,
+            INTER_STAGE_INPUT_ANNOTATIONS,
+            PREPARE_INTER_STAGE_INPUT_ANNOTATIONS,
+            messager),
         WorkingRangesMethodExtractor.getRangesMethods(
-            elements, element, INTER_STAGE_INPUT_ANNOTATIONS, messager),
+            elements,
+            element,
+            INTER_STAGE_INPUT_ANNOTATIONS,
+            PREPARE_INTER_STAGE_INPUT_ANNOTATIONS,
+            messager),
         UpdateStateMethodExtractor.getOnUpdateStateMethods(
-            element, INTER_STAGE_INPUT_ANNOTATIONS, messager),
+            element,
+            INTER_STAGE_INPUT_ANNOTATIONS,
+            PREPARE_INTER_STAGE_INPUT_ANNOTATIONS,
+            messager),
+        UpdateStateMethodExtractor.getOnUpdateStateWithTransitionMethods(
+            element,
+            INTER_STAGE_INPUT_ANNOTATIONS,
+            PREPARE_INTER_STAGE_INPUT_ANNOTATIONS,
+            messager),
         interStageStore == null
             ? ImmutableList.of()
             : CachedPropNameExtractor.getCachedPropNames(
@@ -137,16 +162,15 @@ public class MountSpecModelFactory implements SpecModelFactory<MountSpecModel> {
             elements, element, MountSpec.class, runMode),
         JavadocExtractor.getClassJavadoc(elements, element),
         AnnotationExtractor.extractValidAnnotations(element),
-        TagExtractor.extractTagsFromSpecClass(types, element),
+        TagExtractor.extractTagsFromSpecClass(types, element, runMode),
         JavadocExtractor.getPropJavadocs(elements, element),
         element.getAnnotation(MountSpec.class).isPublic(),
         dependencyInjectionHelper,
         element.getAnnotation(MountSpec.class).isPureRender(),
         element.getAnnotation(MountSpec.class).hasChildLithoViews(),
-        element.getAnnotation(MountSpec.class).shouldUseDisplayList(),
         element.getAnnotation(MountSpec.class).poolSize(),
         element.getAnnotation(MountSpec.class).canPreallocate(),
-        getMountType(elements, element),
+        getMountType(elements, element, runMode),
         SpecElementTypeDeterminator.determine(element),
         element,
         mMountSpecGenerator,
@@ -154,7 +178,8 @@ public class MountSpecModelFactory implements SpecModelFactory<MountSpecModel> {
         BindDynamicValuesMethodExtractor.getOnBindDynamicValuesMethods(element, messager));
   }
 
-  private static TypeName getMountType(Elements elements, TypeElement element) {
+  private static TypeName getMountType(
+      Elements elements, TypeElement element, EnumSet<RunMode> runMode) {
     TypeElement viewType = elements.getTypeElement(ClassNames.VIEW_NAME);
     TypeElement drawableType = elements.getTypeElement(ClassNames.DRAWABLE_NAME);
 
@@ -166,20 +191,47 @@ public class MountSpecModelFactory implements SpecModelFactory<MountSpecModel> {
       OnCreateMountContent annotation = enclosedElement.getAnnotation(OnCreateMountContent.class);
       if (annotation != null) {
         if (annotation.mountingType() == MountingType.VIEW) {
-          return ClassNames.COMPONENT_LIFECYCLE_MOUNT_TYPE_VIEW;
+          return ClassNames.COMPONENT_MOUNT_TYPE_VIEW;
         }
         if (annotation.mountingType() == MountingType.DRAWABLE) {
-          return ClassNames.COMPONENT_LIFECYCLE_MOUNT_TYPE_DRAWABLE;
+          return ClassNames.COMPONENT_MOUNT_TYPE_DRAWABLE;
         }
-        TypeMirror returnType = ((ExecutableElement) enclosedElement).getReturnType();
+
+        TypeMirror initialReturnType = ((ExecutableElement) enclosedElement).getReturnType();
+        if (runMode.contains(RunMode.ABI)) {
+          // We can't access the supertypes of the return type, so let's guess, and we'll verify
+          // that our guess was correct when we do a full build later.
+          if (initialReturnType.toString().contains("Drawable")) {
+            return ClassNames.COMPONENT_MOUNT_TYPE_DRAWABLE;
+          } else {
+            return ClassNames.COMPONENT_MOUNT_TYPE_VIEW;
+          }
+        }
+
+        TypeMirror returnType = initialReturnType;
         while (returnType.getKind() != TypeKind.NONE && returnType.getKind() != TypeKind.VOID) {
           final TypeElement returnElement = (TypeElement) ((DeclaredType) returnType).asElement();
 
           if (returnElement.equals(viewType)) {
-            return ClassNames.COMPONENT_LIFECYCLE_MOUNT_TYPE_VIEW;
+            if (initialReturnType.toString().contains("Drawable")) {
+              throw new ComponentsProcessingException(
+                  "Mount type cannot be correctly inferred from the name of "
+                      + element
+                      + ".  Please specify `@OnCreateMountContent(mountingType = MountingType.VIEW)`.");
+            } else {
+              return ClassNames.COMPONENT_MOUNT_TYPE_VIEW;
+            }
           } else if (returnElement.equals(drawableType)) {
-            return ClassNames.COMPONENT_LIFECYCLE_MOUNT_TYPE_DRAWABLE;
+            if (initialReturnType.toString().contains("Drawable")) {
+              return ClassNames.COMPONENT_MOUNT_TYPE_DRAWABLE;
+            } else {
+              throw new ComponentsProcessingException(
+                  "Mount type cannot be correctly inferred from the name of "
+                      + element
+                      + ".  Please specify `@OnCreateMountContent(mountingType = MountingType.DRAWABLE)`.");
+            }
           }
+
           try {
             returnType = returnElement.getSuperclass();
           } catch (RuntimeException e) {
@@ -192,6 +244,6 @@ public class MountSpecModelFactory implements SpecModelFactory<MountSpecModel> {
       }
     }
 
-    return ClassNames.COMPONENT_LIFECYCLE_MOUNT_TYPE_NONE;
+    return ClassNames.COMPONENT_MOUNT_TYPE_NONE;
   }
 }

@@ -1,6 +1,6 @@
-# Litho [![CircleCI](https://circleci.com/gh/facebook/litho/tree/master.svg?style=shield)](https://circleci.com/gh/facebook/litho/tree/master) [![Bintray](https://img.shields.io/maven-metadata/v/https/jcenter.bintray.com/com/facebook/litho/litho-core/maven-metadata.xml.svg?color=orange&label=bintray)](https://bintray.com/facebook/maven/com.facebook.litho%3Alitho-core/_latestVersion) [![Join the chat at https://gitter.im/facebook/litho](https://badges.gitter.im/facebook/litho.svg)](https://gitter.im/facebook/litho?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+# Litho [![GithubCI](https://github.com/facebook/litho/actions/workflows/ci.yml/badge.svg)](https://github.com/facebook/litho/actions/workflows/ci.yml) [![Bintray](https://img.shields.io/maven-metadata/v/https/jcenter.bintray.com/com/facebook/litho/litho-core/maven-metadata.xml.svg?color=orange&label=bintray)](https://bintray.com/facebook/maven/com.facebook.litho%3Alitho-core/_latestVersion) [![Join the chat at https://gitter.im/facebook/litho](https://badges.gitter.im/facebook/litho.svg)](https://gitter.im/facebook/litho?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/facebook/litho/blob/master/LICENSE)
 
-<img src="docs/static/logo.png" width=150 align=right>
+<img src="website/static/logo.png" width=150 align=right>
 
 Litho is a declarative framework for building efficient UIs on Android.
 
@@ -35,14 +35,14 @@ public class SampleApplication extends Application {
 public void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
 
-    final ComponentContext context = new ComponentContext(this);
+    final ComponentContext c = new ComponentContext(this);
 
-    final Component component = Text.create(context)
+    final Component component = Text.create(c)
         .text("Hello World")
         .textSizeDip(50)
         .build();
 
-    setContentView(LithoView.create(context, component));
+    setContentView(LithoView.create(c, component));
 }
 ```
 ## Run sample

@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,17 +16,17 @@
 
 package com.facebook.litho;
 
+import android.graphics.drawable.Drawable;
 import androidx.annotation.Nullable;
 import androidx.annotation.Px;
 import com.facebook.infer.annotation.ThreadConfined;
-import com.facebook.litho.drawable.ComparableDrawable;
 import com.facebook.yoga.YogaDirection;
 
 /**
- * <p>Represents a {@link Component}'s computed layout state. The computed bounds will be used by
- * the framework to define the size and position of the component's mounted {@link
- * android.view.View}s and {@link android.graphics.drawable.Drawable}s returned. by {@link
- * ComponentLifecycle#mount(ComponentContext, Object)}.
+ * Represents a {@link Component}'s computed layout state. The computed bounds will be used by the
+ * framework to define the size and position of the component's mounted {@link android.view.View}s
+ * and {@link android.graphics.drawable.Drawable}s returned. by {@link
+ * Component#mount(ComponentContext, Object)}.
  */
 @ThreadConfined(ThreadConfined.ANY)
 public interface ComponentLayout {
@@ -58,7 +58,7 @@ public interface ComponentLayout {
   boolean isPaddingSet();
 
   @Nullable
-  ComparableDrawable getBackground();
+  Drawable getBackground();
 
   YogaDirection getResolvedLayoutDirection();
 }

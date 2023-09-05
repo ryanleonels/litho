@@ -1,11 +1,11 @@
 /*
- * Copyright 2019-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,31 +25,29 @@ import com.facebook.litho.LithoView
 @Suppress("MagicNumber")
 class MainActivity : AppCompatActivity() {
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+  override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
 
-        val componentContext = ComponentContext(this)
-        val lithoView = LithoView.create(
-                this,
-                RootComponent.create(componentContext).labelText("Starting countdown").build()
-        )
-        setContentView(
-                lithoView
-        )
+    val componentContext = ComponentContext(this)
+    val lithoView =
+        LithoView.create(
+            this, RootComponent.create(componentContext).labelText("Starting countdown").build())
+    setContentView(lithoView)
 
-        val timer = object : CountDownTimer(30000, 1000) {
-            override fun onTick(millisUntilFinished: Long) {
-                lithoView.setComponentAsync(RootComponent.create(componentContext)
-                        .labelText("Ms until finished: " + millisUntilFinished.toString())
-                        .build())
-            }
+    val timer =
+        object : CountDownTimer(30000, 1000) {
+          override fun onTick(millisUntilFinished: Long) {
+            lithoView.setComponentAsync(
+                RootComponent.create(componentContext)
+                    .labelText("Ms until finished: " + millisUntilFinished.toString())
+                    .build())
+          }
 
-            override fun onFinish() {
-                lithoView.setComponentAsync(RootComponent.create(componentContext)
-                        .labelText("Done!")
-                        .build())
-            }
+          override fun onFinish() {
+            lithoView.setComponentAsync(
+                RootComponent.create(componentContext).labelText("Done!").build())
+          }
         }
-        timer.start()
-    }
+    timer.start()
+  }
 }

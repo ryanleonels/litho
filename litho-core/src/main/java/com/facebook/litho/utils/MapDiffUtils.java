@@ -1,11 +1,11 @@
 /*
- * Copyright 2018-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,12 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.litho.utils;
 
 import androidx.annotation.Nullable;
-import com.facebook.litho.CommonUtils;
+import com.facebook.infer.annotation.Nullsafe;
+import com.facebook.rendercore.primitives.utils.EquivalenceUtils;
 import java.util.Map;
 
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public final class MapDiffUtils {
 
   /** Return whether the two maps have the same keys and values. */
@@ -36,7 +39,7 @@ public final class MapDiffUtils {
     }
 
     for (Map.Entry<K, V> entry : prev.entrySet()) {
-      if (!CommonUtils.equals(entry.getValue(), next.get(entry.getKey()))) {
+      if (!EquivalenceUtils.equals(entry.getValue(), next.get(entry.getKey()))) {
         return false;
       }
     }

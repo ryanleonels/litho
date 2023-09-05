@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,9 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.litho.specmodels.model;
 
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.facebook.litho.ComponentContext;
 import com.facebook.litho.ErrorEvent;
@@ -111,10 +112,12 @@ public class ErrorEventHandlerGeneratorTest {
     assertThat(generatedErrorEventMethod.typeModel.name)
         .hasToString(localErrorEventMethod.typeModel.name.toString());
 
-    assertThat(generatedErrorEventMethod.typeModel.fields).hasSize(1);
+    assertThat(generatedErrorEventMethod.typeModel.fields).hasSize(2);
     // The Represented object refers to a javax model which we can't obtain here.
-    assertThat(generatedErrorEventMethod.typeModel.fields.get(0))
-        .isEqualToIgnoringGivenFields(
-            localErrorEventMethod.typeModel.fields.get(0), "representedObject");
+    for (int i = 0; i < generatedErrorEventMethod.typeModel.fields.size(); i++) {
+      assertThat(generatedErrorEventMethod.typeModel.fields.get(i))
+          .isEqualToIgnoringGivenFields(
+              localErrorEventMethod.typeModel.fields.get(i), "representedObject");
+    }
   }
 }

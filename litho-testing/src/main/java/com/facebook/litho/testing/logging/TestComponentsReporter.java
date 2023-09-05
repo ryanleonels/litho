@@ -1,11 +1,11 @@
 /*
- * Copyright 2018-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,34 +13,53 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.litho.testing.logging;
 
-import com.facebook.litho.ComponentsReporter;
+import android.util.Pair;
+import androidx.annotation.Nullable;
 import com.facebook.litho.DefaultComponentsReporter;
+import com.facebook.rendercore.ErrorReporterDelegate;
+import com.facebook.rendercore.LogLevel;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 
-public class TestComponentsReporter extends DefaultComponentsReporter {
-  private ComponentsReporter.LogLevel mLevel;
-  private String mMessage;
+public class TestComponentsReporter implements ErrorReporterDelegate {
 
-  @Override
-  public void emitMessage(ComponentsReporter.LogLevel level, String message) {
-    emitMessage(level, message, 0);
+  private final DefaultComponentsReporter mDefaultComponentsReporter =
+      new DefaultComponentsReporter();
+
+  private final List<Pair<LogLevel, String>> mLoggedMessages = new LinkedList<>();
+  private final List<Pair<LogLevel, String>> mLoggedCategoryKeys = new LinkedList<>();
+
+  public List<Pair<LogLevel, String>> getLoggedMessages() {
+    return mLoggedMessages;
   }
 
-  @Override
-  public void emitMessage(
-      ComponentsReporter.LogLevel level, String message, int samplingFrequency) {
-    super.emitMessage(level, message, samplingFrequency);
-
-    mLevel = level;
-    mMessage = message;
+  public List<Pair<LogLevel, String>> getLoggedCategoryKeys() {
+    return mLoggedCategoryKeys;
   }
 
-  public ComponentsReporter.LogLevel getLevel() {
-    return mLevel;
+  public void report(
+      LogLevel level,
+      String categoryKey,
+      String message,
+      @Nullable Throwable cause,
+      int samplingFrequency,
+      @Nullable Map<String, Object> metadata) {
+    mDefaultComponentsReporter.report(
+        level, categoryKey, message, cause, samplingFrequency, metadata);
+    mLoggedMessages.add(new Pair<>(level, message));
+    mLoggedCategoryKeys.add(new Pair<>(level, categoryKey));
   }
 
-  public String getMessage() {
-    return mMessage;
+  public boolean hasMessageType(LogLevel logLevel) {
+    for (Pair<LogLevel, String> loggedMessage : mLoggedMessages) {
+      if (loggedMessage.first == logLevel) {
+        return true;
+      }
+    }
+    return false;
   }
 }

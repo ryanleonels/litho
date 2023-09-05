@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,8 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.litho.specmodels.generator;
 
+import com.facebook.litho.annotations.Generated;
+import com.facebook.litho.specmodels.model.DependencyInjectionHelper;
 import com.facebook.litho.specmodels.model.SpecModel;
 import com.squareup.javapoet.AnnotationSpec;
 
@@ -24,15 +27,22 @@ public class ClassAnnotationsGenerator {
     final TypeSpecDataHolder.Builder holder = TypeSpecDataHolder.newBuilder();
 
     if (specModel.hasInjectedDependencies()) {
+      DependencyInjectionHelper dependencyInjectionHelper =
+          specModel.getDependencyInjectionHelper();
       for (AnnotationSpec annotation : specModel.getClassAnnotations()) {
-        if (specModel.getDependencyInjectionHelper()
-            .isValidGeneratedComponentAnnotation(annotation)) {
+        if (dependencyInjectionHelper.isValidGeneratedComponentAnnotation(annotation)) {
           holder.addAnnotation(annotation);
         }
+      }
+      for (AnnotationSpec additionalClassAnnotation :
+          dependencyInjectionHelper.getAdditionalClassAnnotations(specModel)) {
+        holder.addAnnotation(additionalClassAnnotation);
       }
     } else {
       holder.addAnnotations(specModel.getClassAnnotations());
     }
+
+    holder.addAnnotation(AnnotationSpec.builder(Generated.class).build());
 
     return holder.build();
   }

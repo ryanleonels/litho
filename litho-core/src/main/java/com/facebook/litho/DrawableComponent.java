@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,24 +18,29 @@ package com.facebook.litho;
 
 import android.content.Context;
 import android.graphics.drawable.Drawable;
-import com.facebook.litho.drawable.ComparableDrawable;
+import androidx.annotation.Nullable;
+import com.facebook.infer.annotation.Nullsafe;
+import com.facebook.litho.drawable.DrawableUtils;
 
-class DrawableComponent<T extends Drawable> extends Component {
+@Nullsafe(Nullsafe.Mode.LOCAL)
+class DrawableComponent<T extends Drawable> extends SpecGeneratedComponent {
 
-  ComparableDrawable mDrawable;
-  int mDrawableWidth;
-  int mDrawableHeight;
+  final Drawable mDrawable;
+  final int mDrawableWidth;
+  final int mDrawableHeight;
 
-  private DrawableComponent(ComparableDrawable drawable) {
+  private DrawableComponent(Drawable drawable, int width, int height) {
     super("DrawableComponent");
     mDrawable = drawable;
+    mDrawableWidth = width;
+    mDrawableHeight = height;
   }
 
   @Override
-  protected void onBoundsDefined(ComponentContext c, ComponentLayout layout) {
-    setDrawableWidth(layout.getWidth());
-    setDrawableHeight(layout.getHeight());
-  }
+  protected void onBoundsDefined(
+      final ComponentContext c,
+      final ComponentLayout layout,
+      final @Nullable InterStagePropsContainer interStagePropsContainer) {}
 
   @Override
   protected Object onCreateMountContent(Context c) {
@@ -44,8 +49,9 @@ class DrawableComponent<T extends Drawable> extends Component {
 
   @Override
   protected void onMount(
-      ComponentContext context,
-      Object content) {
+      final @Nullable ComponentContext context,
+      final Object content,
+      final @Nullable InterStagePropsContainer interStagePropsContainer) {
     MatrixDrawable drawable = (MatrixDrawable) content;
 
     drawable.mount(getDrawable());
@@ -53,8 +59,9 @@ class DrawableComponent<T extends Drawable> extends Component {
 
   @Override
   protected void onBind(
-      ComponentContext c,
-      Object mountedContent) {
+      final @Nullable ComponentContext c,
+      final Object mountedContent,
+      final @Nullable InterStagePropsContainer interStagePropsContainer) {
     final MatrixDrawable mountedDrawable = (MatrixDrawable) mountedContent;
 
     mountedDrawable.bind(getDrawableWidth(), getDrawableHeight());
@@ -62,8 +69,9 @@ class DrawableComponent<T extends Drawable> extends Component {
 
   @Override
   protected void onUnmount(
-      ComponentContext context,
-      Object mountedContent) {
+      final @Nullable ComponentContext context,
+      final Object mountedContent,
+      final @Nullable InterStagePropsContainer interStagePropsContainer) {
     final MatrixDrawable<T> matrixDrawable = (MatrixDrawable<T>) mountedContent;
     matrixDrawable.unmount();
   }
@@ -78,24 +86,16 @@ class DrawableComponent<T extends Drawable> extends Component {
     return MountType.DRAWABLE;
   }
 
-  public static DrawableComponent create(ComparableDrawable drawable) {
-    return new DrawableComponent<>(drawable);
+  public static DrawableComponent<?> create(Drawable drawable, int width, int height) {
+    return new DrawableComponent<>(drawable, width, height);
   }
 
-  @Override
-  protected boolean shouldUpdate(Component previous, Component next) {
-    final ComparableDrawable previousDrawable = ((DrawableComponent) previous).getDrawable();
-    final ComparableDrawable nextDrawable = ((DrawableComponent) next).getDrawable();
-
-    return !previousDrawable.isEquivalentTo(nextDrawable);
-  }
-
-  private ComparableDrawable getDrawable() {
+  private Drawable getDrawable() {
     return mDrawable;
   }
 
   @Override
-  public boolean isEquivalentTo(Component o) {
+  public boolean isEquivalentProps(@Nullable Component o, boolean shouldCompareCommonProps) {
     if (this == o) {
       return true;
     }
@@ -106,19 +106,11 @@ class DrawableComponent<T extends Drawable> extends Component {
 
     DrawableComponent drawableComponent = (DrawableComponent) o;
 
-    return mDrawable.equals(drawableComponent.mDrawable);
-  }
-
-  private void setDrawableWidth(int drawableWidth) {
-    mDrawableWidth = drawableWidth;
+    return DrawableUtils.isEquivalentTo(mDrawable, drawableComponent.mDrawable);
   }
 
   private int getDrawableWidth() {
     return mDrawableWidth;
-  }
-
-  private void setDrawableHeight(int drawableHeight) {
-    mDrawableHeight = drawableHeight;
   }
 
   private int getDrawableHeight() {

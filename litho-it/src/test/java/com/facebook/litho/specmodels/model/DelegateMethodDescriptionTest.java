@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,7 +18,7 @@ package com.facebook.litho.specmodels.model;
 
 import static com.facebook.litho.specmodels.model.DelegateMethodDescription.OptionalParameterType.PROP;
 import static com.facebook.litho.specmodels.model.DelegateMethodDescription.OptionalParameterType.STATE;
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.facebook.litho.specmodels.internal.ImmutableList;
 import com.facebook.litho.specmodels.model.DelegateMethodDescription.OptionalParameterType;
@@ -41,27 +41,28 @@ public class DelegateMethodDescriptionTest {
     Modifier accessType = Modifier.PRIVATE;
     TypeName returnType = ClassName.bestGuess("ClassName");
     String name = "test";
-    ImmutableList<TypeName> parameterTypes =
-        ImmutableList.<TypeName>of(ClassName.bestGuess("ParameterType"));
+    ImmutableList<LifecycleMethodArgumentType> parameterTypes =
+        ImmutableList.of(new LifecycleMethodArgumentType(ClassName.bestGuess("ParameterType")));
     ImmutableList<TypeName> exceptions =
         ImmutableList.<TypeName>of(ClassName.bestGuess("ExceptionType"));
     ImmutableList<OptionalParameterType> optionalParameterTypes = ImmutableList.of(PROP, STATE);
 
-    DelegateMethodDescription delegateMethodDescription = DelegateMethodDescription.newBuilder()
-        .annotations(annotations)
-        .accessType(accessType)
-        .returnType(returnType)
-        .name(name)
-        .definedParameterTypes(parameterTypes)
-        .optionalParameterTypes(optionalParameterTypes)
-        .exceptions(exceptions)
-        .build();
+    DelegateMethodDescription delegateMethodDescription =
+        DelegateMethodDescription.newBuilder()
+            .annotations(annotations)
+            .accessType(accessType)
+            .returnType(returnType)
+            .name(name)
+            .lifecycleMethodArguments(parameterTypes)
+            .optionalParameterTypes(optionalParameterTypes)
+            .exceptions(exceptions)
+            .build();
 
     assertThat(delegateMethodDescription.accessType).isEqualTo(accessType);
     assertThat(delegateMethodDescription.returnType).isEqualTo(returnType);
     assertThat(delegateMethodDescription.name).isEqualTo(name);
     assertThat(delegateMethodDescription.annotations).isSameAs(annotations);
-    assertThat(delegateMethodDescription.definedParameterTypes).isSameAs(parameterTypes);
+    assertThat(delegateMethodDescription.lifecycleMethodArgumentTypes).isSameAs(parameterTypes);
     assertThat(delegateMethodDescription.optionalParameterTypes).isSameAs(optionalParameterTypes);
     assertThat(delegateMethodDescription.exceptions).isSameAs(exceptions);
   }

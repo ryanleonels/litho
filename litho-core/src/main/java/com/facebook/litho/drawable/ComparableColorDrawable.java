@@ -1,11 +1,11 @@
 /*
- * Copyright 2018-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,19 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.litho.drawable;
 
 import android.graphics.drawable.ColorDrawable;
 import androidx.annotation.ColorInt;
 
 /** A comparable color drawable. */
-public class ComparableColorDrawable extends ComparableDrawableWrapper {
-
-  @ColorInt private final int mColor;
+public class ComparableColorDrawable extends ColorDrawable implements ComparableDrawable {
 
   private ComparableColorDrawable(@ColorInt int color) {
-    super(new ColorDrawable(color));
-    this.mColor = color;
+    super(color);
   }
 
   @Override
@@ -37,11 +35,8 @@ public class ComparableColorDrawable extends ComparableDrawableWrapper {
     if (!(other instanceof ComparableColorDrawable)) {
       return false;
     }
-    return mColor == ((ComparableColorDrawable) other).mColor;
-  }
 
-  public @ColorInt int getColor() {
-    return mColor;
+    return getColor() == ((ComparableColorDrawable) other).getColor();
   }
 
   public static ComparableColorDrawable create(@ColorInt int color) {

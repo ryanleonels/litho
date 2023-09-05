@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,9 +17,10 @@
 package com.facebook.litho.sections.common;
 
 import com.facebook.litho.annotations.Event;
+
 /**
- * This event is triggered by {@link HideableDataDiffSectionSpec} when it needs to
- * get a unique identifier for the edge model provided.
+ * This event is triggered by {@link HideableDataDiffSectionSpec} when it needs to get a unique
+ * identifier for the edge model provided.
  */
 @Event(returnType = Object.class)
 public class GetUniqueIdentifierEvent {

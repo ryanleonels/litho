@@ -1,11 +1,11 @@
 /*
- * Copyright 2019-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,9 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.litho.specmodels.generator;
 
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.facebook.litho.StateValue;
 import com.facebook.litho.Transition;
@@ -117,11 +118,12 @@ public class StateContainerGeneratorTest {
 
   @Test
   public void testGenerateStateContainerImpl() {
-    assertThat(StateContainerGenerator.generate(mSpecModelWithState).toString())
+    assertThat(StateContainerGenerator.generate(mSpecModelWithState, RunMode.normal()).toString())
         .isEqualTo(
             "@androidx.annotation.VisibleForTesting(\n"
                 + "    otherwise = 2\n"
                 + ")\n"
+                + "@com.facebook.litho.annotations.Generated\n"
                 + "static class TestWithStateStateContainer<T extends java.lang.CharSequence> extends com.facebook.litho.StateContainer {\n"
                 + "  @com.facebook.litho.annotations.State\n"
                 + "  @com.facebook.litho.annotations.Comparable(\n"
@@ -156,12 +158,15 @@ public class StateContainerGeneratorTest {
 
   @Test
   public void testGenerateStateContainerWithTransitionImpl() {
-    assertThat(StateContainerGenerator.generate(mSpecModelWithStateWithTransition).toString())
+    assertThat(
+            StateContainerGenerator.generate(mSpecModelWithStateWithTransition, RunMode.normal())
+                .toString())
         .isEqualTo(
             "@androidx.annotation.VisibleForTesting(\n"
                 + "    otherwise = 2\n"
                 + ")\n"
-                + "static class TestWithStateWithTransitionStateContainer<T extends java.lang.CharSequence> extends com.facebook.litho.StateContainer implements com.facebook.litho.ComponentLifecycle.TransitionContainer {\n"
+                + "@com.facebook.litho.annotations.Generated\n"
+                + "static class TestWithStateWithTransitionStateContainer<T extends java.lang.CharSequence> extends com.facebook.litho.StateContainer implements com.facebook.litho.SpecGeneratedComponent.TransitionContainer {\n"
                 + "  @com.facebook.litho.annotations.State\n"
                 + "  @com.facebook.litho.annotations.Comparable(\n"
                 + "      type = 3\n"
@@ -174,41 +179,30 @@ public class StateContainerGeneratorTest {
                 + "  )\n"
                 + "  boolean arg4;\n"
                 + "\n"
-                + "  java.util.List<com.facebook.litho.Transition> _transitions = new java.util.ArrayList<>();\n"
-                + "\n"
                 + "  @java.lang.Override\n"
-                + "  public java.util.List<com.facebook.litho.Transition> consumeTransitions() {\n"
-                + "    if (_transitions.isEmpty()) {\n"
-                + "      return java.util.Collections.EMPTY_LIST;\n"
-                + "    }\n"
-                + "    java.util.List<com.facebook.litho.Transition> transitionsCopy;\n"
-                + "    synchronized (_transitions) {\n"
-                + "      transitionsCopy = new java.util.ArrayList<>(_transitions);\n"
-                + "      _transitions.clear();\n"
-                + "    }\n"
-                + "    return transitionsCopy;\n"
-                + "  }\n"
-                + "\n"
-                + "  @java.lang.Override\n"
-                + "  public void applyStateUpdate(com.facebook.litho.StateContainer.StateUpdate stateUpdate) {\n"
+                + "  public com.facebook.litho.Transition applyStateUpdateWithTransition(\n"
+                + "      com.facebook.litho.StateContainer.StateUpdate stateUpdate) {\n"
                 + "    com.facebook.litho.StateValue<java.lang.Integer> arg1;\n"
                 + "    com.facebook.litho.StateValue<java.lang.Boolean> arg4;\n"
                 + "\n"
-                + "    com.facebook.litho.Transition transition = null;\n"
-                + "\n"
                 + "    final java.lang.Object[] params = stateUpdate.params;\n"
+                + "    com.facebook.litho.Transition _transition = null;\n"
                 + "    switch (stateUpdate.type) {\n"
                 + "      case 0:\n"
-                + "        transition = TestWithStateWithTransitionSpec.testUpdateStateWithTransition();\n"
+                + "        _transition = TestWithStateWithTransitionSpec.testUpdateStateWithTransition();\n"
                 + "        break;\n"
                 + "\n"
                 + "      case -2147483648:\n"
                 + "        this.arg4 = (boolean) params[0];\n"
                 + "        break;\n"
                 + "    }\n"
+                + "    return _transition;\n"
+                + "  }\n"
                 + "\n"
-                + "    if (transition != null) {\n"
-                + "      _transitions.add(transition);\n"
+                + "  @java.lang.Override\n"
+                + "  public void applyStateUpdate(com.facebook.litho.StateContainer.StateUpdate stateUpdate) {\n"
+                + "    if (applyStateUpdateWithTransition(stateUpdate) != null) {\n"
+                + "      throw new UnsupportedOperationException();\n"
                 + "    }\n"
                 + "  }\n"
                 + "}\n");
@@ -216,12 +210,15 @@ public class StateContainerGeneratorTest {
 
   @Test
   public void testGenerateStateContainerWithBothMethodsImpl() {
-    assertThat(StateContainerGenerator.generate(mSpecModelWithBothMethods).toString())
+    assertThat(
+            StateContainerGenerator.generate(mSpecModelWithBothMethods, RunMode.normal())
+                .toString())
         .isEqualTo(
             "@androidx.annotation.VisibleForTesting(\n"
                 + "    otherwise = 2\n"
                 + ")\n"
-                + "static class TestWithBothMethodsStateContainer<T extends java.lang.CharSequence> extends com.facebook.litho.StateContainer implements com.facebook.litho.ComponentLifecycle.TransitionContainer {\n"
+                + "@com.facebook.litho.annotations.Generated\n"
+                + "static class TestWithBothMethodsStateContainer<T extends java.lang.CharSequence> extends com.facebook.litho.StateContainer implements com.facebook.litho.SpecGeneratedComponent.TransitionContainer {\n"
                 + "  @com.facebook.litho.annotations.State\n"
                 + "  @com.facebook.litho.annotations.Comparable(\n"
                 + "      type = 3\n"
@@ -234,45 +231,34 @@ public class StateContainerGeneratorTest {
                 + "  )\n"
                 + "  boolean arg4;\n"
                 + "\n"
-                + "  java.util.List<com.facebook.litho.Transition> _transitions = new java.util.ArrayList<>();\n"
-                + "\n"
                 + "  @java.lang.Override\n"
-                + "  public java.util.List<com.facebook.litho.Transition> consumeTransitions() {\n"
-                + "    if (_transitions.isEmpty()) {\n"
-                + "      return java.util.Collections.EMPTY_LIST;\n"
-                + "    }\n"
-                + "    java.util.List<com.facebook.litho.Transition> transitionsCopy;\n"
-                + "    synchronized (_transitions) {\n"
-                + "      transitionsCopy = new java.util.ArrayList<>(_transitions);\n"
-                + "      _transitions.clear();\n"
-                + "    }\n"
-                + "    return transitionsCopy;\n"
-                + "  }\n"
-                + "\n"
-                + "  @java.lang.Override\n"
-                + "  public void applyStateUpdate(com.facebook.litho.StateContainer.StateUpdate stateUpdate) {\n"
+                + "  public com.facebook.litho.Transition applyStateUpdateWithTransition(\n"
+                + "      com.facebook.litho.StateContainer.StateUpdate stateUpdate) {\n"
                 + "    com.facebook.litho.StateValue<java.lang.Integer> arg1;\n"
                 + "    com.facebook.litho.StateValue<java.lang.Boolean> arg4;\n"
                 + "\n"
-                + "    com.facebook.litho.Transition transition = null;\n"
-                + "\n"
                 + "    final java.lang.Object[] params = stateUpdate.params;\n"
+                + "    com.facebook.litho.Transition _transition = null;\n"
                 + "    switch (stateUpdate.type) {\n"
                 + "      case 0:\n"
                 + "        TestWithBothMethodsSpec.testUpdateState();\n"
                 + "        break;\n"
                 + "\n"
                 + "      case 1:\n"
-                + "        transition = TestWithBothMethodsSpec.testUpdateStateWithTransition();\n"
+                + "        _transition = TestWithBothMethodsSpec.testUpdateStateWithTransition();\n"
                 + "        break;\n"
                 + "\n"
                 + "      case -2147483648:\n"
                 + "        this.arg4 = (boolean) params[0];\n"
                 + "        break;\n"
                 + "    }\n"
+                + "    return _transition;\n"
+                + "  }\n"
                 + "\n"
-                + "    if (transition != null) {\n"
-                + "      _transitions.add(transition);\n"
+                + "  @java.lang.Override\n"
+                + "  public void applyStateUpdate(com.facebook.litho.StateContainer.StateUpdate stateUpdate) {\n"
+                + "    if (applyStateUpdateWithTransition(stateUpdate) != null) {\n"
+                + "      throw new UnsupportedOperationException();\n"
                 + "    }\n"
                 + "  }\n"
                 + "}\n");
@@ -280,11 +266,15 @@ public class StateContainerGeneratorTest {
 
   @Test
   public void testGenerateStateContainerWithSameGenericMultipleTimesImpl() {
-    assertThat(StateContainerGenerator.generate(mSpecModelWithSameGenericMultipleTimes).toString())
+    assertThat(
+            StateContainerGenerator.generate(
+                    mSpecModelWithSameGenericMultipleTimes, RunMode.normal())
+                .toString())
         .isEqualTo(
             "@androidx.annotation.VisibleForTesting(\n"
                 + "    otherwise = 2\n"
                 + ")\n"
+                + "@com.facebook.litho.annotations.Generated\n"
                 + "static class TestWithSameGenericMultipleTimesStateContainer<T> extends com.facebook.litho.StateContainer {\n"
                 + "  @com.facebook.litho.annotations.State\n"
                 + "  @com.facebook.litho.annotations.Comparable(\n"
@@ -311,11 +301,14 @@ public class StateContainerGeneratorTest {
 
   @Test
   public void testGenerateStateContainerWithMultipleGenericsImpl() {
-    assertThat(StateContainerGenerator.generate(mSpecModelWithMultipleGenerics).toString())
+    assertThat(
+            StateContainerGenerator.generate(mSpecModelWithMultipleGenerics, RunMode.normal())
+                .toString())
         .isEqualTo(
             "@androidx.annotation.VisibleForTesting(\n"
                 + "    otherwise = 2\n"
                 + ")\n"
+                + "@com.facebook.litho.annotations.Generated\n"
                 + "static class TestWithMultipleGenericsStateContainer<T, E, D> extends com.facebook.litho.StateContainer {\n"
                 + "  @com.facebook.litho.annotations.State\n"
                 + "  @com.facebook.litho.annotations.Comparable(\n"

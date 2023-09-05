@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +16,6 @@
 
 package com.facebook.litho.sections.common;
 
-import static com.facebook.litho.FrameworkLogEvents.EVENT_SECTIONS_DATA_DIFF_CALCULATE_DIFF;
 import static com.facebook.litho.widget.RenderInfoDebugInfoRegistry.SONAR_SECTIONS_DEBUG_INFO_TAG;
 
 import androidx.annotation.Nullable;
@@ -24,12 +23,11 @@ import androidx.annotation.VisibleForTesting;
 import androidx.recyclerview.widget.DiffUtil;
 import com.facebook.litho.Component;
 import com.facebook.litho.ComponentContext;
-import com.facebook.litho.ComponentsLogger;
+import com.facebook.litho.ComponentsReporter;
 import com.facebook.litho.ComponentsSystrace;
 import com.facebook.litho.Diff;
 import com.facebook.litho.EventHandler;
-import com.facebook.litho.LogTreePopulator;
-import com.facebook.litho.PerfEvent;
+import com.facebook.litho.HasEventDispatcher;
 import com.facebook.litho.annotations.OnEvent;
 import com.facebook.litho.annotations.Prop;
 import com.facebook.litho.config.ComponentsConfiguration;
@@ -38,19 +36,23 @@ import com.facebook.litho.sections.Section;
 import com.facebook.litho.sections.SectionContext;
 import com.facebook.litho.sections.annotations.DiffSectionSpec;
 import com.facebook.litho.sections.annotations.OnDiff;
+import com.facebook.litho.sections.annotations.OnVerifyChangeSet;
+import com.facebook.litho.widget.ComponentRenderInfo;
 import com.facebook.litho.widget.RecyclerBinderUpdateCallback;
 import com.facebook.litho.widget.RecyclerBinderUpdateCallback.ComponentContainer;
 import com.facebook.litho.widget.RecyclerBinderUpdateCallback.Operation;
 import com.facebook.litho.widget.RenderInfo;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.ListIterator;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * A {@link DiffSectionSpec} that creates a changeSet diffing a generic {@link List<T>} of data.
  * This {@link Section} emits the following events:
  *
  * <p>{@link RenderEvent} whenever it needs a {@link Component} to render a model T from the {@code
- * List<T> data}. Providing a handler for this {@link OnEvent} is mandatory.
+ * List<? extends T> data}. Providing a handler for this {@link OnEvent} is mandatory.
  *
  * <p>{@link OnCheckIsSameItemEvent} whenever during a diffing it wants to check whether two items
  * represent the same piece of data.
@@ -58,7 +60,7 @@ import java.util.List;
  * <p>{@link OnCheckIsSameContentEvent} whenever during a diffing it wants to check whether two
  * items that represent the same piece of data have exactly the same content.
  *
- * <p>Diffing happens when the new {@code List<T> data} is provided. Changes in {@link
+ * <p>Diffing happens when the new {@code List<? extends T> data} is provided. Changes in {@link
  * com.facebook.litho.annotations.State} alone will not trigger diffing.
  *
  * <ul>
@@ -67,8 +69,8 @@ import java.util.List;
  *   <li>If {@link OnCheckIsSameContentEvent} returns false {@link RenderEvent} is triggered.
  * </ul>
  *
- * If {@link OnCheckIsSameItemEvent} is not implemented, new {@code List<T> data} is considered to
- * be completely different and relayout will happen on every data update.
+ * If {@link OnCheckIsSameItemEvent} is not implemented, new {@code List<? extends T> data} is
+ * considered to be completely different and relayout will happen on every data update.
  *
  * <p>Example usage:
  *
@@ -77,47 +79,56 @@ import java.util.List;
  * public class MyGroupSectionSpec {
  *
  *   '@'OnCreateChildren
- *   protected Children onCreateChildren(
+ *   static Children onCreateChildren(
  *     SectionContext c,
- *     '@'Prop List<Model> modelList) {
+ *     '@'Prop List<? extends Model> modelList) {
  *
- *     return Children.create().child(DataDiffSection.create(c)
- *       .data(modelList)
- *       .renderEventHandler(MyGroupSection.onRender(c))
- *       .onCheckIsSameItemEventHandler(MyGroupSection.onCheckIsSameItem(c))
- *       .onCheckIsSameContentEventHandler(...)
- *       .build());
+ *     return Children.create()
+ *         .child(
+ *             DataDiffSection.<Model>create(c)
+ *                 .data(modelList)
+ *                 .renderEventHandler(MyGroupSection.onRender(c))
+ *                 .onCheckIsSameItemEventHandler(MyGroupSection.onCheckIsSameItem(c))
+ *                 .onCheckIsSameContentEventHandler(...))
+ *        .build();
  *   }
  *
  *   '@'OnEvent(OnCheckIsSameItemEvent.class)
- *   protected boolean onCheckIsSameItem(@FromEvent Model previousItem, @FromEvent Model nextItem) {
+ *   static boolean onCheckIsSameItem(SectionContext c, @FromEvent Model previousItem, @FromEvent Model nextItem) {
  *     return previousItem.getId() == nextItem.getId();
  *   }
  *
  *   '@'OnEvent(RenderEvent.class)
- *   protected RenderInfo onRender(ComponentContext c, @FromEvent Object model) {
+ *   static RenderInfo onRender(SectionContext c, @FromEvent Model model) {
  *     return ComponentRenderInfo.create()
- *       .component(MyComponent.create(c).model(model).build())
- *       .build();
+ *         .component(MyComponent.create(c).model(model).build())
+ *         .build();
  *   }
  * }
- * }</pre>
+ * </pre>
  */
 @DiffSectionSpec(
     events = {OnCheckIsSameContentEvent.class, OnCheckIsSameItemEvent.class, RenderEvent.class})
 public class DataDiffSectionSpec<T> {
 
+  public static final String DUPLICATES_EXIST_MSG =
+      "Detected duplicates in data passed to DataDiffSection. Read more here: https://fblitho.com/docs/sections/best-practices/#avoiding-indexoutofboundsexception";
+
+  public static final String RENDER_INFO_RETURNS_NULL_MSG =
+      "RenderInfo has returned null. Returning ComponentRenderInfo.createEmpty() as default.";
+
   @OnDiff
   public static <T> void onCreateChangeSet(
       SectionContext c,
       ChangeSet changeSet,
-      @Prop Diff<List<T>> data,
-      @Prop(optional = true) @Nullable Diff<Boolean> detectMoves) {
+      @Prop Diff<List<? extends T>> data,
+      @Prop(optional = true) @Nullable Diff<Boolean> detectMoves,
+      @Prop(optional = true) @Nullable Diff<Boolean> alwaysDetectDuplicates) {
 
-    final List<T> previousData = data.getPrevious();
-    final List<T> nextData = data.getNext();
+    final List<? extends T> previousData = data.getPrevious();
+    final List<? extends T> nextData = data.getNext();
     final ComponentRenderer componentRenderer =
-        new ComponentRenderer(DataDiffSection.getRenderEventHandler(c), c);
+        new ComponentRenderer<T>(DataDiffSection.<T>getRenderEventHandler(c), c);
     final DiffSectionOperationExecutor operationExecutor =
         new DiffSectionOperationExecutor(changeSet);
     final RecyclerBinderUpdateCallback<T> updatesCallback;
@@ -125,13 +136,9 @@ public class DataDiffSectionSpec<T> {
 
     final Callback<T> callback = new Callback<>(c, data.getPrevious(), data.getNext());
 
-    final ComponentsLogger logger = c.getLogger();
-    final PerfEvent logEvent =
-        logger == null
-            ? null
-            : LogTreePopulator.populatePerfEventFromLogger(
-                c, logger, logger.newPerformanceEvent(c, EVENT_SECTIONS_DATA_DIFF_CALCULATE_DIFF));
-
+    if (nextData != null && isDetectDuplicatesEnabled(alwaysDetectDuplicates)) {
+      detectDuplicates(nextData, callback);
+    }
     if (isTracing) {
       ComponentsSystrace.beginSection("DiffUtil.calculateDiff");
     }
@@ -139,10 +146,6 @@ public class DataDiffSectionSpec<T> {
         DiffUtil.calculateDiff(callback, isDetectMovesEnabled(detectMoves));
     if (isTracing) {
       ComponentsSystrace.endSection();
-    }
-
-    if (logEvent != null) {
-      logger.logPerfEvent(logEvent);
     }
 
     updatesCallback =
@@ -153,16 +156,76 @@ public class DataDiffSectionSpec<T> {
     updatesCallback.applyChangeset(c);
   }
 
+  @OnVerifyChangeSet
+  @Nullable
+  public static <T> String verifyChangeSet(SectionContext context, @Prop List<? extends T> data) {
+    final List<? extends T> nextData = data;
+    if (nextData != null) {
+      final Callback<T> callback = new Callback<>(context, null, nextData);
+      return detectDuplicates(nextData, callback);
+    }
+    return null;
+  }
+
+  @Nullable
+  public static <T> String detectDuplicates(List<? extends T> data, Callback<T> callback) {
+    int idx = 0;
+    for (ListIterator<? extends T> it = data.listIterator(); it.hasNext(); idx++) {
+      int nextIdx = it.nextIndex() + 1;
+      T item = it.next();
+      for (ListIterator<? extends T> jt = data.listIterator(nextIdx); jt.hasNext(); nextIdx++) {
+        T other = jt.next();
+        if (callback.areItemsTheSame(item, other)) {
+          String type = (item != null ? item.getClass().getSimpleName() : "NULL");
+          ComponentsReporter.emitMessage(
+              ComponentsReporter.LogLevel.ERROR,
+              "sections_duplicate_item",
+              DUPLICATES_EXIST_MSG
+                  + ", type: "
+                  + type
+                  + ", hash: "
+                  + System.identityHashCode(item));
+          /* we don't need to know how many, just that there is at least one duplicate */
+          return "Duplicates are [type:"
+              + type
+              + " hash:"
+              + System.identityHashCode(item)
+              + " position:"
+              + idx
+              + "] and [type:"
+              + type
+              + " hash:"
+              + System.identityHashCode(other)
+              + " position:"
+              + nextIdx
+              + "]";
+        }
+      }
+    }
+    return null;
+  }
+
   /**
    * @return true if detect moves should be enabled when performing the Diff. Detect moves is
-   * enabled by default
+   *     enabled by default
    */
   private static boolean isDetectMovesEnabled(@Nullable Diff<Boolean> detectMoves) {
     return detectMoves == null || detectMoves.getNext() == null || detectMoves.getNext();
   }
 
-  private static class DiffSectionOperationExecutor implements
-      RecyclerBinderUpdateCallback.OperationExecutor {
+  /**
+   * @return true if duplicates detection should be enabled when performing the Diff. Always on on
+   *     debug. Default to false on release.
+   */
+  private static boolean isDetectDuplicatesEnabled(@Nullable Diff<Boolean> alwaysDetectDuplicates) {
+    if (alwaysDetectDuplicates == null || alwaysDetectDuplicates.getNext() == null) {
+      return ComponentsConfiguration.isDebugModeEnabled;
+    }
+    return alwaysDetectDuplicates.getNext();
+  }
+
+  private static class DiffSectionOperationExecutor
+      implements RecyclerBinderUpdateCallback.OperationExecutor {
 
     private final ChangeSet mChangeSet;
 
@@ -178,7 +241,6 @@ public class DataDiffSectionSpec<T> {
         final List<Diff> dataHolders = operation.getDataContainers();
         final int opSize = components == null ? 1 : components.size();
         switch (operation.getType()) {
-
           case Operation.INSERT:
             if (opSize == 1) {
               mChangeSet.insert(
@@ -236,49 +298,60 @@ public class DataDiffSectionSpec<T> {
     }
 
     private static List<RenderInfo> extractComponentInfos(
-        int opSize,
-        List<ComponentContainer> components) {
+        int opSize, List<ComponentContainer> components) {
       final List<RenderInfo> renderInfos = new ArrayList<>(opSize);
-      for (int i = 0; i < opSize; i++) {
-        renderInfos.add(components.get(i).getRenderInfo());
+      int i = 0;
+      for (ComponentContainer container : components) {
+        if (i++ == opSize) {
+          break;
+        }
+        renderInfos.add(container.getRenderInfo());
       }
       return renderInfos;
     }
 
     private static List<Object> extractPrevData(List<Diff> dataHolders) {
-      final int size = dataHolders.size();
-      final List<Object> data = new ArrayList<>(size);
-      for (int i = 0; i < size; i++) {
-        data.add(dataHolders.get(i).getPrevious());
+      final List<Object> data = new ArrayList<>(dataHolders.size());
+      for (Diff diff : dataHolders) {
+        data.add(diff.getPrevious());
       }
       return data;
     }
 
     private static List<Object> extractNextData(List<Diff> dataHolders) {
-      final int size = dataHolders.size();
-      final List<Object> data = new ArrayList<>(size);
-      for (int i = 0; i < size; i++) {
-        data.add(dataHolders.get(i).getNext());
+      final List<Object> data = new ArrayList<>(dataHolders.size());
+      for (Diff diff : dataHolders) {
+        data.add(diff.getNext());
       }
       return data;
     }
   }
 
-  private static class ComponentRenderer implements RecyclerBinderUpdateCallback.ComponentRenderer {
+  private static class ComponentRenderer<T>
+      implements RecyclerBinderUpdateCallback.ComponentRenderer {
 
-    private final EventHandler<RenderEvent> mRenderEventEventHandler;
+    private final EventHandler<RenderEvent<T>> mRenderEventEventHandler;
     private final SectionContext mSectionContext;
 
     private ComponentRenderer(
-        EventHandler<RenderEvent> renderEventEventHandler, SectionContext sectionContext) {
+        EventHandler<RenderEvent<T>> renderEventEventHandler, SectionContext sectionContext) {
       mRenderEventEventHandler = renderEventEventHandler;
       mSectionContext = sectionContext;
     }
 
     @Override
     public RenderInfo render(Object o, int index) {
-      final RenderInfo renderInfo =
+      RenderInfo renderInfo =
           DataDiffSection.dispatchRenderEvent(mRenderEventEventHandler, index, o, null);
+
+      if (renderInfo == null) {
+        ComponentsReporter.emitMessage(
+            ComponentsReporter.LogLevel.ERROR,
+            "DataDiffSection:RenderInfoNull",
+            RENDER_INFO_RETURNS_NULL_MSG);
+
+        renderInfo = ComponentRenderInfo.createEmpty();
+      }
 
       if (ComponentsConfiguration.isRenderInfoDebuggingEnabled()) {
         renderInfo.addDebugInfo(SONAR_SECTIONS_DEBUG_INFO_TAG, mSectionContext.getSectionScope());
@@ -291,21 +364,41 @@ public class DataDiffSectionSpec<T> {
   @VisibleForTesting
   static class Callback<T> extends DiffUtil.Callback {
 
-    private final List<T> mPreviousData;
-    private final List<T> mNextData;
+    private final @Nullable List<? extends T> mPreviousData;
+    private final @Nullable List<? extends T> mNextData;
     private final SectionContext mSectionContext;
-    private final EventHandler<OnCheckIsSameItemEvent> mIsSameItemEventHandler;
-    private final EventHandler<OnCheckIsSameContentEvent> mIsSameContentEventHandler;
+    private final EventHandler<OnCheckIsSameItemEvent<T>> mIsSameItemEventHandler;
+    private final EventHandler<OnCheckIsSameContentEvent<T>> mIsSameContentEventHandler;
 
-    Callback(SectionContext sectionContext, List<T> previousData, List<T> nextData) {
+    private final ThreadLocal<OnCheckIsSameItemEvent> mIsSameItemEventStates;
+    private final OnCheckIsSameItemEvent mIsSameItemEventSingleton;
+    private final AtomicBoolean mIsSameItemEventSingletonUsed;
+    private static final OnCheckIsSameItemEvent sDummy = new OnCheckIsSameItemEvent();
+
+    Callback(
+        SectionContext sectionContext,
+        @Nullable List<? extends T> previousData,
+        @Nullable List<? extends T> nextData) {
       mSectionContext = sectionContext;
-      mIsSameItemEventHandler =
-          DataDiffSection.getOnCheckIsSameItemEventHandler(mSectionContext);
+      mIsSameItemEventHandler = DataDiffSection.getOnCheckIsSameItemEventHandler(mSectionContext);
       mIsSameContentEventHandler =
           DataDiffSection.getOnCheckIsSameContentEventHandler(mSectionContext);
 
       mPreviousData = previousData;
       mNextData = nextData;
+
+      mIsSameItemEventStates =
+          new ThreadLocal<OnCheckIsSameItemEvent>() {
+            @Override
+            protected OnCheckIsSameItemEvent initialValue() {
+              OnCheckIsSameItemEvent event = new OnCheckIsSameItemEvent();
+              event.previousItem = sDummy.previousItem;
+              event.nextItem = sDummy.nextItem;
+              return event;
+            }
+          };
+      mIsSameItemEventSingleton = new OnCheckIsSameItemEvent();
+      mIsSameItemEventSingletonUsed = new AtomicBoolean(false);
     }
 
     @Override
@@ -320,6 +413,9 @@ public class DataDiffSectionSpec<T> {
 
     @Override
     public boolean areItemsTheSame(int oldItemPosition, int newItemPosition) {
+      if (mPreviousData == null || mNextData == null) {
+        return false;
+      }
       final T previous = mPreviousData.get(oldItemPosition);
       final T next = mNextData.get(newItemPosition);
 
@@ -332,10 +428,42 @@ public class DataDiffSectionSpec<T> {
       }
 
       if (mIsSameItemEventHandler != null) {
-        return DataDiffSection.dispatchOnCheckIsSameItemEvent(
-            mIsSameItemEventHandler,
-            previous,
-            next);
+        HasEventDispatcher hasEventDispatcher =
+            mIsSameItemEventHandler.dispatchInfo.hasEventDispatcher;
+        boolean owned = mIsSameItemEventSingletonUsed.compareAndSet(false, true);
+        OnCheckIsSameItemEvent isSameItemEventState;
+        if (owned) {
+          isSameItemEventState = mIsSameItemEventSingleton;
+        } else {
+          isSameItemEventState = mIsSameItemEventStates.get();
+        }
+        if (ComponentsConfiguration.reduceMemorySpikeDataDiffSection()
+            && hasEventDispatcher != null
+            && isSameItemEventState != null
+            && isSameItemEventState.previousItem == sDummy.previousItem) {
+          isSameItemEventState.previousItem = previous;
+          isSameItemEventState.nextItem = next;
+          try {
+            Object result =
+                hasEventDispatcher
+                    .getEventDispatcher()
+                    .dispatchOnEvent(mIsSameItemEventHandler, isSameItemEventState);
+            if (result == null) {
+              return false;
+            } else {
+              return (Boolean) result;
+            }
+          } finally {
+            isSameItemEventState.previousItem = sDummy.previousItem;
+            isSameItemEventState.nextItem = sDummy.nextItem;
+            if (owned) {
+              mIsSameItemEventSingletonUsed.set(false);
+            }
+          }
+        } else {
+          return DataDiffSection.dispatchOnCheckIsSameItemEvent(
+              mIsSameItemEventHandler, previous, next);
+        }
       }
 
       return previous.equals(next);
@@ -343,6 +471,9 @@ public class DataDiffSectionSpec<T> {
 
     @Override
     public boolean areContentsTheSame(int oldItemPosition, int newItemPosition) {
+      if (mPreviousData == null || mNextData == null) {
+        return false;
+      }
       final T previous = mPreviousData.get(oldItemPosition);
       final T next = mNextData.get(newItemPosition);
 
@@ -356,9 +487,7 @@ public class DataDiffSectionSpec<T> {
 
       if (mIsSameContentEventHandler != null) {
         return DataDiffSection.dispatchOnCheckIsSameContentEvent(
-            mIsSameContentEventHandler,
-            previous,
-            next);
+            mIsSameContentEventHandler, previous, next);
       }
 
       return previous.equals(next);

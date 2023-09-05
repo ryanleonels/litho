@@ -1,0 +1,59 @@
+load(
+    "//tools/build_defs/oss:litho_defs.bzl",
+    "ANDROID_STUDIO_PLUGIN_SDK",
+    "LITHO_ANNOTATIONS_TARGET",
+    "LITHO_JAVAPOET_TARGET",
+    "LITHO_SECTIONS_ANNOTATIONS_TARGET",
+    "fb_java_library",
+    "make_dep_path",
+)
+
+_CONFIG_AI222 = "fbsource//third-party/java/intellij:AI-222-config"
+
+_CONFIG_AI223 = "fbsource//third-party/java/intellij:AI-223-config"
+
+_JAVA_TARGET_SELECT = select(
+    {
+        _CONFIG_AI222: "11",
+        _CONFIG_AI223: "17",
+        "DEFAULT": "11",
+    },
+)
+
+fb_java_library(
+    name = "main",
+    srcs = glob(
+        ["java/**/*.java"],
+        exclude = [
+            "java/com/facebook/litho/intellij/extensions/*.java",
+            "java/com/facebook/litho/intellij/redsymbols/**",
+        ],
+    ),
+    abi_generation_mode = "class",
+    javac = select({
+        _CONFIG_AI223: "fbcode//tools/build/buck/wrappers:javac17.sh",
+        "DEFAULT": None,
+    }),
+    provided_deps = [
+        ANDROID_STUDIO_PLUGIN_SDK,
+    ],
+    resources = glob(
+        ["resources/**/*"],
+        exclude = ["resources/META-INF/redsymbols.xml"],
+    ),
+    resources_root = "resources",
+    source = _JAVA_TARGET_SELECT,
+    target = _JAVA_TARGET_SELECT,
+    visibility = ["PUBLIC"],
+    deps = [
+        LITHO_ANNOTATIONS_TARGET,
+        LITHO_JAVAPOET_TARGET,
+        LITHO_SECTIONS_ANNOTATIONS_TARGET,
+        make_dep_path("litho-intellij-plugin/src/main/java/com/facebook/litho/intellij/extensions:lib"),
+        make_dep_path("litho-processor/src/main/java/com/facebook/litho/specmodels:specmodels-bare4idea"),
+        make_dep_path("litho-processor/src/main/java/com/facebook/litho/specmodels/internal:internal4idea"),
+        make_dep_path("litho-processor/src/main/java/com/facebook/litho/specmodels/processor:processor-lib-bare4idea"),
+        make_dep_path("litho-sections-processor/src/main/java/com/facebook/litho/sections/specmodels/model:model4idea"),
+        make_dep_path("litho-sections-processor/src/main/java/com/facebook/litho/sections/specmodels/processor:processor-lib-bare4idea"),
+    ],
+)

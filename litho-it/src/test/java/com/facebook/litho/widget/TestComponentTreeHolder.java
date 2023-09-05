@@ -1,11 +1,11 @@
 /*
- * Copyright 2018-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.litho.widget;
 
 import static org.mockito.Mockito.mock;
@@ -20,12 +21,13 @@ import static org.mockito.Mockito.mock;
 import androidx.annotation.Nullable;
 import com.facebook.litho.ComponentContext;
 import com.facebook.litho.ComponentTree;
-import com.facebook.litho.LithoHandler;
 import com.facebook.litho.Size;
 import com.facebook.litho.SizeSpec;
+import com.facebook.rendercore.RunnableHandler;
 
 public class TestComponentTreeHolder extends ComponentTreeHolder {
 
+  private final boolean mEnableAsyncLayoutsDuringInitRange;
   boolean mTreeValid;
   private ComponentTree mComponentTree;
   private RenderInfo mRenderInfo;
@@ -35,17 +37,25 @@ public class TestComponentTreeHolder extends ComponentTreeHolder {
   int mChildWidth;
   int mChildHeight;
   boolean mCheckWorkingRangeCalled;
-  LithoHandler mLayoutHandler;
+  RunnableHandler mResolveHandler;
+  RunnableHandler mLayoutHandler;
   private int mLastRequestedWidthSpec;
   private int mLastRequestedHeightSpec;
 
   TestComponentTreeHolder(RenderInfo renderInfo) {
     super(ComponentTreeHolder.create().renderInfo(renderInfo));
     mRenderInfo = renderInfo;
+    mEnableAsyncLayoutsDuringInitRange = false;
+  }
+
+  TestComponentTreeHolder(RenderInfo renderInfo, boolean enableAsyncLayoutsDuringInitRange) {
+    super(ComponentTreeHolder.create().renderInfo(renderInfo));
+    mRenderInfo = renderInfo;
+    mEnableAsyncLayoutsDuringInitRange = enableAsyncLayoutsDuringInitRange;
   }
 
   @Override
-  public synchronized void acquireStateAndReleaseTree() {
+  public synchronized void acquireStateAndReleaseTree(boolean acquireStateHandlerOnRelease) {
     mComponentTree = null;
     mTreeValid = false;
     mLayoutAsyncCalled = false;
@@ -79,8 +89,8 @@ public class TestComponentTreeHolder extends ComponentTreeHolder {
     mLayoutAsyncCalled = true;
     mChildWidth = SizeSpec.getSize(widthSpec);
     mChildHeight = SizeSpec.getSize(heightSpec);
-    if (measureListener != null) {
-      measureListener.onSetRootAndSizeSpec(mChildWidth, mChildHeight);
+    if (measureListener != null && mEnableAsyncLayoutsDuringInitRange) {
+      measureListener.onSetRootAndSizeSpec(0, mChildWidth, mChildHeight, false);
     }
   }
 
@@ -100,13 +110,20 @@ public class TestComponentTreeHolder extends ComponentTreeHolder {
   }
 
   @Override
-  public synchronized void updateLayoutHandler(@Nullable LithoHandler layoutHandler) {
+  public synchronized void updateLayoutHandler(@Nullable RunnableHandler layoutHandler) {
     super.updateLayoutHandler(layoutHandler);
     mLayoutHandler = layoutHandler;
   }
 
   @Override
+  public synchronized void updateResolveHandler(@Nullable RunnableHandler resolveHandler) {
+    super.updateResolveHandler(resolveHandler);
+    mResolveHandler = resolveHandler;
+  }
+
+  @Override
   public void setRenderInfo(RenderInfo renderInfo) {
+    mTreeValid = false;
     mRenderInfo = renderInfo;
   }
 

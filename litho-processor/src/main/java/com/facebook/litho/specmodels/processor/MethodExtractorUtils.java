@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,13 +25,10 @@ import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeVariableName;
-import com.sun.tools.javac.code.Symbol;
-import com.sun.tools.javac.util.Name;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.Nullable;
 import javax.annotation.processing.Messager;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
@@ -52,18 +49,16 @@ public final class MethodExtractorUtils {
       Messager messager,
       List<Class<? extends Annotation>> permittedAnnotations,
       List<Class<? extends Annotation>> permittedInterStageInputAnnotations,
+      List<Class<? extends Annotation>> permittedLayoutInterStageInputAnnotations,
       List<Class<? extends Annotation>> delegateMethodAnnotationsThatSkipDiffModels) {
 
     final List<MethodParamModel> methodParamModels = new ArrayList<>();
-    final List<Name> savedParameterNames = getSavedParameterNames(method);
     final List<? extends VariableElement> params = method.getParameters();
+    final List<String> paramNames = ParamNameExtractor.getNames(method);
 
     for (int i = 0, size = params.size(); i < size; i++) {
       final VariableElement param = params.get(i);
-      final String paramName =
-          savedParameterNames == null
-              ? param.getSimpleName().toString()
-              : savedParameterNames.get(i).toString();
+      final String paramName = paramNames.get(i);
 
       try {
         final TypeSpec typeSpec = generateTypeSpec(param.asType());
@@ -87,6 +82,7 @@ public final class MethodExtractorUtils {
                 getLibraryAnnotations(param, permittedAnnotations),
                 getExternalAnnotations(param),
                 permittedInterStageInputAnnotations,
+                permittedLayoutInterStageInputAnnotations,
                 canCreateDiffModels(method, delegateMethodAnnotationsThatSkipDiffModels),
                 param));
       } catch (Exception e) {
@@ -114,32 +110,8 @@ public final class MethodExtractorUtils {
     return true;
   }
 
-  /**
-   * Attempt to recover saved parameter names for a method. This will likely only work for code
-   * compiled with javac >= 8, but it's often the only chance to get named parameters as opposed to
-   * 'arg0', 'arg1', ...
-   */
-  @Nullable
-  private static List<Name> getSavedParameterNames(ExecutableElement method) {
-    if (method instanceof Symbol.MethodSymbol) {
-      final Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) method;
-      try {
-        //noinspection unchecked
-        return (List<Name>)
-            Symbol.MethodSymbol.class.getField("savedParameterNames").get(methodSymbol);
-      } catch (NoSuchFieldError | IllegalAccessException | NoSuchFieldException ignored) {
-        // This can happen on JVM versions >= 10. However, we need to keep this workaround for JVM
-        // versions < 8 which do not provide the '-parameters' javac option which is the Right Way
-        // to achieve this.
-        return null;
-      }
-    }
-    return null;
-  }
-
   private static List<Annotation> getLibraryAnnotations(
-      VariableElement param,
-      List<Class<? extends Annotation>> permittedAnnotations) {
+      VariableElement param, List<Class<? extends Annotation>> permittedAnnotations) {
     List<Annotation> paramAnnotations = new ArrayList<>();
     for (Class<? extends Annotation> possibleMethodParamAnnotation : permittedAnnotations) {
       final Annotation paramAnnotation = param.getAnnotation(possibleMethodParamAnnotation);
@@ -169,8 +141,7 @@ public final class MethodExtractorUtils {
       for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> elementValue :
           elementValues.entrySet()) {
         annotationSpec.addMember(
-            elementValue.getKey().getSimpleName().toString(),
-            elementValue.getValue().toString());
+            elementValue.getKey().getSimpleName().toString(), elementValue.getValue().toString());
       }
 
       annotations.add(annotationSpec.build());
@@ -184,8 +155,7 @@ public final class MethodExtractorUtils {
     for (TypeParameterElement typeParameterElement : method.getTypeParameters()) {
       typeVariables.add(
           TypeVariableName.get(
-              typeParameterElement.getSimpleName().toString(),
-              getBounds(typeParameterElement)));
+              typeParameterElement.getSimpleName().toString(), getBounds(typeParameterElement)));
     }
 
     return typeVariables;

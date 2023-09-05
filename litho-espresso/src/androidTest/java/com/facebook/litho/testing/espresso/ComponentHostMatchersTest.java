@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -29,7 +29,7 @@ import static org.junit.Assert.assertThat;
 
 import android.widget.TextView;
 import androidx.test.InstrumentationRegistry;
-import androidx.test.rule.UiThreadTestRule;
+import androidx.test.annotation.UiThreadTest;
 import androidx.test.runner.AndroidJUnit4;
 import com.facebook.litho.Component;
 import com.facebook.litho.ComponentContext;
@@ -38,88 +38,54 @@ import com.facebook.litho.LithoView;
 import com.facebook.litho.widget.Text;
 import com.facebook.testing.screenshot.ViewHelpers;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/**
- * Tests {@link ComponentHostMatchers}
- */
+/** Tests {@link ComponentHostMatchers} */
 @RunWith(AndroidJUnit4.class)
 public class ComponentHostMatchersTest {
 
-  @Rule
-  public UiThreadTestRule mUiThreadRule = new UiThreadTestRule();
-
   private LithoView mView;
 
+  @UiThreadTest
   @Before
   public void before() throws Throwable {
-    final ComponentContext mComponentContext = new ComponentContext(
-        InstrumentationRegistry.getTargetContext());
-    final Component mTextComponent = MyComponent.create(mComponentContext)
-        .text("foobar")
-        .customViewTag("zoidberg")
-        .build();
-    final ComponentTree tree = ComponentTree.create(
-        mComponentContext,
-        mTextComponent)
-        .build();
+    final ComponentContext mComponentContext =
+        new ComponentContext(InstrumentationRegistry.getTargetContext());
+    final Component mTextComponent =
+        MyComponent.create(mComponentContext).text("foobar").customViewTag("zoidberg").build();
+    final ComponentTree tree = ComponentTree.create(mComponentContext, mTextComponent).build();
     mView = new LithoView(mComponentContext);
-    mUiThreadRule.runOnUiThread(
-        new Runnable() {
-          @Override
-          public void run() {
-            mView.setComponentTree(tree);
-            ViewHelpers.setupView(mView).setExactWidthPx(200).setExactHeightPx(100).layout();
-          }
-        });
+    mView.setComponentTree(tree);
+    ViewHelpers.setupView(mView).setExactWidthPx(200).setExactHeightPx(100).layout();
   }
 
   @Test
   public void testContentDescriptionMatching() throws Throwable {
-    assertThat(
-        mView,
-        componentHostWithText("foobar"));
-    assertThat(
-        mView,
-        not(componentHostWithText("bar")));
-    assertThat(
-        mView,
-        componentHostWithText(containsString("oob")));
+    assertThat(mView, componentHostWithText("foobar"));
+    assertThat(mView, not(componentHostWithText("bar")));
+    assertThat(mView, componentHostWithText(containsString("oob")));
   }
 
   @Test
   public void testIsComponentHost() throws Throwable {
-    assertThat(
-        new TextView(InstrumentationRegistry.getTargetContext()),
-        is(not(componentHost())));
-    assertThat(
-        mView,
-        is(componentHost()));
+    assertThat(new TextView(InstrumentationRegistry.getTargetContext()), is(not(componentHost())));
+    assertThat(mView, is(componentHost()));
   }
 
   @Test
   public void testIsComponentHostWithMatcher() throws Throwable {
-    assertThat(
-        mView,
-        is(componentHost(withText("foobar"))));
-    assertThat(
-        mView,
-        is(not(componentHost(withText("blah")))));
+    assertThat(mView, is(componentHost(withText("foobar"))));
+    assertThat(mView, is(not(componentHost(withText("blah")))));
   }
 
   @Test
   public void testContentDescription() throws Throwable {
-    assertThat(
-        mView,
-        is(componentHost(withContentDescription("foobar2"))));
+    assertThat(mView, is(componentHost(withContentDescription("foobar2"))));
   }
 
   @Test
   public void testMountedComponent() throws Throwable {
-    assertThat(
-        mView,
-        is(componentHost(withLifecycle(isA(Text.class)))));
+    assertThat(mView, is(componentHost(withLifecycle(isA(Text.class)))));
   }
 }

@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -55,14 +55,14 @@ public final class Change {
 
   private static final List<RenderInfo> EMPTY = new ArrayList<>();
 
-  private @Type int mType;
-  private int mIndex;
-  private int mToIndex;
-  private int mCount;
-  private RenderInfo mRenderInfo;
-  private List<RenderInfo> mRenderInfos;
-  private @Nullable List<?> mPrevData;
-  private @Nullable List<?> mNextData;
+  private final @Type int mType;
+  private final int mIndex;
+  private final int mToIndex;
+  private final int mCount;
+  private final RenderInfo mRenderInfo;
+  private final List<RenderInfo> mRenderInfos;
+  private final @Nullable List<?> mPrevData;
+  private final @Nullable List<?> mNextData;
 
   @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
   public Change(
@@ -92,18 +92,14 @@ public final class Change {
       }
     }
 
-    if (prevData != null) {
-      mPrevData = Collections.unmodifiableList(prevData);
-    }
-    if (nextData != null) {
-      mNextData = Collections.unmodifiableList(nextData);
-    }
+    mPrevData = prevData != null ? Collections.unmodifiableList(prevData) : null;
+    mNextData = nextData != null ? Collections.unmodifiableList(nextData) : null;
   }
 
   /**
    * @return a new Change with an index equal to its current index plus an offset. This is used
-   * internally by the framework when generating the final {@link ChangeSet} for the
-   * {@link com.facebook.litho.sections.SectionTree.Target}.
+   *     internally by the framework when generating the final {@link ChangeSet} for the {@link
+   *     com.facebook.litho.sections.SectionTree.Target}.
    */
   static Change offset(Change change, int offset) {
     final int toIndex = change.mToIndex >= 0 ? change.mToIndex + offset : -1;
@@ -111,21 +107,6 @@ public final class Change {
         change.mType,
         change.mIndex + offset,
         toIndex,
-        change.mCount,
-        change.mRenderInfo,
-        change.mRenderInfos,
-        change.mPrevData,
-        change.mNextData);
-  }
-
-  /**
-   * @return a new Change that is a copy of a given Change.
-   */
-  static Change copy(Change change) {
-    return acquire(
-        change.mType,
-        change.mIndex,
-        change.mToIndex,
         change.mCount,
         change.mRenderInfo,
         change.mRenderInfos,
@@ -246,9 +227,7 @@ public final class Change {
     return mToIndex;
   }
 
-  /**
-   * @return the number of changes to be made. This is only valid if type is *_RANGE.
-   */
+  /** @return the number of changes to be made. This is only valid if type is *_RANGE. */
   public int getCount() {
     return mCount;
   }
@@ -262,7 +241,7 @@ public final class Change {
     return mRenderInfo;
   }
 
-  List<RenderInfo> getRenderInfos() {
+  public List<RenderInfo> getRenderInfos() {
     return mRenderInfos;
   }
 
@@ -320,14 +299,6 @@ public final class Change {
       @Nullable List<?> prevData,
       @Nullable List<?> nextData) {
     return new Change(ct, index, toIndex, count, renderInfo, renderInfos, prevData, nextData);
-  }
-
-  //TODO t11953296
-  void release() {
-    mRenderInfo = null;
-    mRenderInfos = null;
-    mPrevData = null;
-    mNextData = null;
   }
 
   public static String changeTypeToString(@Type int type) {

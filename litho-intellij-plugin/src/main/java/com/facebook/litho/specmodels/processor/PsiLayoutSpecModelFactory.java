@@ -1,11 +1,11 @@
 /*
- * Copyright 2017-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.litho.specmodels.processor;
 
 import static com.facebook.litho.specmodels.processor.LayoutSpecModelFactory.DELEGATE_METHOD_ANNOTATIONS;
@@ -34,7 +35,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiClass;
 import java.lang.annotation.Annotation;
 import java.util.List;
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /** Factory for creating {@link LayoutSpecModel}s. */
 public class PsiLayoutSpecModelFactory {
@@ -55,7 +56,7 @@ public class PsiLayoutSpecModelFactory {
 
   /**
    * @return a new {@link LayoutSpecModel} or null if provided class isn't a {@link LayoutSpec}
-   *     class.
+   *     class. Access is allowed from event dispatch thread or inside read-action only.
    */
   @Nullable
   public LayoutSpecModel createWithPsi(
@@ -70,7 +71,8 @@ public class PsiLayoutSpecModelFactory {
 
     // #5 trigger methods
     ImmutableList<SpecMethodModel<EventMethod, EventDeclarationModel>> triggerMethods =
-        PsiTriggerMethodExtractor.getOnTriggerMethods(psiClass, INTER_STAGE_INPUT_ANNOTATIONS);
+        PsiTriggerMethodExtractor.getOnTriggerMethods(
+            psiClass, INTER_STAGE_INPUT_ANNOTATIONS, ImmutableList.of());
 
     // #12 classJavadoc
     String classJavadoc = "classJavadoc";
@@ -85,25 +87,28 @@ public class PsiLayoutSpecModelFactory {
             psiClass,
             mLayoutSpecDelegateMethodAnnotations,
             INTER_STAGE_INPUT_ANNOTATIONS,
+            ImmutableList.of(),
             ImmutableList.<Class<? extends Annotation>>of(ShouldUpdate.class)),
-        PsiEventMethodExtractor.getOnEventMethods(project, psiClass, INTER_STAGE_INPUT_ANNOTATIONS),
+        PsiEventMethodExtractor.getOnEventMethods(
+            psiClass, INTER_STAGE_INPUT_ANNOTATIONS, ImmutableList.of()),
         triggerMethods,
-        PsiWorkingRangesMethodExtractor.getRegisterMethod(psiClass, INTER_STAGE_INPUT_ANNOTATIONS),
-        PsiWorkingRangesMethodExtractor.getRangesMethods(psiClass, INTER_STAGE_INPUT_ANNOTATIONS),
+        PsiWorkingRangesMethodExtractor.getRegisterMethod(
+            psiClass, INTER_STAGE_INPUT_ANNOTATIONS, ImmutableList.of()),
+        PsiWorkingRangesMethodExtractor.getRangesMethods(
+            psiClass, INTER_STAGE_INPUT_ANNOTATIONS, ImmutableList.of()),
         PsiUpdateStateMethodExtractor.getOnUpdateStateMethods(
-            psiClass, INTER_STAGE_INPUT_ANNOTATIONS, false),
+            psiClass, INTER_STAGE_INPUT_ANNOTATIONS, ImmutableList.of(), false),
         PsiUpdateStateMethodExtractor.getOnUpdateStateMethods(
-            psiClass, INTER_STAGE_INPUT_ANNOTATIONS, true),
+            psiClass, INTER_STAGE_INPUT_ANNOTATIONS, ImmutableList.of(), true),
         ImmutableList.<String>of(),
         PsiPropDefaultsExtractor.getPropDefaults(psiClass),
-        PsiEventDeclarationsExtractor.getEventDeclarations(project, psiClass),
+        PsiEventDeclarationsExtractor.getEventDeclarations(psiClass, LayoutSpec.class),
         PsiAnnotationExtractor.extractValidAnnotations(project, psiClass),
         null,
         classJavadoc,
         propJavadocs,
         layoutSpecAnnotation.isPublic(),
         dependencyInjectionHelper,
-        layoutSpecAnnotation.isPureRender(),
         SpecElementType.JAVA_CLASS,
         psiClass,
         mLayoutSpecGenerator,

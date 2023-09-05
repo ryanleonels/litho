@@ -8,32 +8,35 @@ load("//tools/build_defs/oss:litho_defs.bzl", "LITHO_VISIBILITY", "litho_android
 
 litho_android_library(
     name = "flipper",
+    autoglob = False,
+    language = "JAVA",
     visibility = LITHO_VISIBILITY,
     exported_deps = [
-        ":flipper-aar",
+        ":flipper-core",
+        ":flipper-litho-plugin",
     ],
 )
 
 fb_native.android_prebuilt_aar(
-    name = "flipper-aar",
-    aar = ":flipper-binary-aar",
+    name = "flipper-core",
+    aar = ":flipper-aar",
     visibility = LITHO_VISIBILITY,
 )
 
 fb_native.remote_file(
-    name = "flipper-binary-aar",
-    sha1 = "d7f79d066ae292101f7def7f12a6fcf1cc33b651",
-    url = "mvn:com.facebook.flipper:flipper:aar:0.11.0",
+    name = "flipper-aar",
+    sha1 = "cc00c73a18dc1f09a5ab4af6f10c5711d46eeea7",
+    url = "mvn:com.facebook.flipper:flipper:aar:0.30.2",
 )
 
 fb_native.android_prebuilt_aar(
-    name = "fbjni-aar",
-    aar = ":fbjni-binary-aar",
+    name = "flipper-litho-plugin",
+    aar = ":flipper-litho-plugin-aar",
     visibility = LITHO_VISIBILITY,
 )
 
 fb_native.remote_file(
-    name = "fbjni-binary-aar",
-    sha1 = "9a8784c15e5b41829feb35965ca44c831b8e84a6",
-    url = "mvn:com.facebook.flipper:fbjni:aar:0.11.0",
+    name = "flipper-litho-plugin-aar",
+    sha1 = "86a8163e279e1519576187a38037218e44b8fea3",
+    url = "mvn:com.facebook.flipper:flipper-litho-plugin:aar:0.30.2",
 )

@@ -1,11 +1,11 @@
 /*
- * Copyright 2019-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -35,7 +35,11 @@ import com.facebook.yoga.YogaWrap
 object ColorBoxCollectionSpec {
 
   @OnCreateLayout
-  fun onCreateLayout(c: ComponentContext, @Prop items: IntArray, @Prop highlightedIndex: Int): Component {
+  fun onCreateLayout(
+      c: ComponentContext,
+      @Prop items: IntArray,
+      @Prop highlightedIndex: Int
+  ): Component {
     val rowBuilder = Row.create(c).wrap(YogaWrap.WRAP)
     items.forEachIndexed { index, color ->
       val isHighlighted = index == highlightedIndex
@@ -58,8 +62,7 @@ object ColorBoxCollectionSpec {
         ColorBoxCollection.getBoxItemChangedEventHandler(c),
         color,
         "Item at index $index is now visible",
-        -1
-    )
+        -1)
   }
 
   @OnEvent(InvisibleEvent::class)
@@ -68,8 +71,7 @@ object ColorBoxCollectionSpec {
         ColorBoxCollection.getBoxItemChangedEventHandler(c),
         color,
         "Item at index $index is no longer visible",
-        -1
-    )
+        -1)
   }
 
   @OnEvent(LongClickEvent::class)

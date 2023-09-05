@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -173,6 +173,7 @@ public class TestTarget implements SectionTree.Target {
       boolean isDataChanged, ChangeSetCompleteCallback changeSetCompleteCallback) {
     mWasNotifyChangeSetCompleteCalledWithChangedData = isDataChanged;
     changeSetCompleteCallback.onDataBound();
+    changeSetCompleteCallback.onDataRendered(false, 0);
   }
 
   @Override
@@ -192,9 +193,18 @@ public class TestTarget implements SectionTree.Target {
   }
 
   @Override
+  public void requestSmoothFocus(Object id, int offset, SmoothScrollAlignmentType type) {}
+
+  @Override
+  public void requestFocusWithOffset(Object id, int offset) {}
+
+  @Override
   public boolean supportsBackgroundChangeSets() {
     return false;
   }
+
+  @Override
+  public void changeConfig(DynamicConfig dynamicConfig) {}
 
   public void clear() {
     mOperations.clear();

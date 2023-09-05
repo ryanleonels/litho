@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.litho.specmodels.model;
 
 import com.facebook.litho.specmodels.internal.ImmutableList;
@@ -83,15 +84,15 @@ public class TypeSpec {
   public static class DeclaredTypeSpec extends TypeSpec {
     private final String mQualifiedName;
     private final Supplier<TypeSpec> mSuperclass;
-    private final ImmutableList<TypeSpec> mSuperinterfaces;
-    private final ImmutableList<TypeSpec> mTypeArguments;
+    private final Supplier<ImmutableList<TypeSpec>> mSuperinterfaces;
+    private final Supplier<ImmutableList<TypeSpec>> mTypeArguments;
 
     public DeclaredTypeSpec(
         TypeName typeName,
         String qualifiedName,
         Supplier<TypeSpec> superclass,
-        ImmutableList<TypeSpec> superinterfaces,
-        ImmutableList<TypeSpec> typeArguments) {
+        Supplier<ImmutableList<TypeSpec>> superinterfaces,
+        Supplier<ImmutableList<TypeSpec>> typeArguments) {
       super(typeName);
       mQualifiedName = qualifiedName;
       mSuperclass = superclass;
@@ -108,7 +109,7 @@ public class TypeSpec {
     @Override
     public boolean isSubInterface(TypeName type) {
       return type.toString().equals(mQualifiedName)
-          || mSuperinterfaces.stream().anyMatch(typeSpec -> typeSpec.isSubInterface(type));
+          || mSuperinterfaces.get().stream().anyMatch(typeSpec -> typeSpec.isSubInterface(type));
     }
 
     @Override
@@ -117,7 +118,7 @@ public class TypeSpec {
     }
 
     public ImmutableList<TypeSpec> getTypeArguments() {
-      return mTypeArguments;
+      return mTypeArguments.get();
     }
   }
 }

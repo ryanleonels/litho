@@ -1,0 +1,30 @@
+package ${PACKAGE_NAME}
+
+import com.facebook.litho.LithoPrimitive
+import com.facebook.litho.PrimitiveComponent
+import com.facebook.litho.PrimitiveComponentScope
+import com.facebook.litho.Style
+import com.facebook.rendercore.SizeConstraints
+import com.facebook.rendercore.primitives.LayoutBehavior
+import com.facebook.rendercore.primitives.PrimitiveLayoutResult
+import com.facebook.rendercore.primitives.LayoutScope
+import com.facebook.rendercore.primitives.ViewAllocator
+
+class ${NAME}(val style: Style? = null) : PrimitiveComponent() {
+  override fun PrimitiveComponentScope.render(): LithoPrimitive {
+    return LithoPrimitive(
+        layoutBehavior = ${NAME}LayoutBehavior(),
+        /* doc: https://fburl.com/primitivecontentcreation */
+        mountBehavior = MountBehavior(ViewAllocator {
+          TODO("Not yet implemented")
+        }) {},
+        style = style)
+  }
+}
+
+internal class ${NAME}LayoutBehavior : LayoutBehavior {
+  override fun LayoutScope.layout(sizeConstraints: SizeConstraints): PrimitiveLayoutResult {
+    /* doc: https://fburl.com/primitivemeasurement */
+    TODO("Not yet implemented")
+  }
+}

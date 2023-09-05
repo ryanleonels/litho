@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,23 +17,23 @@
 package com.facebook.litho.widget;
 
 import com.facebook.litho.ComponentTree;
-import com.facebook.litho.LithoHandler;
+import com.facebook.rendercore.RunnableHandler;
 import javax.annotation.Nullable;
 
-/** A Factory used to create {@link LithoHandler}s in {@link RecyclerBinder}. */
+/** A Factory used to create {@link RunnableHandler}s in {@link RecyclerBinder}. */
 public interface LayoutHandlerFactory {
   /**
-   * @return a new {@link LithoHandler} that will be used to compute the layouts of the children of
-   *     the {@link RecyclerSpec}.
+   * @return a new {@link RunnableHandler} that will be used to compute the layouts of the children
+   *     of the {@link RecyclerSpec}.
    */
   @Nullable
-  LithoHandler createLayoutCalculationHandler(RenderInfo renderInfo);
+  RunnableHandler createLayoutCalculationHandler(RenderInfo renderInfo);
 
   /**
-   * @return If true, {@link LithoHandler} of {@link ComponentTree} that's being updated by update
-   *     operation of {@link RecyclerBinder} will be replaced by new {@link LithoHandler} returned
-   *     from {@link #createLayoutCalculationHandler(RenderInfo)}, otherwise keep using existing
-   *     {@link LithoHandler} created during item insertion.
+   * @return If true, {@link RunnableHandler} of {@link ComponentTree} that's being updated by
+   *     update operation of {@link RecyclerBinder} will be replaced by new {@link RunnableHandler}
+   *     returned from {@link #createLayoutCalculationHandler(RenderInfo)}, otherwise keep using
+   *     existing {@link RunnableHandler} created during item insertion.
    */
   boolean shouldUpdateLayoutHandler(RenderInfo previousRenderInfo, RenderInfo newRenderInfo);
 }

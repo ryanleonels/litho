@@ -1,11 +1,11 @@
 /*
- * Copyright 2019-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.litho.testing.helper;
 
 import com.facebook.litho.ComponentTree;
@@ -22,6 +23,8 @@ import com.facebook.litho.InvisibleEvent;
 import com.facebook.litho.UnfocusedVisibleEvent;
 import com.facebook.litho.VisibleEvent;
 import com.facebook.litho.testing.Whitebox;
+import com.facebook.rendercore.Function;
+import com.facebook.rendercore.visibility.VisibilityUtils;
 
 /**
  * Allows calling visibility events manually which is useful in automated tests
@@ -47,7 +50,7 @@ public class VisibilityEventsHelper {
         final Object visibilityOutput = getVisibilityOutputAt(layoutState, i);
         if (visibilityEventType == VisibleEvent.class
             && getEventHandler(visibilityOutput, "Visible") != null) {
-          dispatch(getEventHandler(visibilityOutput, "Visible"), "Visible");
+          VisibilityUtils.dispatchOnVisible(getEventHandler(visibilityOutput, "Visible"), null);
           return true;
         } else if (visibilityEventType == InvisibleEvent.class
             && getEventHandler(visibilityOutput, "Invisible") != null) {
@@ -65,8 +68,6 @@ public class VisibilityEventsHelper {
             && getEventHandler(visibilityOutput, "FullImpression") != null) {
           dispatch(getEventHandler(visibilityOutput, "FullImpression"), "FullImpression");
           return true;
-        } else {
-          throw new RuntimeException("Unexpected visibility event type: " + visibilityEventType);
         }
       }
       return false;
@@ -87,14 +88,14 @@ public class VisibilityEventsHelper {
     return Whitebox.invokeMethod(layoutState, "getVisibilityOutputAt", i);
   }
 
-  private static Object getEventHandler(Object layoutState, String name) {
+  private static Function<Void> getEventHandler(Object layoutState, String name) {
     return Whitebox.invokeMethod(layoutState, "get" + name + "EventHandler");
   }
 
-  private static void dispatch(Object visibilityOutput, String name) throws ClassNotFoundException {
+  private static void dispatch(Object eventHandler, String name) throws ClassNotFoundException {
     Whitebox.invokeMethod(
-        Class.forName("com.facebook.litho.EventDispatcherUtils"),
+        Class.forName("com.facebook.rendercore.visibility.VisibilityUtils"),
         "dispatchOn" + name,
-        visibilityOutput);
+        eventHandler);
   }
 }

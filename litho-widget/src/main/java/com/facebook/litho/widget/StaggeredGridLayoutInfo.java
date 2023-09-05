@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,11 +21,13 @@ import static com.facebook.litho.SizeSpec.EXACTLY;
 import static com.facebook.litho.SizeSpec.UNSPECIFIED;
 
 import android.view.ViewGroup;
+import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.StaggeredGridLayoutManager;
 import com.facebook.litho.LithoView;
 import com.facebook.litho.SizeSpec;
 import com.facebook.litho.widget.RecyclerBinder.RecyclerViewLayoutManagerOverrideParams;
+import java.lang.ref.WeakReference;
 import java.util.List;
 
 /**
@@ -43,7 +45,22 @@ public class StaggeredGridLayoutInfo implements LayoutInfo {
 
   public StaggeredGridLayoutInfo(
       int spanCount, int orientation, boolean reverseLayout, int gapStrategy) {
-    mStaggeredGridLayoutManager = new LithoStaggeredGridLayoutManager(spanCount, orientation);
+    this(spanCount, orientation, reverseLayout, gapStrategy, false, false);
+  }
+
+  public StaggeredGridLayoutInfo(
+      int spanCount,
+      int orientation,
+      boolean reverseLayout,
+      int gapStrategy,
+      boolean eagerlyClearsSpanAssignmentsOnUpdates,
+      boolean invalidatesItemDecorationsOnUpdates) {
+    mStaggeredGridLayoutManager =
+        new LithoStaggeredGridLayoutManager(
+            spanCount,
+            orientation,
+            eagerlyClearsSpanAssignmentsOnUpdates,
+            invalidatesItemDecorationsOnUpdates);
     mStaggeredGridLayoutManager.setReverseLayout(reverseLayout);
     mStaggeredGridLayoutManager.setGapStrategy(gapStrategy);
   }
@@ -61,6 +78,11 @@ public class StaggeredGridLayoutInfo implements LayoutInfo {
   @Override
   public void setRenderInfoCollection(RenderInfoCollection renderInfoCollection) {
     // no op
+  }
+
+  @Override
+  public void scrollToPositionWithOffset(int position, int offset) {
+    mStaggeredGridLayoutManager.scrollToPositionWithOffset(position, offset);
   }
 
   @Override
@@ -197,8 +219,24 @@ public class StaggeredGridLayoutInfo implements LayoutInfo {
   }
 
   private static class LithoStaggeredGridLayoutManager extends StaggeredGridLayoutManager {
-    public LithoStaggeredGridLayoutManager(int spanCount, int orientation) {
+    private boolean mEagerlyClearsSpanAssignmentsOnUpdates;
+    private boolean mInvalidatesItemDecorationsOnUpdates;
+    // We hold this staggered grid result to avoid unnecessary int[] creations.
+    private int[] mStaggeredGridResult;
+
+    // Pairs with mInvalidatesItemDecorationsOnUpdates to store the RecyclerView requiring
+    // invalidation, since the RecyclerView isn't available as a member.
+    private WeakReference<RecyclerView> mRecyclerViewToInvalidateItemDecorations =
+        new WeakReference<>(null);
+
+    public LithoStaggeredGridLayoutManager(
+        int spanCount,
+        int orientation,
+        boolean eagerlyClearsSpanAssignmentsOnUpdates,
+        boolean invalidatesItemDecorationsOnUpdates) {
       super(spanCount, orientation);
+      mEagerlyClearsSpanAssignmentsOnUpdates = eagerlyClearsSpanAssignmentsOnUpdates;
+      mInvalidatesItemDecorationsOnUpdates = invalidatesItemDecorationsOnUpdates;
     }
 
     @Override
@@ -207,6 +245,91 @@ public class StaggeredGridLayoutInfo implements LayoutInfo {
         return new LayoutParams((RecyclerViewLayoutManagerOverrideParams) lp);
       } else {
         return super.generateLayoutParams(lp);
+      }
+    }
+
+    @Override
+    public void onItemsRemoved(final RecyclerView recyclerView, int positionStart, int itemCount) {
+      invalidateSpanAssignmentsEagerlyIfNeeded(recyclerView);
+      prepareToInvalidateItemDecorationsIfNeeded(recyclerView);
+
+      super.onItemsRemoved(recyclerView, positionStart, itemCount);
+    }
+
+    @Override
+    public void onItemsAdded(final RecyclerView recyclerView, int positionStart, int itemCount) {
+      invalidateSpanAssignmentsEagerlyIfNeeded(recyclerView);
+      prepareToInvalidateItemDecorationsIfNeeded(recyclerView);
+
+      super.onItemsAdded(recyclerView, positionStart, itemCount);
+    }
+
+    @Override
+    public void onItemsMoved(final RecyclerView recyclerView, int from, int to, int itemCount) {
+      invalidateSpanAssignmentsEagerlyIfNeeded(recyclerView);
+      prepareToInvalidateItemDecorationsIfNeeded(recyclerView);
+
+      super.onItemsMoved(recyclerView, from, to, itemCount);
+    }
+
+    @Override
+    public void onItemsUpdated(
+        final RecyclerView recyclerView, int positionStart, int itemCount, Object payload) {
+      invalidateSpanAssignmentsEagerlyIfNeeded(recyclerView);
+      prepareToInvalidateItemDecorationsIfNeeded(recyclerView);
+
+      super.onItemsUpdated(recyclerView, positionStart, itemCount, payload);
+    }
+
+    @Override
+    public void onLayoutCompleted(final RecyclerView.State recyclerViewState) {
+      super.onLayoutCompleted(recyclerViewState);
+
+      @Nullable
+      final RecyclerView recyclerViewToInvalidateItemDecorations =
+          mRecyclerViewToInvalidateItemDecorations.get();
+      if (recyclerViewToInvalidateItemDecorations != null) {
+        // Post to ensure we're not in a layout pass (otherwise we'll get an exception for calling
+        // this directly inside the layout completion).
+        recyclerViewToInvalidateItemDecorations
+            .getHandler()
+            .postAtFrontOfQueue(
+                new Runnable() {
+                  @Override
+                  public void run() {
+                    if (recyclerViewToInvalidateItemDecorations.isComputingLayout()) {
+                      return;
+                    }
+
+                    recyclerViewToInvalidateItemDecorations.invalidateItemDecorations();
+                  }
+                });
+        mRecyclerViewToInvalidateItemDecorations.clear();
+      }
+    }
+
+    private void prepareToInvalidateItemDecorationsIfNeeded(RecyclerView recyclerView) {
+      // When an item decorator is called for a staggered layout, the params for span info (index,
+      // full width) are retrieved from the view. However, the params may not have been updated yet
+      // to reflect the latest ordering and resultant layout changes. As a result, the span indices
+      // can be inaccurate and result in broken layouts. Enabling this param  works around (perhaps
+      // inefficiently) by invalidating the item decorations on the next successful layout. Then,
+      // the values will be updated and the decorations will be applied correctly.
+      if (mInvalidatesItemDecorationsOnUpdates) {
+        // The layout completion callback will be invoked on the layout info, but without a
+        // reference to the recycler view, so we need to store it ourselves temporarily.
+        mRecyclerViewToInvalidateItemDecorations = new WeakReference<>(recyclerView);
+      }
+    }
+
+    private void invalidateSpanAssignmentsEagerlyIfNeeded(RecyclerView recyclerView) {
+      // StaggeredGridLayoutManager uses full spans to limit the extent it needs to reflow the rest
+      // of a grid layout (it stops after bumping into the next full span). However, there seem to
+      // be logical errors with this (or non-trivial bugs in our usage), so this param invalidates
+      // the span assignment cache, which avoids the logical errors / crashes. In general, this is
+      // likely terrible for performance (unbenchmarked), so it should be enabled with caution.
+      if (mEagerlyClearsSpanAssignmentsOnUpdates) {
+        this.onItemsChanged(recyclerView);
       }
     }
 
@@ -236,6 +359,36 @@ public class StaggeredGridLayoutInfo implements LayoutInfo {
       public boolean hasValidAdapterPosition() {
         return false;
       }
+    }
+
+    @Override
+    public int[] findLastCompletelyVisibleItemPositions(@Nullable int[] into) {
+      return super.findLastCompletelyVisibleItemPositions(getStaggeredGridResult(into));
+    }
+
+    @Override
+    public int[] findFirstCompletelyVisibleItemPositions(@Nullable int[] into) {
+      return super.findLastCompletelyVisibleItemPositions(getStaggeredGridResult(into));
+    }
+
+    @Override
+    public int[] findLastVisibleItemPositions(@Nullable int[] into) {
+      return super.findLastVisibleItemPositions(getStaggeredGridResult(into));
+    }
+
+    @Override
+    public int[] findFirstVisibleItemPositions(@Nullable int[] into) {
+      return super.findFirstVisibleItemPositions(getStaggeredGridResult(into));
+    }
+
+    private int[] getStaggeredGridResult(int[] into) {
+      if (into == null) {
+        if (mStaggeredGridResult == null) {
+          mStaggeredGridResult = new int[getSpanCount()];
+        }
+        into = mStaggeredGridResult;
+      }
+      return into;
     }
   }
 

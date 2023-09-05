@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,7 @@
 
 package com.facebook.litho.sections;
 
+import androidx.annotation.Nullable;
 import com.facebook.litho.sections.logger.SectionsDebugLogger;
 import com.facebook.litho.widget.RenderInfo;
 import java.util.Collection;
@@ -26,7 +27,7 @@ public class Logger implements SectionsDebugLogger {
 
   protected Set<SectionsDebugLogger> mSectionsDebugLoggers;
 
-  public Logger(Collection<SectionsDebugLogger> sectionsDebugLoggers) {
+  public Logger(@Nullable Collection<SectionsDebugLogger> sectionsDebugLoggers) {
     mSectionsDebugLoggers = new HashSet<>();
     if (sectionsDebugLoggers != null) {
       for (SectionsDebugLogger sectionsDebugLogger : sectionsDebugLoggers) {
@@ -83,7 +84,7 @@ public class Logger implements SectionsDebugLogger {
   @Override
   public void logShouldUpdate(
       String tag,
-      Object previous,
+      @Nullable Object previous,
       Object next,
       String previousPrefix,
       String nextPrefix,

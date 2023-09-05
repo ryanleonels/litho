@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,7 +17,6 @@
 package com.facebook.litho.specmodels.generator;
 
 import static com.facebook.litho.specmodels.generator.GeneratorConstants.PREVIOUS_RENDER_DATA_FIELD_NAME;
-import static com.facebook.litho.specmodels.generator.GeneratorConstants.REF_VARIABLE_NAME;
 
 import com.facebook.litho.specmodels.model.ClassNames;
 import com.facebook.litho.specmodels.model.SpecModel;
@@ -65,13 +64,14 @@ public final class RenderDataGenerator {
             .add("($T) $L :\n", renderInfoTypeName, "toRecycle")
             .add("new $T();\n", renderInfoTypeName)
             .unindent()
-            .addStatement("$L.record(this)", "renderInfo")
+            .addStatement("$L.record(c, this)", "renderInfo")
             .addStatement("return $L", "renderInfo")
             .build();
 
     return MethodSpec.methodBuilder("recordRenderData")
         .addAnnotation(Override.class)
         .addModifiers(Modifier.PROTECTED)
+        .addParameter(specModel.getContextClass(), "c")
         .addParameter(ClassNames.RENDER_DATA, "toRecycle")
         .returns(ClassNames.RENDER_DATA)
         .addCode(code)
@@ -86,12 +86,8 @@ public final class RenderDataGenerator {
             .addStatement("$L = null", PREVIOUS_RENDER_DATA_FIELD_NAME)
             .addStatement("return")
             .endControlFlow()
-            .beginControlFlow(
-                "if ($L == null)", PREVIOUS_RENDER_DATA_FIELD_NAME)
-            .addStatement(
-                "$L = new $T()",
-                PREVIOUS_RENDER_DATA_FIELD_NAME,
-                renderInfoTypeName)
+            .beginControlFlow("if ($L == null)", PREVIOUS_RENDER_DATA_FIELD_NAME)
+            .addStatement("$L = new $T()", PREVIOUS_RENDER_DATA_FIELD_NAME, renderInfoTypeName)
             .endControlFlow()
             .addStatement(
                 "$T $L = ($T) $L",
@@ -99,8 +95,7 @@ public final class RenderDataGenerator {
                 "infoImpl",
                 renderInfoTypeName,
                 "previousRenderData")
-            .addStatement(
-                "$L.copy($L)", PREVIOUS_RENDER_DATA_FIELD_NAME, "infoImpl")
+            .addStatement("$L.copy($L)", PREVIOUS_RENDER_DATA_FIELD_NAME, "infoImpl")
             .build();
 
     return MethodSpec.methodBuilder("applyPreviousRenderData")

@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -38,28 +38,23 @@ import java.util.HashSet;
 import java.util.List;
 
 /**
- * A {@link HideableDataDiffSectionSpec} that wraps a {@link DataDiffSectionSpec}.
- * It provides the ability to remove an item from the DataDiffSection via the
- * {@link HideItemEvent}.
- * This {@link Section} emits the following events:
+ * A {@link HideableDataDiffSectionSpec} that wraps a {@link DataDiffSectionSpec}. It provides the
+ * ability to remove an item from the DataDiffSection via the {@link HideItemEvent}. This {@link
+ * Section} emits the following events:
  *
- *   {@link RenderWithHideItemHandlerEvent} whenever it needs a {@link Component} to render a model T from
- *   the list of data.  A {@link HideItemEvent} handler is a param of this event.
- *   Providing an handler for this {@link OnEvent} is mandatory.
+ * <p>{@link RenderWithHideItemHandlerEvent} whenever it needs a {@link Component} to render a model
+ * T from the list of data. A {@link HideItemEvent} handler is a param of this event. Providing an
+ * handler for this {@link OnEvent} is mandatory.
  *
- *   {@link GetUniqueIdentifierEvent} is fired when a single unique identifier is needed for a
- *   model object.
- *
+ * <p>{@link GetUniqueIdentifierEvent} is fired when a single unique identifier is needed for a
+ * model object.
  */
-@GroupSectionSpec(events = {
-    RenderWithHideItemHandlerEvent.class,
-    GetUniqueIdentifierEvent.class})
+@GroupSectionSpec(events = {RenderWithHideItemHandlerEvent.class, GetUniqueIdentifierEvent.class})
 public class HideableDataDiffSectionSpec<T> {
 
   @OnCreateInitialState
   public static <T> void onCreateInitialState(
-      SectionContext c,
-      StateValue<HashSet> blacklistState) {
+      SectionContext c, StateValue<HashSet> blacklistState) {
     blacklistState.set(new HashSet());
   }
 
@@ -69,8 +64,9 @@ public class HideableDataDiffSectionSpec<T> {
       @Param Object modelObject,
       @Param EventHandler<GetUniqueIdentifierEvent> getUniqueIdentifierHandlerParam) {
     HashSet<Object> newSet = new HashSet<>(blacklistState.get());
-    newSet.add(HideableDataDiffSection.dispatchGetUniqueIdentifierEvent(
-        getUniqueIdentifierHandlerParam, modelObject));
+    newSet.add(
+        HideableDataDiffSection.dispatchGetUniqueIdentifierEvent(
+            getUniqueIdentifierHandlerParam, modelObject));
     blacklistState.set(newSet);
   }
 
@@ -80,18 +76,15 @@ public class HideableDataDiffSectionSpec<T> {
       @State HashSet blacklistState,
       @Prop List<T> data,
       @Prop EventHandler<GetUniqueIdentifierEvent> getUniqueIdentifierHandler,
-      @Prop(optional = true) EventHandler<OnCheckIsSameItemEvent> onSameItemEventHandler,
-      @Prop(optional = true) EventHandler<OnCheckIsSameContentEvent> onSameContentEventHandler) {
+      @Prop(optional = true) EventHandler<OnCheckIsSameItemEvent<T>> onSameItemEventHandler,
+      @Prop(optional = true) EventHandler<OnCheckIsSameContentEvent<T>> onSameContentEventHandler) {
     return Children.create()
-        .child(DataDiffSection.<T>create(c)
-            .data(removeBlacklistedItems(
-                c,
-                data,
-                blacklistState,
-                getUniqueIdentifierHandler))
-            .renderEventHandler(HideableDataDiffSection.onRenderEvent(c))
-            .onCheckIsSameContentEventHandler(onSameContentEventHandler)
-            .onCheckIsSameItemEventHandler(onSameItemEventHandler))
+        .child(
+            DataDiffSection.<T>create(c)
+                .data(removeBlacklistedItems(c, data, blacklistState, getUniqueIdentifierHandler))
+                .renderEventHandler(HideableDataDiffSection.<T>onRenderEvent(c))
+                .onCheckIsSameContentEventHandler(onSameContentEventHandler)
+                .onCheckIsSameItemEventHandler(onSameItemEventHandler))
         .build();
   }
 
@@ -106,8 +99,7 @@ public class HideableDataDiffSectionSpec<T> {
       final T model = data.get(i);
       if (!blacklist.contains(
           HideableDataDiffSection.dispatchGetUniqueIdentifierEvent(
-              getItemUniqueIdentifierHandler,
-              model))) {
+              getItemUniqueIdentifierHandler, model))) {
         builder.add(model);
       }
     }
@@ -116,12 +108,12 @@ public class HideableDataDiffSectionSpec<T> {
   }
 
   @OnEvent(RenderEvent.class)
-  protected static RenderInfo onRenderEvent(
+  protected static <T> RenderInfo onRenderEvent(
       SectionContext c,
+      @Prop EventHandler<RenderWithHideItemHandlerEvent> renderWithHideItemHandler,
       @FromEvent int index,
-      @FromEvent Object model,
-      @FromEvent Bundle loggingExtras,
-      @Prop EventHandler<RenderWithHideItemHandlerEvent> renderWithHideItemHandler) {
+      @FromEvent T model,
+      @FromEvent Bundle loggingExtras) {
     return HideableDataDiffSection.dispatchRenderWithHideItemHandlerEvent(
         renderWithHideItemHandler,
         index,

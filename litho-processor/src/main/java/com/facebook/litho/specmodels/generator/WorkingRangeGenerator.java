@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -58,16 +58,17 @@ public class WorkingRangeGenerator {
             .addModifiers(Modifier.PUBLIC)
             .addAnnotation(Override.class)
             .returns(TypeName.VOID)
-            .addParameter(ClassNames.STRING, "name");
+            .addParameter(specModel.getContextClass(), "c")
+            .addParameter(ClassNames.STRING, "name")
+            .addParameter(ClassNames.INTER_STAGE_PROPS_CONTAINER, "interStageProps");
 
-    methodBuilder.addStatement("$T c = getScopedContext()", ClassNames.COMPONENT_CONTEXT);
     methodBuilder.beginControlFlow("switch (name)");
 
     for (WorkingRangeMethodModel model : specModel.getWorkingRangeMethods()) {
       if (model.enteredRangeModel != null && model.enteredRangeModel.typeModel != null) {
         final String nameInAnnotation = model.enteredRangeModel.typeModel.name;
         methodBuilder.beginControlFlow("case \"$L\":", nameInAnnotation);
-        methodBuilder.addStatement("$L(c)", model.enteredRangeModel.name);
+        methodBuilder.addStatement("$L(c, interStageProps)", model.enteredRangeModel.name);
         methodBuilder.addStatement("return");
         methodBuilder.endControlFlow();
       }
@@ -83,16 +84,17 @@ public class WorkingRangeGenerator {
             .addModifiers(Modifier.PUBLIC)
             .addAnnotation(Override.class)
             .returns(TypeName.VOID)
-            .addParameter(ClassNames.STRING, "name");
+            .addParameter(specModel.getContextClass(), "c")
+            .addParameter(ClassNames.STRING, "name")
+            .addParameter(ClassNames.INTER_STAGE_PROPS_CONTAINER, "interStageProps");
 
-    methodBuilder.addStatement("$T c = getScopedContext()", ClassNames.COMPONENT_CONTEXT);
     methodBuilder.beginControlFlow("switch (name)");
 
     for (WorkingRangeMethodModel model : specModel.getWorkingRangeMethods()) {
       if (model.exitedRangeModel != null && model.exitedRangeModel.typeModel != null) {
         final String nameInAnnotation = model.exitedRangeModel.typeModel.name;
         methodBuilder.beginControlFlow("case \"$L\":", nameInAnnotation);
-        methodBuilder.addStatement("$L(c)", model.exitedRangeModel.name);
+        methodBuilder.addStatement("$L(c, interStageProps)", model.exitedRangeModel.name);
         methodBuilder.addStatement("return");
         methodBuilder.endControlFlow();
       }
@@ -124,18 +126,31 @@ public class WorkingRangeGenerator {
         MethodSpec.methodBuilder(methodModel.name.toString())
             .addModifiers(Modifier.PRIVATE)
             .returns(TypeName.VOID)
-            .addParameter(ClassNames.COMPONENT_CONTEXT, "c");
+            .addParameter(ClassNames.COMPONENT_CONTEXT, "c")
+            .addParameter(ClassNames.INTER_STAGE_PROPS_CONTAINER, "interStageProps");
 
     final CodeBlock.Builder delegation = CodeBlock.builder();
+
+    // Create a local variable for interstage props if they created or used.
+    if (ComponentBodyGenerator.requiresInterStatePropContainer(methodModel.methodParams, null)) {
+      delegation.addStatement(
+          "$L $L = $L",
+          ClassNames.INTER_STAGE_PROPS_CONTAINER,
+          ComponentBodyGenerator.LOCAL_INTER_STAGE_PROPS_CONTAINER_NAME,
+          "interStageProps");
+    }
 
     final String sourceDelegateAccessor = SpecModelUtils.getSpecAccessor(specModel);
     delegation.add("$L.$L(\n", sourceDelegateAccessor, methodModel.name);
     delegation.indent();
+
     for (int i = 0, size = methodModel.methodParams.size(); i < size; i++) {
       final MethodParamModel methodParamModel = methodModel.methodParams.get(i);
 
       delegation.add(
-          "($T) $L", methodParamModel.getTypeName(), getImplAccessor(specModel, methodParamModel));
+          "($T) $L",
+          methodParamModel.getTypeName(),
+          getImplAccessor(methodModel.name.toString(), specModel, methodParamModel, "c"));
       delegation.add((i < methodModel.methodParams.size() - 1) ? ",\n" : ");\n");
     }
     delegation.unindent();
@@ -184,7 +199,9 @@ public class WorkingRangeGenerator {
         .addStatement("return")
         .endControlFlow()
         .addStatement("$T component = c.getComponentScope()", ClassNames.COMPONENT)
-        .addStatement("registerWorkingRange(\"$L\", workingRange, component)", nameInAnnotation);
+        .addStatement(
+            "registerWorkingRange(c, \"$L\", workingRange, component, c.getGlobalKey())",
+            nameInAnnotation);
 
     return registerMethod.build();
   }

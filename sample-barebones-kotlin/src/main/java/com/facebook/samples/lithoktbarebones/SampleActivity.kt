@@ -1,13 +1,17 @@
 /*
- * This file provided by Facebook is for non-commercial testing and evaluation
- * purposes only.  Facebook reserves all rights not expressly granted.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * FACEBOOK BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
- * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.facebook.samples.lithoktbarebones
@@ -24,34 +28,35 @@ import com.facebook.litho.widget.Recycler
 import com.facebook.litho.widget.RecyclerBinder
 
 class SampleActivity : Activity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+  override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
 
-        val context = ComponentContext(this)
+    val context = ComponentContext(this)
 
-        val recyclerBinder = RecyclerBinder.Builder()
-                .layoutInfo(LinearLayoutInfo(this, OrientationHelper.VERTICAL, false))
-                .build(context)
+    val recyclerBinder =
+        RecyclerBinder.Builder()
+            .layoutInfo(LinearLayoutInfo(this, OrientationHelper.VERTICAL, false))
+            .build(context)
 
-        val component = Recycler.create(context).binder(recyclerBinder).build()
+    val component = Recycler.create(context).binder(recyclerBinder).build()
 
-        addContent(recyclerBinder, context)
+    addContent(recyclerBinder, context)
 
-        setContentView(LithoView.create(context, component))
+    setContentView(LithoView.create(context, component))
+  }
+
+  private fun addContent(recyclerBinder: RecyclerBinder, context: ComponentContext) {
+    for (i in 0 until 31) {
+      recyclerBinder.insertItemAt(
+          i,
+          ComponentRenderInfo.create()
+              .component(
+                  ListItem.create(context)
+                      .color(if (i % 2 == 0) Color.WHITE else Color.LTGRAY)
+                      .title("Hello, world!")
+                      .subtitle("Litho tutorial")
+                      .build())
+              .build())
     }
-
-    private fun addContent(recyclerBinder: RecyclerBinder, context: ComponentContext) {
-        for (i in 0 until 31) {
-            recyclerBinder.insertItemAt(
-                    i,
-                    ComponentRenderInfo.create()
-                            .component(
-                                    ListItem.create(context)
-                                            .color(if (i % 2 == 0) Color.WHITE else Color.LTGRAY)
-                                            .title("Hello, world!")
-                                            .subtitle("Litho tutorial")
-                                            .build())
-                            .build())
-        }
-    }
+  }
 }

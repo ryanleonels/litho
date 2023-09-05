@@ -1,11 +1,11 @@
 /*
- * Copyright 2019-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,6 +19,7 @@ package com.facebook.litho.sections.debug;
 import android.graphics.Rect;
 import android.view.View;
 import androidx.annotation.Nullable;
+import com.facebook.litho.CollectionsUtils;
 import com.facebook.litho.StateContainer;
 import com.facebook.litho.sections.Section;
 import com.facebook.litho.sections.SectionDebugUtil;
@@ -43,7 +44,7 @@ public final class DebugSection {
 
   /** The root represents a DebugSection with information about the root of the SectionTree. */
   public static @Nullable DebugSection getRootInstance(List<View> lithoViews) {
-    if (lithoViews == null || lithoViews.isEmpty()) {
+    if (CollectionsUtils.isNullOrEmpty(lithoViews)) {
       return null;
     }
 
@@ -51,6 +52,9 @@ public final class DebugSection {
     final Section renderInfoSection =
         (Section) RenderInfoDebugInfoRegistry.getRenderInfoSectionDebugInfo(lithoViews.get(0));
 
+    if (renderInfoSection == null) {
+      return null;
+    }
     return getRootDebugSection(renderInfoSection, lithoViews);
   }
 

@@ -1,14 +1,19 @@
 /*
- * This file provided by Facebook is for non-commercial testing and evaluation
- * purposes only.  Facebook reserves all rights not expressly granted.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * FACEBOOK BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
- * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
+
 package com.facebook.samples.lithocodelab.end;
 
 import static android.widget.Toast.LENGTH_SHORT;
@@ -20,8 +25,9 @@ import static com.facebook.yoga.YogaEdge.HORIZONTAL;
 import static com.facebook.yoga.YogaEdge.START;
 import static com.facebook.yoga.YogaEdge.TOP;
 
+import android.net.Uri;
 import android.widget.Toast;
-import com.facebook.drawee.backends.pipeline.Fresco;
+import com.facebook.fresco.vito.litho.FrescoVitoImage2;
 import com.facebook.litho.ClickEvent;
 import com.facebook.litho.Column;
 import com.facebook.litho.Component;
@@ -31,7 +37,6 @@ import com.facebook.litho.annotations.LayoutSpec;
 import com.facebook.litho.annotations.OnCreateLayout;
 import com.facebook.litho.annotations.OnEvent;
 import com.facebook.litho.annotations.Prop;
-import com.facebook.litho.fresco.FrescoImage;
 import com.facebook.litho.widget.Image;
 import com.facebook.litho.widget.Text;
 import com.facebook.samples.lithocodelab.R;
@@ -49,11 +54,8 @@ class StoryHeaderComponentSpec {
         .paddingDip(HORIZONTAL, CARD_INSET)
         .paddingDip(TOP, CARD_INSET)
         .child(
-            FrescoImage.create(c)
-                .controller(
-                    Fresco.newDraweeControllerBuilder()
-                        .setUri("http://placekitten.com/g/200/200")
-                        .build())
+            FrescoVitoImage2.create(c)
+                .uri(Uri.parse("http://placekitten.com/g/200/200"))
                 .widthDip(40)
                 .heightDip(40)
                 .marginDip(END, CARD_INTERNAL_PADDING)

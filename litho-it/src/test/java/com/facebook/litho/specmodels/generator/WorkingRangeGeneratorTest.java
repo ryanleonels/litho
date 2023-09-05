@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +16,7 @@
 
 package com.facebook.litho.specmodels.generator;
 
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 import com.facebook.litho.ComponentContext;
@@ -83,15 +83,15 @@ public class WorkingRangeGeneratorTest {
     assertThat(WorkingRangeGenerator.generateDispatchOnEnteredRangeMethod(mSpecModel).toString())
         .isEqualTo(
             "@java.lang.Override\n"
-                + "public void dispatchOnEnteredRange(java.lang.String name) {\n"
-                + "  com.facebook.litho.ComponentContext c = getScopedContext();\n"
+                + "public void dispatchOnEnteredRange(com.facebook.litho.ComponentContext c, java.lang.String name,\n"
+                + "    com.facebook.litho.InterStagePropsContainer interStageProps) {\n"
                 + "  switch (name) {\n"
                 + "    case \"enter\": {\n"
-                + "      testEnteredRangeMethod(c);\n"
+                + "      testEnteredRangeMethod(c, interStageProps);\n"
                 + "      return;\n"
                 + "    }\n"
                 + "    case \"prefetch\": {\n"
-                + "      testEnteredPrefetchMethod(c);\n"
+                + "      testEnteredPrefetchMethod(c, interStageProps);\n"
                 + "      return;\n"
                 + "    }\n"
                 + "  }\n"
@@ -103,15 +103,15 @@ public class WorkingRangeGeneratorTest {
     assertThat(WorkingRangeGenerator.generateDispatchOnExitedRangeMethod(mSpecModel).toString())
         .isEqualTo(
             "@java.lang.Override\n"
-                + "public void dispatchOnExitedRange(java.lang.String name) {\n"
-                + "  com.facebook.litho.ComponentContext c = getScopedContext();\n"
+                + "public void dispatchOnExitedRange(com.facebook.litho.ComponentContext c, java.lang.String name,\n"
+                + "    com.facebook.litho.InterStagePropsContainer interStageProps) {\n"
                 + "  switch (name) {\n"
                 + "    case \"exit\": {\n"
-                + "      testExitedRangeMethod(c);\n"
+                + "      testExitedRangeMethod(c, interStageProps);\n"
                 + "      return;\n"
                 + "    }\n"
                 + "    case \"prefetch\": {\n"
-                + "      testExitedPrefetchMethod(c);\n"
+                + "      testExitedPrefetchMethod(c, interStageProps);\n"
                 + "      return;\n"
                 + "    }\n"
                 + "  }\n"
@@ -127,38 +127,42 @@ public class WorkingRangeGeneratorTest {
 
     assertThat(dataHolder.getMethodSpecs().get(0).toString())
         .isEqualTo(
-            "private void testEnteredRangeMethod(com.facebook.litho.ComponentContext c) {\n"
+            "private void testEnteredRangeMethod(com.facebook.litho.ComponentContext c,\n"
+                + "    com.facebook.litho.InterStagePropsContainer interStageProps) {\n"
                 + "  TestSpec.testEnteredRangeMethod(\n"
                 + "    (com.facebook.litho.ComponentContext) c,\n"
                 + "    (boolean) arg0,\n"
-                + "    (int) mStateContainer.arg1);\n"
+                + "    (int) getStateContainerImpl(c).arg1);\n"
                 + "}\n");
 
     assertThat(dataHolder.getMethodSpecs().get(1).toString())
         .isEqualTo(
-            "private void testExitedRangeMethod(com.facebook.litho.ComponentContext c) {\n"
+            "private void testExitedRangeMethod(com.facebook.litho.ComponentContext c,\n"
+                + "    com.facebook.litho.InterStagePropsContainer interStageProps) {\n"
                 + "  TestSpec.testExitedRangeMethod(\n"
                 + "    (com.facebook.litho.ComponentContext) c,\n"
                 + "    (T) arg2,\n"
-                + "    (int) arg3);\n"
+                + "    (int) (c.getParentTreeProp(int.class)));\n"
                 + "}\n");
 
     assertThat(dataHolder.getMethodSpecs().get(2).toString())
         .isEqualTo(
-            "private void testEnteredPrefetchMethod(com.facebook.litho.ComponentContext c) {\n"
+            "private void testEnteredPrefetchMethod(com.facebook.litho.ComponentContext c,\n"
+                + "    com.facebook.litho.InterStagePropsContainer interStageProps) {\n"
                 + "  TestSpec.testEnteredPrefetchMethod(\n"
                 + "    (com.facebook.litho.ComponentContext) c,\n"
                 + "    (boolean) arg0,\n"
-                + "    (int) mStateContainer.arg1);\n"
+                + "    (int) getStateContainerImpl(c).arg1);\n"
                 + "}\n");
 
     assertThat(dataHolder.getMethodSpecs().get(3).toString())
         .isEqualTo(
-            "private void testExitedPrefetchMethod(com.facebook.litho.ComponentContext c) {\n"
+            "private void testExitedPrefetchMethod(com.facebook.litho.ComponentContext c,\n"
+                + "    com.facebook.litho.InterStagePropsContainer interStageProps) {\n"
                 + "  TestSpec.testExitedPrefetchMethod(\n"
                 + "    (com.facebook.litho.ComponentContext) c,\n"
                 + "    (T) arg2,\n"
-                + "    (int) arg3);\n"
+                + "    (int) (c.getParentTreeProp(int.class)));\n"
                 + "}\n");
   }
 
@@ -176,7 +180,7 @@ public class WorkingRangeGeneratorTest {
                 + "    return;\n"
                 + "  }\n"
                 + "  com.facebook.litho.Component component = c.getComponentScope();\n"
-                + "  registerWorkingRange(\"enter\", workingRange, component);\n"
+                + "  registerWorkingRange(c, \"enter\", workingRange, component, c.getGlobalKey());\n"
                 + "}\n");
 
     assertThat(dataHolder.getMethodSpecs().get(1).toString())
@@ -187,7 +191,7 @@ public class WorkingRangeGeneratorTest {
                 + "    return;\n"
                 + "  }\n"
                 + "  com.facebook.litho.Component component = c.getComponentScope();\n"
-                + "  registerWorkingRange(\"exit\", workingRange, component);\n"
+                + "  registerWorkingRange(c, \"exit\", workingRange, component, c.getGlobalKey());\n"
                 + "}\n");
 
     assertThat(dataHolder.getMethodSpecs().get(2).toString())
@@ -198,7 +202,7 @@ public class WorkingRangeGeneratorTest {
                 + "    return;\n"
                 + "  }\n"
                 + "  com.facebook.litho.Component component = c.getComponentScope();\n"
-                + "  registerWorkingRange(\"prefetch\", workingRange, component);\n"
+                + "  registerWorkingRange(c, \"prefetch\", workingRange, component, c.getGlobalKey());\n"
                 + "}\n");
   }
 }

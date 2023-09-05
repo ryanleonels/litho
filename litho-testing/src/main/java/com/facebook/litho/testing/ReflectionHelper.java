@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,15 +19,14 @@ package com.facebook.litho.testing;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 
-/**
- * Helpers for dealing with reflection. Hopefully only in tests.
- */
+/** Helpers for dealing with reflection. Hopefully only in tests. */
 public class ReflectionHelper {
 
   private ReflectionHelper() {}
 
   /**
    * Convenience version of {@link #setFinalStatic(Field, Object)}.
+   *
    * @see #setFinalStatic(Field, Object)
    */
   public static void setFinalStatic(Class<?> clazz, String fieldName, Object newValue)
@@ -37,9 +36,8 @@ public class ReflectionHelper {
   }
 
   /**
-   * Set a static final field.
-   * N.B. This will only work if the given field <b>has not been read before</b>. This is
-   * due to internal caching in the JVM for fields.
+   * Set a static final field. N.B. This will only work if the given field <b>has not been read
+   * before</b>. This is due to internal caching in the JVM for fields.
    *
    * @throws Exception
    */

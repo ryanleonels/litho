@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,14 +26,11 @@ import java.util.Comparator;
 import java.util.List;
 import javax.annotation.Nullable;
 
-/**
- * Useful methods for {@link MethodParamModel}s.
- */
+/** Useful methods for {@link MethodParamModel}s. */
 public class MethodParamModelUtils {
 
   public static boolean isAnnotatedWith(
-      MethodParamModel methodParamModel,
-      Class<? extends Annotation> annotationClass) {
+      MethodParamModel methodParamModel, Class<? extends Annotation> annotationClass) {
     for (Annotation annotation : methodParamModel.getAnnotations()) {
       if (annotation.annotationType().equals(annotationClass)) {
         return true;
@@ -68,6 +65,10 @@ public class MethodParamModelUtils {
   public static boolean isLazyStateParam(MethodParamModel methodParamModel) {
     return methodParamModel instanceof StateParamModel
         && ((StateParamModel) methodParamModel).canUpdateLazily();
+  }
+
+  public static boolean isComponentContextParam(MethodParamModel methodParamModel) {
+    return methodParamModel.getTypeName().equals(ClassNames.COMPONENT_CONTEXT);
   }
 
   public static List<TypeVariableName> getTypeVariables(MethodParamModel methodParam) {

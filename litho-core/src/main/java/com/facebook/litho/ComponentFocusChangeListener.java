@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,10 +19,9 @@ package com.facebook.litho;
 import static com.facebook.litho.EventDispatcherUtils.dispatchOnFocusChanged;
 
 import android.view.View;
+import androidx.annotation.Nullable;
 
-/**
- * Focus change listener that triggers its underlying event handler.
- */
+/** Focus change listener that triggers its underlying event handler. */
 class ComponentFocusChangeListener implements View.OnFocusChangeListener {
 
   private EventHandler<FocusChangedEvent> mEventHandler;
@@ -38,7 +37,7 @@ class ComponentFocusChangeListener implements View.OnFocusChangeListener {
     return mEventHandler;
   }
 
-  void setEventHandler(EventHandler<FocusChangedEvent> eventHandler) {
+  void setEventHandler(@Nullable EventHandler<FocusChangedEvent> eventHandler) {
     mEventHandler = eventHandler;
   }
 }

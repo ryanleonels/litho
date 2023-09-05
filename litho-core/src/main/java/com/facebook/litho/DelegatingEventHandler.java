@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,8 @@
 
 package com.facebook.litho;
 
+import java.util.ArrayList;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /**
@@ -23,20 +25,21 @@ import javax.annotation.Nullable;
  * dispatched.
  */
 public class DelegatingEventHandler<E> extends EventHandler<E> {
-  private final EventHandler<E> mEventHandler1;
-  private final EventHandler<E> mEventHandler2;
+  private final List<EventHandler<E>> mEventHandlers;
 
   protected DelegatingEventHandler(EventHandler<E> eventHandler1, EventHandler<E> eventHandler2) {
     super(null, -1);
 
-    mEventHandler1 = eventHandler1;
-    mEventHandler2 = eventHandler2;
+    mEventHandlers = new ArrayList<>();
+    mEventHandlers.add(eventHandler1);
+    mEventHandlers.add(eventHandler2);
   }
 
   @Override
   public void dispatchEvent(E event) {
-    mEventHandler1.dispatchEvent(event);
-    mEventHandler2.dispatchEvent(event);
+    for (int i = 0, length = mEventHandlers.size(); i < length; i++) {
+      mEventHandlers.get(i).dispatchEvent(event);
+    }
   }
 
   @Override
@@ -53,9 +56,21 @@ public class DelegatingEventHandler<E> extends EventHandler<E> {
       return false;
     }
 
-    DelegatingEventHandler otherDelegating = (DelegatingEventHandler) other;
+    List<EventHandler<E>> list = ((DelegatingEventHandler) other).mEventHandlers;
+    int size = mEventHandlers.size();
+    if (size != list.size()) {
+      return false;
+    }
+    for (int i = 0; i < size; i++) {
+      if (!mEventHandlers.get(i).isEquivalentTo(list.get(i))) {
+        return false;
+      }
+    }
+    return true;
+  }
 
-    return mEventHandler1.isEquivalentTo(otherDelegating.mEventHandler1)
-        && mEventHandler2.isEquivalentTo(otherDelegating.mEventHandler2);
+  public DelegatingEventHandler<E> addEventHandler(EventHandler<E> eventHandler) {
+    mEventHandlers.add(eventHandler);
+    return this;
   }
 }

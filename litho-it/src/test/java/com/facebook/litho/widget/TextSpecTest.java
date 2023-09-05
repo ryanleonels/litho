@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,47 +16,56 @@
 
 package com.facebook.litho.widget;
 
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static androidx.core.text.TextDirectionHeuristicsCompat.FIRSTSTRONG_LTR;
+import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
+import static com.facebook.litho.testing.MeasureSpecTestingUtilsKt.unspecified;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.mockito.Matchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import android.content.res.ColorStateList;
 import android.graphics.Color;
-import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.text.Layout;
 import android.text.Spannable;
+import android.text.TextUtils.TruncateAt;
 import android.text.style.ClickableSpan;
-import android.util.SparseArray;
 import android.view.MotionEvent;
 import android.view.View;
+import androidx.core.text.TextDirectionHeuristicCompat;
 import com.facebook.litho.ComponentContext;
+import com.facebook.litho.DynamicValue;
 import com.facebook.litho.EventHandler;
 import com.facebook.litho.LithoView;
+import com.facebook.litho.testing.LithoViewRule;
 import com.facebook.litho.testing.eventhandler.EventHandlerTestHelper;
 import com.facebook.litho.testing.helper.ComponentTestHelper;
-import com.facebook.litho.testing.testrunner.ComponentsTestRunner;
+import com.facebook.litho.testing.testrunner.LithoTestRunner;
+import com.facebook.yoga.YogaDirection;
+import javax.annotation.Nullable;
 import org.junit.Before;
+import org.junit.Ignore;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.RuntimeEnvironment;
 
-/**
- * Tests {@link Text} component.
- */
-
-@RunWith(ComponentsTestRunner.class)
+/** Tests {@link Text} component. */
+@RunWith(LithoTestRunner.class)
 public class TextSpecTest {
   private ComponentContext mContext;
 
   private static final int FULL_TEXT_WIDTH = 100;
   private static final int MINIMAL_TEXT_WIDTH = 95;
+  private static final String ARABIC_RTL_TEST_STRING =
+      "\u0645\u0646 \u0627\u0644\u064A\u0645\u064A\u0646 \u0627\u0644\u0649 \u0627\u0644\u064A\u0633\u0627\u0631";
+
+  @Rule public final LithoViewRule mLithoViewRule = new LithoViewRule();
 
   @Before
   public void setup() {
-    mContext = new ComponentContext(RuntimeEnvironment.application);
+    mContext = new ComponentContext(getApplicationContext());
   }
 
   private static class TestMountableCharSequence implements MountableCharSequence {
@@ -108,11 +117,14 @@ public class TextSpecTest {
   @Test
   public void testSpannableWithClickableSpans() {
     Spannable clickableText = Spannable.Factory.getInstance().newSpannable("Some text.");
-    clickableText.setSpan(new ClickableSpan() {
-      @Override
-      public void onClick(View widget) {
-      }
-    }, 0, 1, 0);
+    clickableText.setSpan(
+        new ClickableSpan() {
+          @Override
+          public void onClick(View widget) {}
+        },
+        0,
+        1,
+        0);
 
     TextDrawable drawable = getMountedDrawableForText(clickableText);
     assertThat(drawable.getClickableSpans()).isNotNull().hasSize(1);
@@ -145,12 +157,10 @@ public class TextSpecTest {
               }
             });
 
-    LithoView lithoView = ComponentTestHelper.mountComponent(
-        mContext,
-        Text.create(mContext)
-            .text("Some text")
-            .textOffsetOnTouchHandler(eventHandler)
-            .build());
+    LithoView lithoView =
+        ComponentTestHelper.mountComponent(
+            mContext,
+            Text.create(mContext).text("Some text").textOffsetOnTouchHandler(eventHandler).build());
     TextDrawable textDrawable = (TextDrawable) (lithoView.getDrawables().get(0));
     MotionEvent motionEvent = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 0, 0);
     boolean handled = textDrawable.onTouchEvent(motionEvent, lithoView);
@@ -173,12 +183,10 @@ public class TextSpecTest {
               }
             });
 
-    LithoView lithoView = ComponentTestHelper.mountComponent(
-        mContext,
-        Text.create(mContext)
-            .text("Text2")
-            .textOffsetOnTouchHandler(eventHandler)
-            .build());
+    LithoView lithoView =
+        ComponentTestHelper.mountComponent(
+            mContext,
+            Text.create(mContext).text("Text2").textOffsetOnTouchHandler(eventHandler).build());
 
     TextDrawable textDrawable = (TextDrawable) (lithoView.getDrawables().get(0));
 
@@ -204,19 +212,14 @@ public class TextSpecTest {
     int[][] states = {{0}};
     int[] colors = {Color.GREEN};
     ColorStateList colorStateList = new ColorStateList(states, colors);
-    TextDrawable drawable = getMountedDrawableForTextWithColors(
-        "Some text",
-        Color.RED,
-        colorStateList);
+    TextDrawable drawable =
+        getMountedDrawableForTextWithColors("Some text", Color.RED, colorStateList);
     assertThat(drawable.getColor()).isEqualTo(Color.RED);
   }
 
   @Test
   public void testColor() {
-    TextDrawable drawable = getMountedDrawableForTextWithColors(
-        "Some text",
-        Color. RED,
-        null);
+    TextDrawable drawable = getMountedDrawableForTextWithColors("Some text", Color.RED, null);
     assertThat(drawable.getColor()).isEqualTo(Color.RED);
   }
 
@@ -225,48 +228,34 @@ public class TextSpecTest {
     int[][] states = {{0}};
     int[] colors = {Color.GREEN};
     ColorStateList colorStateList = new ColorStateList(states, colors);
-    TextDrawable drawable = getMountedDrawableForTextWithColors(
-        "Some text",
-        0,
-        colorStateList);
+    TextDrawable drawable = getMountedDrawableForTextWithColors("Some text", 0, colorStateList);
     assertThat(drawable.getColor()).isEqualTo(Color.GREEN);
   }
 
   @Test
   public void testColorStateListMultipleStates() {
-    ColorStateList colorStateList = new ColorStateList(
-        new int[][]{
-            new int[]{-android.R.attr.state_enabled}, //disabled state
-            new int[]{}
-        },
-        new int[] {
-            Color.RED,
-            Color.GREEN
-        }
-    );
-    TextDrawable drawable = getMountedDrawableForTextWithColors(
-        "Some text",
-        0,
-        colorStateList);
+    ColorStateList colorStateList =
+        new ColorStateList(
+            new int[][] {
+              new int[] {-android.R.attr.state_enabled}, // disabled state
+              new int[] {}
+            },
+            new int[] {Color.RED, Color.GREEN});
+    TextDrawable drawable = getMountedDrawableForTextWithColors("Some text", 0, colorStateList);
 
-    //color should fallback to default state
+    // color should fallback to default state
     assertThat(drawable.getColor()).isEqualTo(Color.GREEN);
   }
 
   private TextDrawable getMountedDrawableForText(CharSequence text) {
-    return (TextDrawable) ComponentTestHelper.mountComponent(
-        mContext,
-        Text.create(mContext)
-            .text(text)
-            .build())
-        .getDrawables()
-        .get(0);
+    return (TextDrawable)
+        ComponentTestHelper.mountComponent(mContext, Text.create(mContext).text(text).build())
+            .getDrawables()
+            .get(0);
   }
 
   private TextDrawable getMountedDrawableForTextWithColors(
-      CharSequence text,
-      int color,
-      ColorStateList colorStateList) {
+      CharSequence text, int color, ColorStateList colorStateList) {
     Text.Builder builder = Text.create(mContext).text(text);
     if (color != 0) {
       builder.textColor(color);
@@ -274,47 +263,8 @@ public class TextSpecTest {
     if (colorStateList != null) {
       builder.textColorStateList(colorStateList);
     }
-    return (TextDrawable) ComponentTestHelper.mountComponent(
-          mContext, builder.build())
-        .getDrawables()
-        .get(0);
-  }
-
-  @Test
-  public void testSynchronizedTypefaceSparseArray() {
-    SparseArray<Typeface> sparseArray = new SparseArray<>();
-    sparseArray.put(1, Typeface.DEFAULT);
-    SynchronizedTypefaceHelper.SynchronizedTypefaceSparseArray synchronizedSparseArray =
-        new SynchronizedTypefaceHelper.SynchronizedTypefaceSparseArray(sparseArray);
-    synchronizedSparseArray.put(2, Typeface.DEFAULT_BOLD);
-    assertThat(synchronizedSparseArray.get(1)).isSameAs(Typeface.DEFAULT);
-    assertThat(synchronizedSparseArray.get(2)).isSameAs(Typeface.DEFAULT_BOLD);
-  }
-
-  @Test
-  public void testSynchronizedLongSparseArray() {
-    SynchronizedTypefaceHelper.SynchronizedLongSparseArray synchronizedLongSparseArray =
-        new SynchronizedTypefaceHelper.SynchronizedLongSparseArray(new Object(), 2);
-    SparseArray<Typeface> sparseArray = new SparseArray<>();
-    sparseArray.put(1, Typeface.DEFAULT);
-    synchronizedLongSparseArray.put(2, sparseArray);
-    SparseArray<Typeface> gotSparseArray = synchronizedLongSparseArray.get(2);
-    assertThat(gotSparseArray)
-        .isInstanceOf(SynchronizedTypefaceHelper.SynchronizedTypefaceSparseArray.class);
-    assertThat(gotSparseArray.get(1)).isSameAs(Typeface.DEFAULT);
-  }
-
-  @Test
-  public void testSynchronizedSparseArray() {
-    SynchronizedTypefaceHelper.SynchronizedSparseArray synchronizedSparseArray =
-        new SynchronizedTypefaceHelper.SynchronizedSparseArray(new Object(), 2);
-    SparseArray<Typeface> sparseArray = new SparseArray<>();
-    sparseArray.put(1, Typeface.DEFAULT);
-    synchronizedSparseArray.put(2, sparseArray);
-    SparseArray<Typeface> gotSparseArray = synchronizedSparseArray.get(2);
-    assertThat(gotSparseArray)
-        .isInstanceOf(SynchronizedTypefaceHelper.SynchronizedTypefaceSparseArray.class);
-    assertThat(gotSparseArray.get(1)).isSameAs(Typeface.DEFAULT);
+    return (TextDrawable)
+        ComponentTestHelper.mountComponent(mContext, builder.build()).getDrawables().get(0);
   }
 
   @Test
@@ -323,10 +273,7 @@ public class TextSpecTest {
 
     final int resolvedWidth =
         TextSpec.resolveWidth(
-            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
-            layout,
-            false /* minimallyWide */,
-            0 /* minimallyWideThreshold */);
+            unspecified(), layout, false /* minimallyWide */, 0 /* minimallyWideThreshold */);
 
     assertEquals(resolvedWidth, FULL_TEXT_WIDTH);
   }
@@ -337,7 +284,7 @@ public class TextSpecTest {
 
     final int resolvedWidth =
         TextSpec.resolveWidth(
-            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+            unspecified(),
             layout,
             true /* minimallyWide */,
             FULL_TEXT_WIDTH - MINIMAL_TEXT_WIDTH - 1 /* minimallyWideThreshold */);
@@ -351,7 +298,7 @@ public class TextSpecTest {
 
     final int resolvedWidth =
         TextSpec.resolveWidth(
-            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+            unspecified(),
             layout,
             true /* minimallyWide */,
             FULL_TEXT_WIDTH - MINIMAL_TEXT_WIDTH /* minimallyWideThreshold */);
@@ -369,5 +316,356 @@ public class TextSpecTest {
     when(layout.getLineRight(anyInt())).thenReturn((float) minimalWidth);
 
     return layout;
+  }
+
+  @Test
+  public void testTextAlignment_textStart() {
+    assertThat(
+            getMountedDrawableLayoutAlignment(
+                "asdf", YogaDirection.LTR, null, TextAlignment.TEXT_START))
+        .isEqualTo(Layout.Alignment.ALIGN_NORMAL);
+
+    assertThat(
+            getMountedDrawableLayoutAlignment(
+                "asdf", YogaDirection.RTL, null, TextAlignment.TEXT_START))
+        .isEqualTo(Layout.Alignment.ALIGN_NORMAL);
+
+    // Layout.Alignment.ALIGN_NORMAL is mapped to TextAlignment.TEXT_START
+    assertThat(
+            getMountedDrawableLayoutAlignment(
+                "asdf", YogaDirection.LTR, Layout.Alignment.ALIGN_NORMAL, null))
+        .isEqualTo(Layout.Alignment.ALIGN_NORMAL);
+
+    assertThat(
+            getMountedDrawableLayoutAlignment(
+                "asdf", YogaDirection.RTL, Layout.Alignment.ALIGN_NORMAL, null))
+        .isEqualTo(Layout.Alignment.ALIGN_NORMAL);
+  }
+
+  @Test
+  public void testTextAlignment_textEnd() {
+    assertThat(
+            getMountedDrawableLayoutAlignment(
+                "asdf", YogaDirection.LTR, null, TextAlignment.TEXT_END))
+        .isEqualTo(Layout.Alignment.ALIGN_OPPOSITE);
+
+    assertThat(
+            getMountedDrawableLayoutAlignment(
+                "asdf", YogaDirection.RTL, null, TextAlignment.TEXT_END))
+        .isEqualTo(Layout.Alignment.ALIGN_OPPOSITE);
+
+    // Layout.Alignment.ALIGN_OPPOSITE is mapped to TextAlignment.TEXT_END
+    assertThat(
+            getMountedDrawableLayoutAlignment(
+                "asdf", YogaDirection.LTR, Layout.Alignment.ALIGN_OPPOSITE, null))
+        .isEqualTo(Layout.Alignment.ALIGN_OPPOSITE);
+
+    assertThat(
+            getMountedDrawableLayoutAlignment(
+                "asdf", YogaDirection.RTL, Layout.Alignment.ALIGN_OPPOSITE, null))
+        .isEqualTo(Layout.Alignment.ALIGN_OPPOSITE);
+  }
+
+  @Test
+  public void testTextAlignment_center() {
+    assertThat(
+            getMountedDrawableLayoutAlignment(
+                "asdf", YogaDirection.LTR, null, TextAlignment.CENTER))
+        .isEqualTo(Layout.Alignment.ALIGN_CENTER);
+
+    assertThat(
+            getMountedDrawableLayoutAlignment(
+                "asdf", YogaDirection.RTL, null, TextAlignment.CENTER))
+        .isEqualTo(Layout.Alignment.ALIGN_CENTER);
+
+    // Layout.Alignment.ALIGN_CENTER is mapped to TextAlignment.CENTER
+    assertThat(
+            getMountedDrawableLayoutAlignment(
+                "asdf", YogaDirection.LTR, Layout.Alignment.ALIGN_CENTER, null))
+        .isEqualTo(Layout.Alignment.ALIGN_CENTER);
+
+    assertThat(
+            getMountedDrawableLayoutAlignment(
+                "asdf", YogaDirection.RTL, Layout.Alignment.ALIGN_CENTER, null))
+        .isEqualTo(Layout.Alignment.ALIGN_CENTER);
+  }
+
+  @Test
+  public void testTextAlignment_layoutStart() {
+    assertThat(
+            getMountedDrawableLayoutAlignment(
+                "asdf", YogaDirection.LTR, null, TextAlignment.LAYOUT_START))
+        .isEqualTo(Layout.Alignment.ALIGN_NORMAL);
+
+    assertThat(
+            getMountedDrawableLayoutAlignment(
+                "asdf", YogaDirection.RTL, null, TextAlignment.LAYOUT_START))
+        .isEqualTo(Layout.Alignment.ALIGN_OPPOSITE);
+
+    assertThat(
+            getMountedDrawableLayoutAlignment(
+                ARABIC_RTL_TEST_STRING, YogaDirection.LTR, null, TextAlignment.LAYOUT_START))
+        .isEqualTo(Layout.Alignment.ALIGN_OPPOSITE);
+
+    assertThat(
+            getMountedDrawableLayoutAlignment(
+                ARABIC_RTL_TEST_STRING, YogaDirection.RTL, null, TextAlignment.LAYOUT_START))
+        .isEqualTo(Layout.Alignment.ALIGN_NORMAL);
+  }
+
+  @Test
+  public void testTextAlignment_layoutEnd() {
+    assertThat(
+            getMountedDrawableLayoutAlignment(
+                "asdf", YogaDirection.LTR, null, TextAlignment.LAYOUT_END))
+        .isEqualTo(Layout.Alignment.ALIGN_OPPOSITE);
+
+    assertThat(
+            getMountedDrawableLayoutAlignment(
+                "asdf", YogaDirection.RTL, null, TextAlignment.LAYOUT_END))
+        .isEqualTo(Layout.Alignment.ALIGN_NORMAL);
+
+    assertThat(
+            getMountedDrawableLayoutAlignment(
+                ARABIC_RTL_TEST_STRING, YogaDirection.LTR, null, TextAlignment.LAYOUT_END))
+        .isEqualTo(Layout.Alignment.ALIGN_NORMAL);
+
+    assertThat(
+            getMountedDrawableLayoutAlignment(
+                ARABIC_RTL_TEST_STRING, YogaDirection.RTL, null, TextAlignment.LAYOUT_END))
+        .isEqualTo(Layout.Alignment.ALIGN_OPPOSITE);
+  }
+
+  @Test
+  public void testTextAlignment_left() {
+    assertThat(
+            getMountedDrawableLayoutAlignment("asdf", YogaDirection.LTR, null, TextAlignment.LEFT))
+        .isEqualTo(Layout.Alignment.ALIGN_NORMAL);
+
+    assertThat(
+            getMountedDrawableLayoutAlignment("asdf", YogaDirection.RTL, null, TextAlignment.LEFT))
+        .isEqualTo(Layout.Alignment.ALIGN_NORMAL);
+
+    assertThat(
+            getMountedDrawableLayoutAlignment(
+                ARABIC_RTL_TEST_STRING, YogaDirection.LTR, null, TextAlignment.LEFT))
+        .isEqualTo(Layout.Alignment.ALIGN_OPPOSITE);
+
+    assertThat(
+            getMountedDrawableLayoutAlignment(
+                ARABIC_RTL_TEST_STRING, YogaDirection.RTL, null, TextAlignment.LEFT))
+        .isEqualTo(Layout.Alignment.ALIGN_OPPOSITE);
+  }
+
+  @Test
+  public void testTextAlignment_right() {
+    assertThat(
+            getMountedDrawableLayoutAlignment("asdf", YogaDirection.LTR, null, TextAlignment.RIGHT))
+        .isEqualTo(Layout.Alignment.ALIGN_OPPOSITE);
+
+    assertThat(
+            getMountedDrawableLayoutAlignment("asdf", YogaDirection.RTL, null, TextAlignment.RIGHT))
+        .isEqualTo(Layout.Alignment.ALIGN_OPPOSITE);
+
+    assertThat(
+            getMountedDrawableLayoutAlignment(
+                ARABIC_RTL_TEST_STRING, YogaDirection.LTR, null, TextAlignment.RIGHT))
+        .isEqualTo(Layout.Alignment.ALIGN_NORMAL);
+
+    assertThat(
+            getMountedDrawableLayoutAlignment(
+                ARABIC_RTL_TEST_STRING, YogaDirection.RTL, null, TextAlignment.RIGHT))
+        .isEqualTo(Layout.Alignment.ALIGN_NORMAL);
+  }
+
+  /* Test for LTR text aligned left. */
+  @Test
+  @Ignore("T146174263")
+  public void testCustomEllipsisTextForLtrShortText() {
+    TextDrawable textDrawable =
+        getMountedDrawableForTextWithMaxLines(
+            "Simple\nSome second line", 1, "Truncate", TextAlignment.LEFT, FIRSTSTRONG_LTR);
+
+    assertEquals(textDrawable.getText().toString(), "SimpleTruncate");
+  }
+
+  @Test
+  @Ignore("T146174263")
+  public void testCustomEllipsisTextForLtrLongText() {
+    TextDrawable textDrawable =
+        getMountedDrawableForTextWithMaxLines(
+            "Simple sentence that should be quite long quite long quite long quite long quite long"
+                + " quite long quite long\n"
+                + "Some second line",
+            1,
+            "Truncate",
+            TextAlignment.LEFT,
+            FIRSTSTRONG_LTR);
+
+    assertEquals(
+        textDrawable.getText().toString(),
+        "Simple sentence that should be quite long quite long quite long quite long quite long"
+            + " quiteTruncate");
+  }
+
+  @Test
+  @Ignore("T146174263")
+  public void testCustomEllipsisTextForLtrShortTextWithShortEllipsis() {
+    TextDrawable textDrawable =
+        getMountedDrawableForTextWithMaxLines(
+            "Simple\nSome second line", 1, ".", TextAlignment.LEFT, FIRSTSTRONG_LTR);
+
+    assertEquals(textDrawable.getText().toString(), "Simple.");
+  }
+
+  @Test
+  @Ignore("T146174263")
+  public void testCustomEllipsisTextForLtrLongTextWithShortEllipsis() {
+    TextDrawable textDrawable =
+        getMountedDrawableForTextWithMaxLines(
+            "Simple sentence that should be quite long quite long quite long quite long quite long"
+                + " quite long quite long\n"
+                + "Some second line",
+            1,
+            ".",
+            TextAlignment.LEFT,
+            FIRSTSTRONG_LTR);
+
+    assertEquals(
+        textDrawable.getText().toString(),
+        "Simple sentence that should be quite long quite long quite long quite long quite long"
+            + " quite long q.");
+  }
+
+  /* Test for LTR text aligned right. */
+  @Test
+  @Ignore("T146174263")
+  public void testCustomEllipsisTextForLtrShortTextAlignedRight() {
+    TextDrawable textDrawable =
+        getMountedDrawableForTextWithMaxLines(
+            "Simple\nSome second line", 1, "Truncate", TextAlignment.RIGHT, FIRSTSTRONG_LTR);
+
+    assertEquals(textDrawable.getText().toString(), "SimpleTruncate");
+  }
+
+  @Test
+  @Ignore("T146174263")
+  public void testCustomEllipsisTextForLtrLongTextAlignedRight() {
+    TextDrawable textDrawable =
+        getMountedDrawableForTextWithMaxLines(
+            "Simple sentence that should be quite long quite long quite long quite long quite long"
+                + " quite long quite long\n"
+                + "Some second line",
+            1,
+            "Truncate",
+            TextAlignment.RIGHT,
+            FIRSTSTRONG_LTR);
+
+    assertEquals(
+        textDrawable.getText().toString(),
+        "Simple sentence that should be quite long quite long quite long quite long quite long"
+            + " quiteTruncate");
+  }
+
+  @Test
+  @Ignore("T146174263")
+  public void testCustomEllipsisTextForLtrShortTextWithShortEllipsisAlignedRight() {
+    TextDrawable textDrawable =
+        getMountedDrawableForTextWithMaxLines(
+            "Simple\nSome second line", 1, ".", TextAlignment.RIGHT, FIRSTSTRONG_LTR);
+
+    assertEquals(textDrawable.getText().toString(), "Simple.");
+  }
+
+  @Test
+  @Ignore("T146174263")
+  public void testCustomEllipsisTextForLtrLongTextWithShortEllipsisAlignedRight() {
+    TextDrawable textDrawable =
+        getMountedDrawableForTextWithMaxLines(
+            "Simple sentence that should be quite long quite long quite long quite long quite long"
+                + " quite long quite long\n"
+                + "Some second line",
+            1,
+            ".",
+            TextAlignment.RIGHT,
+            FIRSTSTRONG_LTR);
+
+    assertEquals(
+        textDrawable.getText().toString(),
+        "Simple sentence that should be quite long quite long quite long quite long quite long"
+            + " quite long q.");
+  }
+
+  @Test
+  public void whenDynamicTextColorIsChanged_TextColorShouldUpdateWithoutReRendering() {
+
+    final DynamicValue<Integer> textColor = new DynamicValue<>(Color.BLUE);
+
+    LithoView lithoView =
+        mLithoViewRule
+            .render(
+                c ->
+                    Text.create(c.getContext())
+                        .text("hello world")
+                        .dynamicTextColor(textColor)
+                        .build())
+            .getLithoView();
+
+    Object content = lithoView.getMountItemAt(0).getContent();
+    assertThat(content).isInstanceOf(TextDrawable.class);
+    assertThat(((TextDrawable) content).getLayout().getPaint().getColor()).isEqualTo(Color.BLUE);
+
+    textColor.set(Color.GREEN);
+    assertThat(((TextDrawable) content).getLayout().getPaint().getColor()).isEqualTo(Color.GREEN);
+
+    lithoView.setComponentTree(null);
+
+    assertThat(((TextDrawable) content).getLayout()).isNull();
+  }
+
+  private TextDrawable getMountedDrawableForTextWithMaxLines(
+      CharSequence text,
+      int maxLines,
+      String customEllipsisText,
+      TextAlignment alignment,
+      TextDirectionHeuristicCompat textDirection) {
+    return (TextDrawable)
+        ComponentTestHelper.mountComponent(
+                mContext,
+                Text.create(mContext)
+                    .ellipsize(TruncateAt.END)
+                    .textDirection(textDirection)
+                    .text(text)
+                    .alignment(alignment)
+                    .maxLines(maxLines)
+                    .customEllipsisText(customEllipsisText)
+                    .build())
+            .getDrawables()
+            .get(0);
+  }
+
+  private Layout.Alignment getMountedDrawableLayoutAlignment(
+      String text,
+      @Nullable YogaDirection layoutDirection,
+      @Nullable Layout.Alignment deprecatedTextAlignment,
+      @Nullable TextAlignment textAlignment) {
+
+    Text.Builder builder = Text.create(mContext).text(text);
+
+    if (layoutDirection != null) {
+      builder.layoutDirection(layoutDirection);
+    }
+
+    if (deprecatedTextAlignment != null) {
+      builder.textAlignment(deprecatedTextAlignment);
+    }
+
+    if (textAlignment != null) {
+      builder.alignment(textAlignment);
+    }
+
+    return ((TextDrawable)
+            ComponentTestHelper.mountComponent(mContext, builder.build()).getDrawables().get(0))
+        .getLayoutAlignment();
   }
 }

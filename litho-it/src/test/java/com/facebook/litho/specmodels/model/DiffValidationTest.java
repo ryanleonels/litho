@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +16,7 @@
 
 package com.facebook.litho.specmodels.model;
 
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -62,9 +62,10 @@ public class DiffValidationTest {
     when(mPropModel.getTypeName()).thenReturn(TypeName.INT);
 
     when(mDiffModel.getName()).thenReturn("stateName");
-    when(mDiffModel.getTypeName()).thenReturn(
-        ParameterizedTypeName.get(ClassNames.DIFF, TypeName.INT.box())
-            .annotated(AnnotationSpec.builder(State.class).build()));
+    when(mDiffModel.getTypeName())
+        .thenReturn(
+            ParameterizedTypeName.get(ClassNames.DIFF, TypeName.INT.box())
+                .annotated(AnnotationSpec.builder(State.class).build()));
     when(mDiffModel.getRepresentedObject()).thenReturn(mDiffRepresentedObject);
     when(mDiffModel.getAnnotations()).thenReturn(ImmutableList.of(annotation(State.class)));
   }
@@ -79,8 +80,8 @@ public class DiffValidationTest {
 
   @Test
   public void testDiffModelHasNoTypeParameter() {
-    when(mDiffModel.getTypeName()).thenReturn(
-        ClassNames.DIFF.annotated(AnnotationSpec.builder(State.class).build()));
+    when(mDiffModel.getTypeName())
+        .thenReturn(ClassNames.DIFF.annotated(AnnotationSpec.builder(State.class).build()));
 
     List<SpecModelValidationError> validationErrors = DiffValidation.validate(mSpecModel);
     assertSingleError(validationErrors, DiffValidation.MISSING_TYPE_PARAMETER_ERROR);
@@ -88,9 +89,10 @@ public class DiffValidationTest {
 
   @Test
   public void testDiffModelHasDifferentParameterFromState() {
-    when(mDiffModel.getTypeName()).thenReturn(
-        ParameterizedTypeName.get(ClassNames.DIFF, TypeName.BOOLEAN.box())
-            .annotated(AnnotationSpec.builder(State.class).build()));
+    when(mDiffModel.getTypeName())
+        .thenReturn(
+            ParameterizedTypeName.get(ClassNames.DIFF, TypeName.BOOLEAN.box())
+                .annotated(AnnotationSpec.builder(State.class).build()));
 
     List<SpecModelValidationError> validationErrors = DiffValidation.validate(mSpecModel);
     assertSingleError(validationErrors, DiffValidation.STATE_MISMATCH_ERROR);
@@ -99,9 +101,10 @@ public class DiffValidationTest {
   @Test
   public void testDiffModelHasDifferentParameterFromProp() {
     when(mDiffModel.getName()).thenReturn("propName");
-    when(mDiffModel.getTypeName()).thenReturn(
-        ParameterizedTypeName.get(ClassNames.DIFF, TypeName.BOOLEAN.box())
-            .annotated(AnnotationSpec.builder(Prop.class).build()));
+    when(mDiffModel.getTypeName())
+        .thenReturn(
+            ParameterizedTypeName.get(ClassNames.DIFF, TypeName.BOOLEAN.box())
+                .annotated(AnnotationSpec.builder(Prop.class).build()));
     when(mDiffModel.getAnnotations()).thenReturn(ImmutableList.of(annotation(Prop.class)));
 
     List<SpecModelValidationError> validationErrors = DiffValidation.validate(mSpecModel);
@@ -117,9 +120,10 @@ public class DiffValidationTest {
   @Test
   public void testNoErrorProp() {
     when(mDiffModel.getName()).thenReturn("propName");
-    when(mDiffModel.getTypeName()).thenReturn(
-        ParameterizedTypeName.get(ClassNames.DIFF, TypeName.INT.box())
-            .annotated(AnnotationSpec.builder(Prop.class).build()));
+    when(mDiffModel.getTypeName())
+        .thenReturn(
+            ParameterizedTypeName.get(ClassNames.DIFF, TypeName.INT.box())
+                .annotated(AnnotationSpec.builder(Prop.class).build()));
     when(mDiffModel.getAnnotations()).thenReturn(ImmutableList.of(annotation(Prop.class)));
 
     List<SpecModelValidationError> validationErrors = DiffValidation.validate(mSpecModel);
@@ -127,8 +131,7 @@ public class DiffValidationTest {
   }
 
   private void assertSingleError(
-      List<SpecModelValidationError> validationErrors,
-      String expectedError) {
+      List<SpecModelValidationError> validationErrors, String expectedError) {
     assertThat(validationErrors).hasSize(1);
     assertThat(validationErrors.get(0).element).isEqualTo(mDiffRepresentedObject);
     assertThat(validationErrors.get(0).message).isEqualTo(expectedError);

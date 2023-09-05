@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,7 @@
 
 package com.facebook.litho.specmodels.model;
 
+import com.facebook.litho.annotations.MountSpec;
 import com.facebook.litho.specmodels.internal.ImmutableList;
 import com.facebook.litho.specmodels.internal.RunMode;
 import com.squareup.javapoet.AnnotationSpec;
@@ -27,14 +28,11 @@ import java.util.EnumSet;
 import java.util.List;
 import javax.annotation.Nullable;
 
-/**
- * Model that is an abstract representation of a {@link com.facebook.litho.annotations.MountSpec}.
- */
+/** Model that is an abstract representation of a {@link MountSpec}. */
 public class MountSpecModel implements SpecModel, HasPureRender {
   private final SpecModelImpl mSpecModel;
   private final boolean mIsPureRender;
   private final boolean mHasChildLithosViews;
-  private final boolean mShouldUseDisplayList;
   private final int mPoolSize;
   private final boolean mCanPreallocate;
   private final TypeName mMountType;
@@ -46,9 +44,10 @@ public class MountSpecModel implements SpecModel, HasPureRender {
       ImmutableList<SpecMethodModel<DelegateMethod, Void>> delegateMethods,
       ImmutableList<SpecMethodModel<EventMethod, EventDeclarationModel>> eventMethods,
       ImmutableList<SpecMethodModel<EventMethod, EventDeclarationModel>> triggerMethods,
-      SpecMethodModel<EventMethod, Void> workingRangeRegisterMethod,
+      @Nullable SpecMethodModel<EventMethod, Void> workingRangeRegisterMethod,
       ImmutableList<WorkingRangeMethodModel> workingRangeMethods,
       ImmutableList<SpecMethodModel<UpdateStateMethod, Void>> updateStateMethods,
+      ImmutableList<SpecMethodModel<UpdateStateMethod, Void>> updateStateWithTransitionMethods,
       ImmutableList<String> cachedPropNames,
       ImmutableList<TypeVariableName> typeVariables,
       ImmutableList<PropDefaultModel> propDefaults,
@@ -58,10 +57,9 @@ public class MountSpecModel implements SpecModel, HasPureRender {
       ImmutableList<TagModel> tags,
       ImmutableList<PropJavadocModel> propJavadocs,
       boolean isPublic,
-      DependencyInjectionHelper dependencyInjectionHelper,
+      @Nullable DependencyInjectionHelper dependencyInjectionHelper,
       boolean isPureRender,
       boolean hasChildLithosViews,
-      boolean shouldUseDisplayList,
       int poolSize,
       boolean canPreallocate,
       TypeName mountType,
@@ -81,6 +79,7 @@ public class MountSpecModel implements SpecModel, HasPureRender {
             .workingRangeRegisterMethod(workingRangeRegisterMethod)
             .workingRangeMethods(workingRangeMethods)
             .updateStateMethods(updateStateMethods)
+            .updateStateWithTransitionMethods(updateStateWithTransitionMethods)
             .cachedPropNames(cachedPropNames)
             .typeVariables(typeVariables)
             .propDefaults(propDefaults)
@@ -98,7 +97,6 @@ public class MountSpecModel implements SpecModel, HasPureRender {
             .build();
     mIsPureRender = isPureRender;
     mHasChildLithosViews = hasChildLithosViews;
-    mShouldUseDisplayList = shouldUseDisplayList;
     mPoolSize = poolSize;
     mCanPreallocate = canPreallocate;
     mMountType = mountType;
@@ -216,6 +214,11 @@ public class MountSpecModel implements SpecModel, HasPureRender {
   }
 
   @Override
+  public ImmutableList<PrepareInterStageInputParamModel> getPrepareInterStageInputs() {
+    return mSpecModel.getPrepareInterStageInputs();
+  }
+
+  @Override
   public ImmutableList<TreePropModel> getTreeProps() {
     return mSpecModel.getTreeProps();
   }
@@ -311,13 +314,23 @@ public class MountSpecModel implements SpecModel, HasPureRender {
   }
 
   @Override
+  public boolean shouldGenerateTransferState() {
+    return false;
+  }
+
+  @Override
   public boolean shouldCheckIdInIsEquivalentToMethod() {
-    return true;
+    return false;
   }
 
   @Override
   public boolean shouldGenerateCopyMethod() {
     return true;
+  }
+
+  @Override
+  public boolean isStateful() {
+    return false;
   }
 
   @Override
@@ -354,10 +367,6 @@ public class MountSpecModel implements SpecModel, HasPureRender {
     return mHasChildLithosViews;
   }
 
-  public boolean shouldUseDisplayList() {
-    return mShouldUseDisplayList;
-  }
-
   public int getPoolSize() {
     return mPoolSize;
   }
@@ -388,8 +397,6 @@ public class MountSpecModel implements SpecModel, HasPureRender {
         + mIsPureRender
         + ", mHasChildLithosViews="
         + mHasChildLithosViews
-        + ", mShouldUseDisplayList="
-        + mShouldUseDisplayList
         + ", mPoolSize="
         + mPoolSize
         + ", mCanPreallocate="

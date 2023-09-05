@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,39 +16,36 @@
 
 package com.facebook.litho.testing.viewtree;
 
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.facebook.litho.ComponentContext;
 import com.facebook.litho.LithoView;
 import com.facebook.litho.testing.helper.ComponentTestHelper;
-import com.facebook.litho.testing.testrunner.ComponentsTestRunner;
+import com.facebook.litho.testing.testrunner.LithoTestRunner;
 import com.facebook.litho.widget.Text;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.RuntimeEnvironment;
+import org.robolectric.annotation.LooperMode;
 
-/**
- * Tests {@link ComponentQueries}
- */
-@RunWith(ComponentsTestRunner.class)
+/** Tests {@link ComponentQueries} */
+@LooperMode(LooperMode.Mode.LEGACY)
+@RunWith(LithoTestRunner.class)
 public class ComponentQueriesTest {
   private ComponentContext mContext;
 
   @Before
   public void setup() {
-    mContext = new ComponentContext(RuntimeEnvironment.application);
+    mContext = new ComponentContext(getApplicationContext());
   }
 
   @Test
   public void testNoTextOnComponent() {
-    final LithoView view = ComponentTestHelper.mountComponent(
-        mContext,
-        Text.create(mContext)
-            .text("goodbye")
-        .build());
+    final LithoView view =
+        ComponentTestHelper.mountComponent(mContext, Text.create(mContext).text("goodbye").build());
 
     assertThat(ComponentQueries.hasTextMatchingPredicate(view, Predicates.equalTo("hello")))
         .isFalse();
@@ -56,11 +53,8 @@ public class ComponentQueriesTest {
 
   @Test
   public void testTextOnComponent() {
-    final LithoView view = ComponentTestHelper.mountComponent(
-        mContext,
-        Text.create(mContext)
-            .text("hello")
-            .build());
+    final LithoView view =
+        ComponentTestHelper.mountComponent(mContext, Text.create(mContext).text("hello").build());
 
     assertThat(ComponentQueries.hasTextMatchingPredicate(view, Predicates.equalTo("hello")))
         .isTrue();
@@ -68,13 +62,9 @@ public class ComponentQueriesTest {
 
   @Test
   public void testExtractTextFromTextComponent() {
-    final LithoView view = ComponentTestHelper.mountComponent(
-        mContext,
-        Text.create(mContext)
-            .text("hello")
-            .build());
+    final LithoView view =
+        ComponentTestHelper.mountComponent(mContext, Text.create(mContext).text("hello").build());
 
-    assertThat(view.getTextContent().getTextItems())
-        .isEqualTo(ImmutableList.<CharSequence>of("hello"));
+    assertThat(view.getTextContentText()).isEqualTo(ImmutableList.<CharSequence>of("hello"));
   }
 }

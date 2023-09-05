@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +16,7 @@
 
 package com.facebook.litho.specmodels.model;
 
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -47,33 +47,22 @@ public class SpecModelValidationTest {
 
     assertThat(validationErrors).hasSize(1);
     assertThat(validationErrors.get(0).element).isSameAs(mModelRepresentedObject);
-    assertThat(validationErrors.get(0).message).isEqualTo(
-        "You must suffix the class name of your spec with \"Spec\" e.g. a \"MyComponentSpec\" " +
-            "class name generates a component named \"MyComponent\".");
+    assertThat(validationErrors.get(0).message)
+        .isEqualTo(
+            "You must suffix the class name of your spec with \"Spec\" e.g. a \"MyComponentSpec\" "
+                + "class name generates a component named \"MyComponent\".");
   }
 
   @Test
   public void testMountTypeValidation() {
-    when(mMountSpecModel.getMountType()).thenReturn(ClassNames.COMPONENT_LIFECYCLE_MOUNT_TYPE_NONE);
+    when(mMountSpecModel.getMountType()).thenReturn(ClassNames.COMPONENT_MOUNT_TYPE_NONE);
     List<SpecModelValidationError> validationErrors =
         SpecModelValidation.validateGetMountType(mMountSpecModel);
 
     assertThat(validationErrors).hasSize(1);
     assertThat(validationErrors.get(0).element).isSameAs(mMountSpecModelRepresentedObject);
-    assertThat(validationErrors.get(0).message).isEqualTo(
-        "onCreateMountContent's return type should be either a View or a Drawable subclass.");
-  }
-
-  @Test
-  public void testDisplayListValidation() {
-    when(mMountSpecModel.shouldUseDisplayList()).thenReturn(true);
-    when(mMountSpecModel.getMountType()).thenReturn(ClassNames.COMPONENT_LIFECYCLE_MOUNT_TYPE_VIEW);
-    List<SpecModelValidationError> validationErrors =
-        SpecModelValidation.validateShouldUseDisplayLists(mMountSpecModel);
-
-    assertThat(validationErrors).hasSize(1);
-    assertThat(validationErrors.get(0).element).isSameAs(mMountSpecModelRepresentedObject);
-    assertThat(validationErrors.get(0).message).isEqualTo(
-        "shouldUseDisplayList = true can only be used on MountSpecs that mount a drawable.");
+    assertThat(validationErrors.get(0).message)
+        .isEqualTo(
+            "onCreateMountContent's return type should be either a View or a Drawable subclass.");
   }
 }

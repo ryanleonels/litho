@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,26 +16,28 @@
 
 package com.facebook.litho.testing;
 
+import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.facebook.litho.testing.assertj.ComponentConditions.textEquals;
 import static com.facebook.litho.testing.assertj.SubComponentExtractor.subComponentWith;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.core.Is.is;
 import static org.junit.Assume.assumeThat;
 
 import com.facebook.litho.Component;
 import com.facebook.litho.ComponentContext;
 import com.facebook.litho.config.ComponentsConfiguration;
-import com.facebook.litho.testing.assertj.LithoAssertions;
 import com.facebook.litho.testing.assertj.LithoRepresentation;
-import com.facebook.litho.testing.testrunner.ComponentsTestRunner;
-import com.facebook.litho.testing.util.InlineLayoutSpec;
+import com.facebook.litho.testing.inlinelayoutspec.InlineLayoutSpec;
+import com.facebook.litho.testing.testrunner.LithoTestRunner;
 import com.facebook.litho.widget.Text;
 import org.assertj.core.api.Assertions;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.RuntimeEnvironment;
+import org.robolectric.annotation.LooperMode;
 
-@RunWith(ComponentsTestRunner.class)
+@LooperMode(LooperMode.Mode.LEGACY)
+@RunWith(LithoTestRunner.class)
 public class LithoRepresentationTest {
 
   @Before
@@ -48,7 +50,7 @@ public class LithoRepresentationTest {
 
   @Test
   public void testLithoRepresentation() {
-    final ComponentContext c = new ComponentContext(RuntimeEnvironment.application);
+    final ComponentContext c = new ComponentContext(getApplicationContext());
 
     Assertions.useRepresentation(new LithoRepresentation(c));
 
@@ -61,20 +63,18 @@ public class LithoRepresentationTest {
         };
 
     try {
-      LithoAssertions.assertThat(layout).has(subComponentWith(c, textEquals("Doesn't match.")));
+      assertThat(layout).has(subComponentWith(c, textEquals("Doesn't match.")));
     } catch (final AssertionError assertionError) {
-      LithoAssertions.assertThat(assertionError)
-          .hasMessageContaining(" 0,0-100,100 text=\"Hello, World!\"");
+      assertThat(assertionError).hasMessageContaining(" 0,0-100,100 text=\"Hello, World!\"");
     }
 
     // Verify that resetting the representation in the same
     Assertions.useDefaultRepresentation();
 
     try {
-      LithoAssertions.assertThat(layout).has(subComponentWith(c, textEquals("Doesn't match.")));
+      assertThat(layout).has(subComponentWith(c, textEquals("Doesn't match.")));
     } catch (final AssertionError assertionError) {
-      LithoAssertions.assertThat(assertionError.getMessage())
-          .doesNotContain(" 0,0-100,100 text=\"Hello, World!\"");
+      assertThat(assertionError.getMessage()).doesNotContain(" 0,0-100,100 text=\"Hello, World!\"");
     }
   }
 }

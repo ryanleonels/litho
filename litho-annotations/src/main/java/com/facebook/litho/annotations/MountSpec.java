@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,42 +23,56 @@ import java.lang.annotation.RetentionPolicy;
 /**
  * A class that is annotated with this annotation will be used to create a component that renders
  * something, in the form of either a Drawable or a View.
- * <p>A class that is annotated with {@link MountSpec} must implement a method with the
- * {@link OnCreateMountContent} annotation. It may also implement methods with the following
- * annotations:
- * - {@link OnLoadStyle}
- * - {@link OnEvent}
- * - {@link OnPrepare}
- * - {@link OnMeasure}
- * - {@link OnBoundsDefined}
- * - {@link OnMount}
- * - {@link OnBind}
- * - {@link OnUnbind}
- * - {@link OnUnmount}
- * <p>If you wish to create a component that is a composition of other components, then use
- * {@link LayoutSpec} instead.
+ *
+ * <p>A class that is annotated with {@link MountSpec} must implement a method with the {@link
+ * OnCreateMountContent} annotation. It may also implement methods with the following annotations:
+ *
+ * <ul>
+ *   <li>{@link OnLoadStyle}
+ *   <li>{@link OnEvent}
+ *   <li>{@link OnPrepare}
+ *   <li>{@link OnMeasure}
+ *   <li>{@link OnBoundsDefined}
+ *   <li>{@link OnMount}
+ *   <li>{@link OnBind}
+ *   <li>{@link OnUnbind}
+ *   <li>{@link OnUnmount}
+ *   <li>{@link ShouldUpdate}
+ * </ul>
+ *
+ * <p>If you wish to create a component that is a composition of other components, then use {@link
+ * LayoutSpec} instead.
+ *
  * <p>For example:
- * <pre>
- * <code>
- * {@literal @}MountSpec
+ *
+ * <pre><code>{@literal @}MountSpec
  * public class MyComponentSpec {
  *
  *  {@literal @}OnCreateMountContent
- *   MyDrawable onCreateMountContent(Context c) {
- *     return new MyDrawable(c);
+ *   MyDrawable onCreateMountContent(Context context) {
+ *     return new MyDrawable(context);
  *   }
  *
  *  {@literal @}OnMount
  *   void onMount(
- *       ComponentContext context,
+ *       ComponentContext c,
  *       MyDrawable myDrawable,
  *      {@literal @}Prop MyProp prop) {
  *     myDrawable.setMyProp(prop);
  *   }
- * }
- * </code>
- * </pre>
+ * }</code></pre>
+ *
+ * @deprecated Use {@link com.facebook.litho.PrimitiveComponent}s for new bridged components instead
+ *     of {@code MountSpec}s. Specs should only be used in Java.
+ *     <p>
+ *     <p>For detailed information read <a
+ *     href="https://fblitho.com/docs/mainconcepts/primitivecomponents/overview/">PrimitiveComponents
+ *     docs</a>.
+ *     <p>For migration guide from MountSpecs to PrimitiveComponents read this: <a
+ *     href="https://fblitho.com/docs/kotlin/migrating-from-mountspecs-to-primitives/">Migrating
+ *     MountSpecs doc</a>.
  */
+@Deprecated
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 public @interface MountSpec {
@@ -66,21 +80,21 @@ public @interface MountSpec {
    * Class name of the generated component. When not provided defaults to name of the annotated
    * class sans the "Spec" suffix. E.g. "MyComponentSpec" to "MyComponent".
    *
-   * In order to avoid confusion, this should only be used if you have a very good reason for it.
+   * <p>In order to avoid confusion, this should only be used if you have a very good reason for it.
    * For instance to avoid naming collisions.
    */
   String value() default "";
 
   /**
    * @return Boolean indicating whether the generated class should be public. If not, it will be
-   * package-private.
+   *     package-private.
    */
   boolean isPublic() default true;
 
   /**
    * @return Boolean indicating whether the component implements a pure render function. If this is
-   * true and the Component didn't change during an update of the ComponentTree measurements and
-   * LayoutOutputs will be reused instead of being calculated again.
+   *     true and the Component didn't change during an update of the ComponentTree measurements and
+   *     LayoutOutputs will be reused instead of being calculated again.
    */
   boolean isPureRender() default false;
 
@@ -92,19 +106,13 @@ public @interface MountSpec {
 
   /**
    * @return List of event POJOs this component can dispatch. Used to generate event dispatch
-   * methods.
+   *     methods.
    */
   Class<?>[] events() default {};
 
   /**
-   * @return Boolean indicating whether this drawable mount spec should cache its drawing in a
-   * display list.
-   */
-  boolean shouldUseDisplayList() default false;
-
-  /**
    * @return The max number of preallocated Mount objects we want to keep in the pools for this type
-   * of MountSpec
+   *     of MountSpec
    */
   int poolSize() default 3;
 

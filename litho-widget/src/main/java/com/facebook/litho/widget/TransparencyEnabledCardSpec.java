@@ -1,11 +1,11 @@
 /*
- * Copyright 2004-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,14 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.litho.widget;
 
 import static com.facebook.litho.widget.CardShadowDrawable.getShadowBottom;
-import static com.facebook.litho.widget.CardShadowDrawable.getShadowHorizontal;
+import static com.facebook.litho.widget.CardShadowDrawable.getShadowLeft;
+import static com.facebook.litho.widget.CardShadowDrawable.getShadowRight;
 import static com.facebook.litho.widget.CardShadowDrawable.getShadowTop;
 import static com.facebook.yoga.YogaEdge.ALL;
 import static com.facebook.yoga.YogaEdge.BOTTOM;
-import static com.facebook.yoga.YogaEdge.HORIZONTAL;
+import static com.facebook.yoga.YogaEdge.LEFT;
+import static com.facebook.yoga.YogaEdge.RIGHT;
 import static com.facebook.yoga.YogaEdge.TOP;
 import static com.facebook.yoga.YogaPositionType.ABSOLUTE;
 
@@ -36,9 +39,11 @@ import com.facebook.litho.annotations.PropDefault;
 import com.facebook.litho.annotations.ResType;
 
 /**
- * [UNPERFORMANT WARNING] if you do not need to render your corners transparently please use {@link
- * com.facebook.litho.widget.Card}. It is more expensive to perform rounded corners with transparent
- * clipping due to antialiasing operations.
+ * @Deprecated use Card with transparencyEnabled(true) instead
+ *
+ * <p>[UNPERFORMANT WARNING] if you do not need to render your corners transparently please use
+ * {@link com.facebook.litho.widget.Card}. It is more expensive to perform rounded corners with
+ * transparent clipping due to antialiasing operations.
  *
  * <p>A component that renders a given component into a card border with shadow, and allows for
  * transparent corners. {@link * com.facebook.litho.widget.Card} uses imitation clipped corners that
@@ -53,7 +58,8 @@ import com.facebook.litho.annotations.ResType;
  * @prop elevation Elevation of the card.
  * @prop shadowBottomOverride Override of size of shadow at bottom of card.
  */
-@LayoutSpec(isPureRender = true)
+@Deprecated
+@LayoutSpec
 class TransparencyEnabledCardSpec {
 
   private static final int DEFAULT_CORNER_RADIUS_DP = 2;
@@ -82,9 +88,13 @@ class TransparencyEnabledCardSpec {
       @Prop(optional = true, resType = ResType.COLOR) int shadowEndColor,
       @Prop(optional = true, resType = ResType.DIMEN_OFFSET) float cornerRadius,
       @Prop(optional = true, resType = ResType.DIMEN_OFFSET) float elevation,
-      @Prop(optional = true, resType = ResType.DIMEN_OFFSET) int shadowBottomOverride) {
+      @Prop(optional = true, resType = ResType.DIMEN_OFFSET) int shadowBottomOverride,
+      @Prop(optional = true) boolean disableClipTopLeft,
+      @Prop(optional = true) boolean disableClipTopRight,
+      @Prop(optional = true) boolean disableClipBottomLeft,
+      @Prop(optional = true) boolean disableClipBottomRight) {
 
-    final Resources resources = c.getAndroidContext().getResources();
+    final Resources resources = c.getResources();
 
     if (cornerRadius == -1) {
       cornerRadius = pixels(resources, DEFAULT_CORNER_RADIUS_DP);
@@ -97,14 +107,17 @@ class TransparencyEnabledCardSpec {
     final int shadowTop = getShadowTop(elevation);
     final int shadowBottom =
         shadowBottomOverride == -1 ? getShadowBottom(elevation) : shadowBottomOverride;
-    final int shadowHorizontal = getShadowHorizontal(elevation);
+    final int shadowLeft = getShadowLeft(elevation);
+    final int shadowRight = getShadowRight(elevation);
 
     return Column.create(c)
         .child(
             Column.create(c)
-                .marginPx(HORIZONTAL, shadowHorizontal)
-                .marginPx(TOP, shadowTop)
-                .marginPx(BOTTOM, shadowBottom)
+                .marginPx(LEFT, shadowLeft)
+                .marginPx(RIGHT, shadowRight)
+                .marginPx(TOP, disableClipTopLeft && disableClipTopRight ? 0 : shadowTop)
+                .marginPx(
+                    BOTTOM, disableClipBottomLeft && disableClipBottomRight ? 0 : shadowBottom)
                 .backgroundColor(clippingColor)
                 .child(
                     TransparencyEnabledCardClip.create(c)
@@ -120,6 +133,8 @@ class TransparencyEnabledCardSpec {
                     .shadowEndColor(shadowEndColor)
                     .cornerRadiusPx(cornerRadius)
                     .shadowSizePx(elevation)
+                    .hideTopShadow(disableClipTopLeft && disableClipTopRight)
+                    .hideBottomShadow(disableClipBottomLeft && disableClipBottomRight)
                     .positionType(ABSOLUTE)
                     .positionPx(ALL, 0)
                 : null)

@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,6 +22,7 @@ import android.accessibilityservice.AccessibilityServiceInfo;
 import android.content.Context;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityManager;
+import androidx.annotation.Nullable;
 import androidx.core.accessibilityservice.AccessibilityServiceInfoCompat;
 import java.util.List;
 
@@ -30,10 +31,7 @@ public class AccessibilityUtils {
   private static volatile boolean isCachedIsAccessibilityEnabledSet = false;
   private static volatile boolean cachedIsAccessibilityEnabled;
 
-  /**
-   * @returns True if accessibility touch exploration is currently enabled
-   * in the framework.
-   */
+  /** @returns True if accessibility touch exploration is currently enabled in the framework. */
   public static boolean isAccessibilityEnabled(Context context) {
     if (!isCachedIsAccessibilityEnabledSet) {
       final AccessibilityManager manager =
@@ -43,7 +41,7 @@ public class AccessibilityUtils {
     return cachedIsAccessibilityEnabled;
   }
 
-  public static boolean isAccessibilityEnabled(AccessibilityManager manager) {
+  public static boolean isAccessibilityEnabled(@Nullable AccessibilityManager manager) {
     if (!isCachedIsAccessibilityEnabledSet) {
       updateCachedIsAccessibilityEnabled(manager);
     }
@@ -51,7 +49,7 @@ public class AccessibilityUtils {
   }
 
   private static synchronized void updateCachedIsAccessibilityEnabled(
-      AccessibilityManager manager) {
+      @Nullable AccessibilityManager manager) {
     cachedIsAccessibilityEnabled =
         Boolean.getBoolean("is_accessibility_enabled")
             || isRunningApplicableAccessibilityService(manager);
@@ -82,8 +80,8 @@ public class AccessibilityUtils {
 
     for (AccessibilityServiceInfo serviceInfo : enabledServices) {
       int eventTypes = serviceInfo.eventTypes;
-      if ((eventTypes & AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUSED)
-          != AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUSED) {
+      if ((eventTypes & AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED)
+          != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
         continue;
       }
       int capabilities = AccessibilityServiceInfoCompat.getCapabilities(serviceInfo);

@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,6 +20,7 @@ import static com.facebook.litho.specmodels.model.SpecModelUtils.generateTypeSpe
 import static com.facebook.litho.specmodels.processor.MethodExtractorUtils.getMethodParams;
 import static com.facebook.litho.specmodels.processor.MethodExtractorUtils.getTypeVariables;
 
+import com.facebook.litho.annotations.CachedValue;
 import com.facebook.litho.annotations.InjectProp;
 import com.facebook.litho.annotations.OnEnteredRange;
 import com.facebook.litho.annotations.OnExitedRange;
@@ -56,6 +57,7 @@ public class WorkingRangesMethodExtractor {
     METHOD_PARAM_ANNOTATIONS.add(State.class);
     METHOD_PARAM_ANNOTATIONS.add(TreeProp.class);
     METHOD_PARAM_ANNOTATIONS.add(InjectProp.class);
+    METHOD_PARAM_ANNOTATIONS.add(CachedValue.class);
   }
 
   private WorkingRangesMethodExtractor() {}
@@ -64,6 +66,7 @@ public class WorkingRangesMethodExtractor {
   public static SpecMethodModel<EventMethod, Void> getRegisterMethod(
       TypeElement typeElement,
       List<Class<? extends Annotation>> permittedInterStageInputAnnotations,
+      List<Class<? extends Annotation>> permittedLayoutInterStageInputAnnotations,
       Messager messager) {
     for (Element enclosedElement : typeElement.getEnclosedElements()) {
       if (enclosedElement.getKind() != ElementKind.METHOD) {
@@ -79,8 +82,10 @@ public class WorkingRangesMethodExtractor {
             getMethodParams(
                 executableElement,
                 messager,
-                getPermittedMethodParamAnnotations(permittedInterStageInputAnnotations),
+                getPermittedMethodParamAnnotations(
+                    permittedInterStageInputAnnotations, permittedLayoutInterStageInputAnnotations),
                 permittedInterStageInputAnnotations,
+                permittedLayoutInterStageInputAnnotations,
                 ImmutableList.of());
 
         return SpecMethodModel.<EventMethod, Void>builder()
@@ -102,6 +107,7 @@ public class WorkingRangesMethodExtractor {
       Elements elements,
       TypeElement typeElement,
       List<Class<? extends Annotation>> permittedInterStageInputAnnotations,
+      List<Class<? extends Annotation>> permittedLayoutInterStageInputAnnotations,
       Messager messager) {
     final List<WorkingRangeMethodModel> workingRangeMethods = new ArrayList<>();
 
@@ -122,13 +128,13 @@ public class WorkingRangesMethodExtractor {
                 elements,
                 executableElement,
                 permittedInterStageInputAnnotations,
+                permittedLayoutInterStageInputAnnotations,
                 messager,
                 OnEnteredRange.class);
 
         final String name = enteredRangeAnnotation.name();
         final WorkingRangeMethodModel workingRangeModel =
-            workingRangeMethods
-                .stream()
+            workingRangeMethods.stream()
                 .filter(it -> it.name.equals(name) && it.enteredRangeModel == null)
                 .findFirst()
                 .orElseGet(
@@ -146,13 +152,13 @@ public class WorkingRangesMethodExtractor {
                 elements,
                 executableElement,
                 permittedInterStageInputAnnotations,
+                permittedLayoutInterStageInputAnnotations,
                 messager,
                 OnExitedRange.class);
 
         final String name = exitedRangeAnnotation.name();
         final WorkingRangeMethodModel workingRangeModel =
-            workingRangeMethods
-                .stream()
+            workingRangeMethods.stream()
                 .filter(it -> it.name.equals(name) && it.exitedRangeModel == null)
                 .findFirst()
                 .orElseGet(
@@ -168,10 +174,12 @@ public class WorkingRangesMethodExtractor {
   }
 
   private static List<Class<? extends Annotation>> getPermittedMethodParamAnnotations(
-      List<Class<? extends Annotation>> permittedInterStageInputAnnotations) {
+      List<Class<? extends Annotation>> permittedInterStageInputAnnotations,
+      List<Class<? extends Annotation>> permittedLayoutInterStageInputAnnotations) {
     final List<Class<? extends Annotation>> permittedMethodParamAnnotations =
         new ArrayList<>(METHOD_PARAM_ANNOTATIONS);
     permittedMethodParamAnnotations.addAll(permittedInterStageInputAnnotations);
+    permittedMethodParamAnnotations.addAll(permittedLayoutInterStageInputAnnotations);
     return permittedMethodParamAnnotations;
   }
 
@@ -181,14 +189,17 @@ public class WorkingRangesMethodExtractor {
           Elements elements,
           ExecutableElement executableElement,
           List<Class<? extends Annotation>> permittedInterStageInputAnnotations,
+          List<Class<? extends Annotation>> permittedLayoutInterStageInputAnnotations,
           Messager messager,
           Class<? extends Annotation> annotationType) {
     final List<MethodParamModel> methodParams =
         getMethodParams(
             executableElement,
             messager,
-            getPermittedMethodParamAnnotations(permittedInterStageInputAnnotations),
+            getPermittedMethodParamAnnotations(
+                permittedInterStageInputAnnotations, permittedLayoutInterStageInputAnnotations),
             permittedInterStageInputAnnotations,
+            permittedLayoutInterStageInputAnnotations,
             ImmutableList.of());
 
     final String nameInAnnotation =

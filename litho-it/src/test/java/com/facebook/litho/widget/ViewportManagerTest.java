@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,21 +18,19 @@ package com.facebook.litho.widget;
 
 import static com.facebook.litho.widget.ViewportInfo.State.DATA_CHANGES;
 import static com.facebook.litho.widget.ViewportInfo.State.SCROLLING;
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
-import com.facebook.litho.testing.testrunner.ComponentsTestRunner;
+import com.facebook.litho.testing.testrunner.LithoTestRunner;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/**
- * Tests for {@link ViewportManager}
- */
-@RunWith(ComponentsTestRunner.class)
+/** Tests for {@link ViewportManager} */
+@RunWith(LithoTestRunner.class)
 public class ViewportManagerTest {
 
   private LayoutInfo mLayoutInfo;
@@ -219,19 +217,15 @@ public class ViewportManagerTest {
   }
 
   private void setVisibleItemPositionInMockedLayoutManager(
-      int firstVisibleItemPosition,
-      int lastVisibleItemPosition) {
+      int firstVisibleItemPosition, int lastVisibleItemPosition) {
     when(mLayoutInfo.findFirstVisibleItemPosition()).thenReturn(firstVisibleItemPosition);
     when(mLayoutInfo.findLastVisibleItemPosition()).thenReturn(lastVisibleItemPosition);
   }
 
   private void setFullyVisibleItemPositionInMockedLayoutManager(
-      int firstFullyVisiblePosition,
-      int lastFullyVisiblePosition) {
-    when(mLayoutInfo.findFirstFullyVisibleItemPosition())
-        .thenReturn(firstFullyVisiblePosition);
-    when(mLayoutInfo.findLastFullyVisibleItemPosition())
-        .thenReturn(lastFullyVisiblePosition);
+      int firstFullyVisiblePosition, int lastFullyVisiblePosition) {
+    when(mLayoutInfo.findFirstFullyVisibleItemPosition()).thenReturn(firstFullyVisiblePosition);
+    when(mLayoutInfo.findLastFullyVisibleItemPosition()).thenReturn(lastFullyVisiblePosition);
   }
 
   private void setTotalItemInMockedLayoutManager(int totalItem) {

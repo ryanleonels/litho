@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,22 +21,23 @@ import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
 import java.lang.annotation.Annotation;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Queue;
 import javax.annotation.concurrent.Immutable;
 import javax.lang.model.element.Modifier;
 
 /**
  * Describes the signature and other feature of a delegate method.
  *
- * We use method descriptions to refer to abstract methods defined in
- * com.facebook.litho.ComponentLifecycle, so that we can define implementations that delegate
- * to client-declared methods with annotated props.
+ * <p>We use method descriptions to refer to abstract methods defined in
+ * com.facebook.litho.Component, so that we can define implementations that delegate to
+ * client-declared methods with annotated props.
  */
 @Immutable
 public final class DelegateMethodDescription {
 
-  /**
-   * Defines possible param types that can be used in delegate methods.
-   */
+  /** Defines possible param types that can be used in delegate methods. */
   public enum OptionalParameterType {
     PROP,
     DIFF_PROP,
@@ -45,6 +46,7 @@ public final class DelegateMethodDescription {
     DIFF_STATE,
     PARAM,
     INTER_STAGE_OUTPUT,
+    PREPARE_INTER_STAGE_OUTPUT,
     PROP_OUTPUT,
     STATE_OUTPUT,
     STATE_VALUE,
@@ -53,28 +55,45 @@ public final class DelegateMethodDescription {
     CACHED_VALUE,
   }
 
+  public enum InterStagePropsTarget {
+    PREPARE,
+    MEASURE
+  }
+
   public final ImmutableList<AnnotationSpec> annotations;
   public final Modifier accessType;
   public final TypeName returnType;
   public final String name;
-  public final ImmutableList<TypeName> definedParameterTypes;
+  public final ImmutableList<LifecycleMethodArgumentType> lifecycleMethodArgumentTypes;
   public final ImmutableList<MethodParamModel> optionalParameters;
   public final ImmutableList<OptionalParameterType> optionalParameterTypes;
   public final ImmutableList<Class<? extends Annotation>> interStageInputAnnotations;
+  public final InterStagePropsTarget mInterStagePropsTarget;
   public final ImmutableList<MethodSpec> extraMethods;
   public final ImmutableList<TypeName> exceptions;
+  public final boolean createsLegacyState;
+  public final boolean initializesStateContainer;
 
   private DelegateMethodDescription(Builder builder) {
     annotations = builder.annotations;
     accessType = builder.accessType;
     returnType = builder.returnType;
     name = builder.name;
-    definedParameterTypes = builder.definedParameterTypes;
+    lifecycleMethodArgumentTypes = builder.lifecycleMethodArgumentTypes;
     optionalParameters = builder.optionalParameters;
     optionalParameterTypes = builder.optionalParameterTypes;
     interStageInputAnnotations = builder.interStageInputAnnotations;
     extraMethods = builder.extraMethods;
     exceptions = builder.exceptions;
+    createsLegacyState = builder.createsLegacyState;
+    initializesStateContainer = builder.initializesStateContainer;
+    mInterStagePropsTarget = builder.mInterStagePropsTarget;
+  }
+
+  public ImmutableList<TypeName> allowedDelegateMethodArguments() {
+    List<TypeName> types = new ArrayList<>();
+    lifecycleMethodArgumentTypes.forEach(arg -> types.add(arg.type));
+    return ImmutableList.copyOf(types);
   }
 
   public static Builder newBuilder() {
@@ -87,10 +106,11 @@ public final class DelegateMethodDescription {
         .accessType(methodDescription.accessType)
         .returnType(methodDescription.returnType)
         .name(methodDescription.name)
-        .definedParameterTypes(methodDescription.definedParameterTypes)
+        .lifecycleMethodArguments(methodDescription.lifecycleMethodArgumentTypes)
         .optionalParameters(methodDescription.optionalParameters)
         .optionalParameterTypes(methodDescription.optionalParameterTypes)
         .interStageInputAnnotations(methodDescription.interStageInputAnnotations)
+        .interStageInputTarget(methodDescription.mInterStagePropsTarget)
         .extraMethods(methodDescription.extraMethods)
         .exceptions(methodDescription.exceptions);
   }
@@ -100,15 +120,17 @@ public final class DelegateMethodDescription {
     private Modifier accessType;
     private TypeName returnType;
     private String name;
-    private ImmutableList<TypeName> definedParameterTypes;
+    private ImmutableList<LifecycleMethodArgumentType> lifecycleMethodArgumentTypes;
     private ImmutableList<OptionalParameterType> optionalParameterTypes;
     private ImmutableList<MethodParamModel> optionalParameters;
     private ImmutableList<Class<? extends Annotation>> interStageInputAnnotations;
+    private InterStagePropsTarget mInterStagePropsTarget = InterStagePropsTarget.MEASURE;
     private ImmutableList<MethodSpec> extraMethods;
     private ImmutableList<TypeName> exceptions;
+    private boolean createsLegacyState = false;
+    private boolean initializesStateContainer = false;
 
-    private Builder() {
-    }
+    private Builder() {}
 
     public Builder annotations(ImmutableList<AnnotationSpec> annotations) {
       this.annotations = annotations;
@@ -130,9 +152,26 @@ public final class DelegateMethodDescription {
       return this;
     }
 
-    public Builder definedParameterTypes(ImmutableList<TypeName> parameterTypes) {
-      this.definedParameterTypes = parameterTypes;
+    public Builder lifecycleMethodArguments(ImmutableList<LifecycleMethodArgumentType> args) {
+      this.lifecycleMethodArgumentTypes = args;
       return this;
+    }
+
+    /**
+     * List of required arguments for both the lifecycle and delegate method.
+     *
+     * @param parameterTypes list of argument types.
+     * @return the current {@link Builder}.
+     * @deprecated Use {@link #lifecycleMethodArguments(ImmutableList)}
+     */
+    @Deprecated
+    public Builder definedParameterTypes(ImmutableList<TypeName> parameterTypes) {
+      final List<LifecycleMethodArgumentType> args = new ArrayList<>(parameterTypes.size());
+      for (TypeName arg : parameterTypes) {
+        args.add(new LifecycleMethodArgumentType(arg));
+      }
+
+      return lifecycleMethodArguments(ImmutableList.copyOf(args));
     }
 
     /**
@@ -155,9 +194,12 @@ public final class DelegateMethodDescription {
       return this;
     }
 
-    /**
-     * A list of extra methods that should be generate when this method description is used.
-     */
+    public Builder interStageInputTarget(InterStagePropsTarget target) {
+      this.mInterStagePropsTarget = target;
+      return this;
+    }
+
+    /** A list of extra methods that should be generate when this method description is used. */
     public Builder extraMethods(ImmutableList<MethodSpec> extraMethods) {
       this.extraMethods = extraMethods;
       return this;
@@ -165,6 +207,22 @@ public final class DelegateMethodDescription {
 
     public Builder exceptions(ImmutableList<TypeName> exceptions) {
       this.exceptions = exceptions;
+      return this;
+    }
+
+    /**
+     * Whether this method creates state in a legacy manner, writing to a StateContainer on the
+     * Section/Surface/etc, obtained via a call to getStateContainer. Relevant to Sections and
+     * Surfaces at the time of writing.
+     */
+    public Builder createsLegacyState(boolean createsLegacyState) {
+      this.createsLegacyState = createsLegacyState;
+      return this;
+    }
+
+    /** Whether this method accepts a StateContainer and initializes it. */
+    public Builder initializesStateContainer(boolean initializesStateContainer) {
+      this.initializesStateContainer = initializesStateContainer;
       return this;
     }
 
@@ -198,8 +256,8 @@ public final class DelegateMethodDescription {
         annotations = ImmutableList.of();
       }
 
-      if (definedParameterTypes == null) {
-        definedParameterTypes = ImmutableList.of();
+      if (lifecycleMethodArgumentTypes == null) {
+        lifecycleMethodArgumentTypes = ImmutableList.of();
       }
 
       if (optionalParameters == null) {
@@ -218,5 +276,40 @@ public final class DelegateMethodDescription {
         exceptions = ImmutableList.of();
       }
     }
+  }
+
+  /**
+   * This utility searches for the first lifecycle argument used by the delegate method, and
+   * consumes it. Every unmatched type encountered before that is removed from the queue since the
+   * order of arguments needs to be maintained.
+   */
+  public static boolean isAllowedTypeAndConsume(MethodParamModel arg, Queue<TypeName> types) {
+    while (!types.isEmpty()) {
+      TypeName type = types.poll();
+      if (isArgumentTypeAllowed(arg, type)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /** Checks if any allowed argument type matches the delegate method param. */
+  public static boolean isArgumentTypeAllowed(MethodParamModel arg, ImmutableList<TypeName> types) {
+    for (TypeName type : types) {
+      if (DelegateMethodDescription.isArgumentTypeAllowed(arg, type)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /** Checks if the argument type matches the delegate method param. */
+  public static boolean isArgumentTypeAllowed(MethodParamModel arg, TypeName expected) {
+    TypeName actual = arg.getTypeName();
+    return arg instanceof SimpleMethodParamModel
+        && (expected.equals(ClassNames.OBJECT) || expected.equals(actual))
+        && arg.getAnnotations().isEmpty();
   }
 }

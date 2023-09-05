@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,7 +19,14 @@ package com.facebook.litho.annotations;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
+/**
+ * A method annotation used in classes that are annotated with {@link MountSpec}.
+ *
+ * <p>The method should return void. It defines how your component should be measured during the
+ * layout calculation.
+ *
+ * <p>See <a href="https://fblitho.com/docs/mount-specs#measurement">Mount Specs: Measurement</a>
+ * for details.
+ */
 @Retention(RetentionPolicy.CLASS)
-public @interface OnMeasure {
-
-}
+public @interface OnMeasure {}

@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,21 +26,29 @@ import android.os.Looper;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
+import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import com.facebook.litho.Component;
 import com.facebook.litho.ComponentContext;
+import com.facebook.litho.ComponentContextUtils;
 import com.facebook.litho.ComponentTree;
 import com.facebook.litho.EventHandler;
 import com.facebook.litho.FocusedVisibleEvent;
 import com.facebook.litho.FullImpressionVisibleEvent;
+import com.facebook.litho.HasEventDispatcher;
 import com.facebook.litho.InvisibleEvent;
+import com.facebook.litho.LithoNode;
 import com.facebook.litho.LithoView;
-import com.facebook.litho.TestComponentTree;
+import com.facebook.litho.ResolveContext;
+import com.facebook.litho.TestComponent;
+import com.facebook.litho.TestLayoutState;
 import com.facebook.litho.TreeProps;
 import com.facebook.litho.UnfocusedVisibleEvent;
 import com.facebook.litho.VisibleEvent;
 import com.facebook.litho.testing.Whitebox;
 import com.facebook.litho.testing.subcomponents.SubComponent;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import org.robolectric.shadows.ShadowLooper;
 
@@ -72,10 +80,18 @@ public final class ComponentTestHelper {
    * @return A LithoView with the component mounted in it.
    */
   public static LithoView mountComponent(
-      Component.Builder component, boolean incrementalMountEnabled) {
+      Component.Builder component,
+      boolean incrementalMountEnabled,
+      boolean visibilityProcessingEnabled) {
     ComponentContext context = getContext(component);
     return mountComponent(
-        context, new LithoView(context), component.build(), incrementalMountEnabled, 100, 100);
+        context,
+        new LithoView(context),
+        component.build(),
+        incrementalMountEnabled,
+        visibilityProcessingEnabled,
+        100,
+        100);
   }
 
   /**
@@ -98,9 +114,18 @@ public final class ComponentTestHelper {
    * @return A LithoView with the component mounted in it.
    */
   public static LithoView mountComponent(
-      ComponentContext context, Component component, boolean incrementalMountEnabled) {
+      ComponentContext context,
+      Component component,
+      boolean incrementalMountEnabled,
+      boolean visibilityProcessingEnabled) {
     return mountComponent(
-        context, new LithoView(context), component, incrementalMountEnabled, 100, 100);
+        context,
+        new LithoView(context),
+        component,
+        incrementalMountEnabled,
+        visibilityProcessingEnabled,
+        100,
+        100);
   }
 
   /**
@@ -142,7 +167,7 @@ public final class ComponentTestHelper {
    */
   public static LithoView mountComponent(
       ComponentContext context, LithoView lithoView, Component component, int width, int height) {
-    return mountComponent(context, lithoView, component, false, width, height);
+    return mountComponent(context, lithoView, component, false, false, width, height);
   }
 
   /**
@@ -161,6 +186,7 @@ public final class ComponentTestHelper {
       LithoView lithoView,
       Component component,
       boolean incrementalMountEnabled,
+      boolean visibilityProcessingEnabled,
       int width,
       int height) {
     return mountComponent(
@@ -168,6 +194,7 @@ public final class ComponentTestHelper {
         ComponentTree.create(context, component)
             .incrementalMount(incrementalMountEnabled)
             .layoutDiffing(false)
+            .visibilityProcessing(visibilityProcessingEnabled)
             .build(),
         makeMeasureSpec(width, EXACTLY),
         makeMeasureSpec(height, EXACTLY));
@@ -181,6 +208,21 @@ public final class ComponentTestHelper {
    * @return A LithoView with the component tree mounted in it.
    */
   public static LithoView mountComponent(LithoView lithoView, ComponentTree componentTree) {
+    return mountComponent(
+        lithoView, componentTree, makeMeasureSpec(100, EXACTLY), makeMeasureSpec(100, EXACTLY));
+  }
+
+  /**
+   * Set a root component to a component tree, and mount it into a component view.
+   *
+   * @param lithoView The view to mount the component tree into
+   * @param componentTree The component tree to mount
+   * @param component The root component
+   * @return A LithoView with the component tree mounted in it.
+   */
+  public static LithoView mountComponent(
+      LithoView lithoView, ComponentTree componentTree, Component component) {
+    componentTree.setRoot(component);
     return mountComponent(
         lithoView, componentTree, makeMeasureSpec(100, EXACTLY), makeMeasureSpec(100, EXACTLY));
   }
@@ -242,7 +284,7 @@ public final class ComponentTestHelper {
     // Unmounting the component by running incremental mount to a Rect that we certain won't
     // contain the component.
     Rect rect = new Rect(99999, 99999, 999999, 999999);
-    lithoView.performIncrementalMount(rect, true);
+    lithoView.notifyVisibleBoundsChanged(rect, true);
   }
 
   /**
@@ -263,7 +305,9 @@ public final class ComponentTestHelper {
    *
    * @param component The component builder which to get the subcomponents of
    * @return The subcomponents of the given component
+   * @deprecated Use ComponentAssert#extractingSubComponents() instead.
    */
+  @Deprecated
   public static List<SubComponent> getSubComponents(Component.Builder component) {
     return getSubComponents(getContext(component), component.build());
   }
@@ -274,7 +318,9 @@ public final class ComponentTestHelper {
    * @param context A components context
    * @param component The component which to get the subcomponents of
    * @return The subcomponents of the given component
+   * @deprecated Use ComponentAssert#extractingSubComponents() instead.
    */
+  @Deprecated
   public static List<SubComponent> getSubComponents(ComponentContext context, Component component) {
     return getSubComponents(
         context, component, makeMeasureSpec(1000, EXACTLY), makeMeasureSpec(0, UNSPECIFIED));
@@ -287,7 +333,9 @@ public final class ComponentTestHelper {
    * @param widthSpec The width to measure the component with
    * @param heightSpec The height to measure the component with
    * @return The subcomponents of the given component
+   * @deprecated Use ComponentAssert#extractingSubComponents() instead.
    */
+  @Deprecated
   public static List<SubComponent> getSubComponents(
       Component.Builder component, int widthSpec, int heightSpec) {
     return getSubComponents(getContext(component), component.build(), widthSpec, heightSpec);
@@ -301,19 +349,29 @@ public final class ComponentTestHelper {
    * @param widthSpec The width to measure the component with
    * @param heightSpec The height to measure the component with
    * @return The subcomponents of the given component
+   * @deprecated Use ComponentAssert#extractingSubComponents() instead.
    */
+  @Deprecated
   public static List<SubComponent> getSubComponents(
       ComponentContext context, Component component, int widthSpec, int heightSpec) {
-    final TestComponentTree componentTree =
-        TestComponentTree.create(context, component).incrementalMount(false).build();
+    return getImmediateSubComponents(context, component, widthSpec, heightSpec);
+  }
 
-    final LithoView lithoView = new LithoView(context);
-    lithoView.setComponentTree(componentTree);
-
-    lithoView.measure(widthSpec, heightSpec);
-    lithoView.layout(0, 0, lithoView.getMeasuredWidth(), lithoView.getMeasuredHeight());
-
-    final List<Component> components = componentTree.getSubComponents();
+  /**
+   * Get the subcomponents of a component
+   *
+   * @param context A components context
+   * @param component The component which to get the subcomponents of
+   * @param widthSpec The width to measure the component with
+   * @param heightSpec The height to measure the component with
+   * @return The subcomponents of the given component
+   * @deprecated Use ComponentAssert#extractingSubComponents instead.
+   */
+  @Deprecated
+  private static List<SubComponent> getImmediateSubComponents(
+      ComponentContext context, Component component, int widthSpec, int heightSpec) {
+    final List<Component> components =
+        extractImmediateSubComponents(context, component, widthSpec, heightSpec);
     final List<SubComponent> subComponents = new ArrayList<>(components.size());
     for (Component lifecycle : components) {
       subComponents.add(SubComponent.of(lifecycle));
@@ -328,7 +386,9 @@ public final class ComponentTestHelper {
    * @param component The component builder which to get the subcomponent from
    * @param componentClass the class type of the requested sub component
    * @return The first instance of subComponent of type Class or null if none is present.
+   * @deprecated Use ComponentAssert#extractingSubComponents() instead.
    */
+  @Deprecated
   public static <T extends Component> Component getSubComponent(
       Component.Builder component, Class<T> componentClass) {
     List<SubComponent> subComponents = getSubComponents(component);
@@ -342,6 +402,62 @@ public final class ComponentTestHelper {
     return null;
   }
 
+  @Deprecated
+  private static LithoNode resolveImmediateSubtree(
+      ResolveContext resolveContext,
+      ComponentContext c,
+      Component component,
+      int widthSpec,
+      int heightSpec) {
+
+    LithoNode node =
+        TestLayoutState.createAndMeasureTreeForComponent(
+            resolveContext, c, component, widthSpec, heightSpec);
+
+    return node;
+  }
+
+  @Deprecated
+  private static List<Component> extractImmediateSubComponents(@Nullable LithoNode root) {
+    if (root == null) {
+      return Collections.emptyList();
+    }
+
+    final List<Component> output = new ArrayList<>();
+
+    if (root.getChildCount() == 0) {
+      if (root.getTailComponent() != null && root.getTailComponent() instanceof TestComponent) {
+        TestComponent testSubcomponent = (TestComponent) root.getTailComponent();
+        output.add(testSubcomponent.getWrappedComponent());
+      }
+
+      return output;
+    }
+
+    for (int i = 0; i < root.getChildCount(); i++) {
+      LithoNode child = root.getChildAt(i);
+      output.addAll(extractImmediateSubComponents(child));
+    }
+
+    return output;
+  }
+
+  @Deprecated
+  private static List<Component> extractImmediateSubComponents(
+      ComponentContext context, Component component, int widthSpec, int heightSpec) {
+
+    ComponentTree tree = ComponentTree.create(context).build();
+    ComponentContext c =
+        new ComponentContext(
+            ComponentContextUtils.withComponentTree(new ComponentContext(context), tree));
+
+    final ResolveContext rsc = c.setRenderStateContextForTests();
+
+    LithoNode root = resolveImmediateSubtree(rsc, c, component, widthSpec, heightSpec);
+
+    return extractImmediateSubComponents(root);
+  }
+
   /**
    * Measure and layout a component view.
    *
@@ -349,6 +465,18 @@ public final class ComponentTestHelper {
    */
   public static void measureAndLayout(View view) {
     view.measure(makeMeasureSpec(1000, EXACTLY), makeMeasureSpec(0, UNSPECIFIED));
+    view.layout(0, 0, view.getMeasuredWidth(), view.getMeasuredHeight());
+  }
+
+  /**
+   * Measure and layout a component view.
+   *
+   * @param view The component view to measure and layout
+   * @param width
+   * @param height
+   */
+  public static void measureAndLayout(View view, int width, int height) {
+    view.measure(makeMeasureSpec(width, EXACTLY), makeMeasureSpec(height, EXACTLY));
     view.layout(0, 0, view.getMeasuredWidth(), view.getMeasuredHeight());
   }
 
@@ -362,11 +490,14 @@ public final class ComponentTestHelper {
    *
    * <p>{@link com.facebook.litho.VisibleEvent}
    *
+   * <p>DEPRECATED: Prefer using {@link #triggerVisibilityEvent(LithoView, Class)} instead
+   *
    * @param context A components context
    * @param onVisibleHandler SpecificComponent.onVisible(component)
    * @param component The component builder which to get the subcomponent from
    * @return A LithoView with the component mounted in it.
    */
+  @Deprecated
   public static LithoView dispatchOnVisibleEvent(
       ComponentContext context, EventHandler onVisibleHandler, Component component) {
     return dispatchVisibilityEvent(context, onVisibleHandler, new VisibleEvent(), component);
@@ -378,11 +509,14 @@ public final class ComponentTestHelper {
    *
    * <p>{@link com.facebook.litho.FocusedVisibleEvent}
    *
+   * <p>DEPRECATED: Prefer using {@link #triggerVisibilityEvent(LithoView, Class)} instead
+   *
    * @param context A components context
    * @param onFocusedVisibleHandler SpecificComponent.onFocusedVisible(component)
    * @param component The component builder which to get the subcomponent from
    * @return A LithoView with the component mounted in it.
    */
+  @Deprecated
   public static LithoView dispatchOnFocusedVisibleEvent(
       ComponentContext context, EventHandler onFocusedVisibleHandler, Component component) {
     return dispatchVisibilityEvent(
@@ -395,16 +529,21 @@ public final class ComponentTestHelper {
    *
    * <p>{@link com.facebook.litho.InvisibleEvent}
    *
+   * <p>DEPRECATED: Prefer using {@link #triggerVisibilityEvent(LithoView, Class)} instead
+   *
    * @param context A components context
    * @param onInvisibleHandler SpecificComponent.onInvisible(component)
    * @param component The component builder which to get the subcomponent from
    * @return A LithoView with the component mounted in it.
    */
+  @Deprecated
   public static LithoView dispatchOnInvisibleEvent(
       ComponentContext context, EventHandler onInvisibleHandler, Component component) {
     return dispatchVisibilityEvent(context, onInvisibleHandler, new InvisibleEvent(), component);
   }
 
+  /** Use {@link #triggerVisibilityEvent(LithoView, Class)} instead */
+  @Deprecated
   private static LithoView dispatchVisibilityEvent(
       ComponentContext context,
       EventHandler eventHandler,
@@ -415,15 +554,21 @@ public final class ComponentTestHelper {
 
     parent.addView(lithoView);
 
-    mountComponent(context, lithoView, component, true, 100, 100);
+    mountComponent(context, lithoView, component, true, true, 100, 100);
 
-    lithoView.performIncrementalMount();
+    lithoView.notifyVisibleBoundsChanged();
 
-    eventHandler.mHasEventDispatcher = component;
+    if (!(component instanceof HasEventDispatcher)) {
+      return lithoView;
+    }
+    eventHandler.dispatchInfo.hasEventDispatcher = (HasEventDispatcher) component;
 
     try {
       Whitebox.invokeMethod(
-          component.getEventDispatcher(), "dispatchOnEvent", eventHandler, eventInstance);
+          ((HasEventDispatcher) component).getEventDispatcher(),
+          "dispatchOnEvent",
+          eventHandler,
+          eventInstance);
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
@@ -464,13 +609,62 @@ public final class ComponentTestHelper {
     treeProps.put(propClass, prop);
   }
 
+  /**
+   * Sets a TreeProp that will be visible to all Components which are created from the given Context
+   * (unless a child overwrites its).
+   */
+  public static void setParentTreeProp(ComponentContext context, Class propClass, Object prop) {
+    TreeProps treeProps;
+    try {
+      treeProps = Whitebox.invokeMethod(context, "getParentTreeProps");
+      if (treeProps == null) {
+        treeProps = new TreeProps();
+        Whitebox.invokeMethod(context, "setParentTreeProps", treeProps);
+      }
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+    treeProps.put(propClass, prop);
+  }
+
+  /**
+   * Creates a ComponentContext scoped to a given component and initialized with its StateContainer.
+   * This was added to replace usages of ComponentContext.withComponentScope in tests.
+   *
+   * <p>This method shouldn't be necessary if you're using the latest test practices with
+   * LithoViewRule (or LegacyLithoViewRule for Java-only tests). See
+   * https://fblitho.com/docs/kotlin/testing-getting-started/ for more info.
+   *
+   * @deprecated introduced for legacy test cases - don't add new callers
+   */
+  @VisibleForTesting
+  @Deprecated
+  public static ComponentContext createScopedComponentContextWithStateForTest(
+      ComponentContext parent, Component component, String key) {
+    return ComponentContext.createScopedComponentContextWithStateForTest(parent, component, key);
+  }
+
   /** Access the default layout thread looper for testing purposes only. */
   public static Looper getDefaultLayoutThreadLooper() {
     return (Looper) Whitebox.invokeMethod(ComponentTree.class, "getDefaultLayoutThreadLooper");
   }
 
+  public static Looper getDefaultResolveThreadLooper() {
+    return (Looper) Whitebox.invokeMethod(ComponentTree.class, "getDefaultResolveThreadLooper");
+  }
+
   /** Access the shadow of the default layout thread looper for testing purposes only. */
-  public static ShadowLooper getDefaultLayoutThreadShadowLooper() throws Exception {
+  public static ShadowLooper getDefaultLayoutThreadShadowLooper() {
     return shadowOf(getDefaultLayoutThreadLooper());
+  }
+
+  public static ShadowLooper getDefaultResolveThreadShadowLooper() {
+    return shadowOf(getDefaultResolveThreadLooper());
+  }
+
+  public static ShadowLooper[] getDefaultThreadShadowLoopers() {
+    return new ShadowLooper[] {
+      getDefaultResolveThreadShadowLooper(), getDefaultLayoutThreadShadowLooper()
+    };
   }
 }

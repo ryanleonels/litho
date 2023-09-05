@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -36,25 +36,29 @@ class TreePropValidation {
                 "@OnCreateTreeProp methods cannot return void."));
       }
 
-      if (onCreateTreePropMethod.returnType.isPrimitive() ||
-          onCreateTreePropMethod.returnType.toString().startsWith("java.lang.") ||
-          onCreateTreePropMethod.returnType.toString().startsWith("java.util.")) {
+      if (onCreateTreePropMethod.returnType.isPrimitive()
+          || onCreateTreePropMethod.returnType.toString().startsWith("java.lang.")
+          || onCreateTreePropMethod.returnType.toString().startsWith("java.util.")) {
         validationErrors.add(
             new SpecModelValidationError(
                 onCreateTreePropMethod.representedObject,
-                "Returning a common JAVA class or a primitive is against the design" +
-                    "of tree props, as they will be keyed on their specific types. Consider " +
-                    "creating your own wrapper classes instead."));
+                "Returning a common JAVA class or a primitive is against the design"
+                    + "of tree props, as they will be keyed on their specific types. Consider "
+                    + "creating your own wrapper classes instead."));
       }
 
-      if (onCreateTreePropMethod.methodParams.isEmpty() ||
-          !onCreateTreePropMethod.methodParams.get(0).getTypeName()
+      if (onCreateTreePropMethod.methodParams.isEmpty()
+          || !onCreateTreePropMethod
+              .methodParams
+              .get(0)
+              .getTypeName()
               .equals(specModel.getContextClass())) {
         validationErrors.add(
             new SpecModelValidationError(
                 onCreateTreePropMethod.representedObject,
-                "The first argument of an @OnCreateTreeProp method should be " +
-                    specModel.getComponentClass() + "."));
+                "The first argument of an @OnCreateTreeProp method should be "
+                    + specModel.getContextClass()
+                    + "."));
       }
     }
 

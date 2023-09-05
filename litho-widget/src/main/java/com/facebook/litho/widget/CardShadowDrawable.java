@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,60 +30,147 @@ import android.graphics.drawable.Drawable;
 
 public class CardShadowDrawable extends Drawable {
 
-  static final float SHADOW_MULTIPLIER = 1.5f;
+  public static final float UNDEFINED = -1;
 
   private int mShadowStartColor;
   private int mShadowEndColor;
 
   private final Paint mEdgeShadowPaint;
 
-  private final Path mCornerShadowTopPath = new Path();
-  private final Path mCornerShadowBottomPath = new Path();
+  private final Path mCornerShadowTopLeftPath = new Path();
+  private final Path mCornerShadowBottomLeftPath = new Path();
+  private final Path mCornerShadowTopRightPath = new Path();
+  private final Path mCornerShadowBottomRightPath = new Path();
 
-  private final Paint mCornerShadowPaint;
+  private final Paint mCornerShadowLeftPaint;
+  private final Paint mCornerShadowRightPaint;
 
   private float mCornerRadius;
   private float mShadowSize;
-  private float mRawShadowSize;
+  private float mShadowLeftSizeOverride = UNDEFINED;
+  private float mShadowRightSizeOverride = UNDEFINED;
+  private float mShadowDx = UNDEFINED;
+  private float mShadowDy = UNDEFINED;
 
   private boolean mHideTopShadow;
   private boolean mHideBottomShadow;
 
   private boolean mDirty = true;
 
-  CardShadowDrawable() {
-    mCornerShadowPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG);
-    mCornerShadowPaint.setStyle(Paint.Style.FILL);
+  public CardShadowDrawable() {
+    mCornerShadowLeftPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG);
+    mCornerShadowLeftPaint.setStyle(Paint.Style.FILL);
 
-    mEdgeShadowPaint = new Paint(mCornerShadowPaint);
+    mCornerShadowRightPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG);
+    mCornerShadowRightPaint.setStyle(Paint.Style.FILL);
+
+    mEdgeShadowPaint = new Paint(mCornerShadowLeftPaint);
     mEdgeShadowPaint.setAntiAlias(false);
   }
 
   @Override
   public void setAlpha(int alpha) {
-    mCornerShadowPaint.setAlpha(alpha);
+    mCornerShadowLeftPaint.setAlpha(alpha);
+    mCornerShadowRightPaint.setAlpha(alpha);
     mEdgeShadowPaint.setAlpha(alpha);
   }
 
-  public static int getShadowHorizontal(float shadowSize) {
-    return (int) Math.ceil(shadowSize);
+  /**
+   * @param shadowSize
+   * @param shadowDx Light source offset applied horizontally, i.e. if shadowDx is 0, the shadows on
+   *     the left and right sides are both equal to shadowSize. If shadowDx is positive, the light
+   *     source moves to the left side, hence left shadow is decreased by shadowDx while right
+   *     shadow is increased by shadowDx. If shadowDx is negative, light source moves to the right
+   *     side and left and right shadows are adjusted accordingly.
+   * @return Shadow applied to the left side of the element.
+   */
+  public static int getShadowLeft(float shadowSize, float shadowDx) {
+    return (int) Math.ceil(toEven(shadowSize) - shadowDx);
   }
 
-  public static int getShadowTop(float shadowSize) {
-    return (int) Math.ceil(shadowSize / 2);
+  /**
+   * @param shadowSize
+   * @return Shadow applied to the left side of the element. Shadow offset is 0.
+   */
+  public static int getShadowLeft(float shadowSize) {
+    return getShadowLeft(shadowSize, 0);
   }
 
+  /**
+   * @param shadowSize
+   * @param shadowDx Light source offset applied horizontally, i.e. if shadowDx is 0, the shadows on
+   *     the left and right sides are both equal to shadowSize. If shadowDx is positive, the light
+   *     source moves to the left side, hence left shadow is decreased by shadowDx while right
+   *     shadow is increased by shadowDx. If shadowDx is negative, light source moves to the right
+   *     side and left and right shadows are adjusted accordingly.
+   * @return Shadow applied to the right side of the element.
+   */
+  public static int getShadowRight(float shadowSize, float shadowDx) {
+    return (int) Math.ceil(toEven(shadowSize) + shadowDx);
+  }
+
+  /**
+   * @param shadowSize
+   * @return Shadow applied to the right side of the element. Shadow offset is 0.
+   */
   public static int getShadowRight(float shadowSize) {
-    return (int) Math.ceil(shadowSize);
+    return getShadowRight(shadowSize, 0);
   }
 
+  /**
+   * @param shadowSize
+   * @param shadowDy Light source offset applied vertically, i.e. if shadowDy is 0, the shadows on
+   *     the top and bottom sides are both equal to shadowSize. If shadowDy is positive, the light
+   *     source moves to the top side, hence top shadow is decreased by shadowDy while bottom shadow
+   *     is increased by shadowDy. If shadowDy is negative, light source moves to the bottom side
+   *     and top and bottom shadows are adjusted accordingly.
+   * @return Shadow applied to the top side of the element.
+   */
+  public static int getShadowTop(float shadowSize, float shadowDy) {
+    return (int) Math.ceil(toEven(shadowSize) - shadowDy);
+  }
+
+  /**
+   * @param shadowSize
+   * @return Shadow applied to the top side of the element. Shadow offset equals to half of
+   *     shadowSize.
+   */
+  public static int getShadowTop(float shadowSize) {
+    float shadowDy = getDefaultShadowDy(shadowSize);
+    return getShadowTop(shadowSize, shadowDy);
+  }
+
+  private static float getDefaultShadowDy(float shadowSize) {
+    return toEven(shadowSize) * 0.5f;
+  }
+
+  /**
+   * @param shadowSize
+   * @param shadowDy Light source offset applied vertically, i.e. if shadowDy is 0, the shadows on
+   *     the top and bottom sides are both equal to shadowSize. If shadowDy is positive, the light
+   *     source moves to the top side, hence top shadow is decreased by shadowDy while bottom shadow
+   *     is increased by shadowDy. If shadowDy is negative, light source moves to the bottom side
+   *     and top and bottom shadows are adjusted accordingly.
+   * @return Shadow applied to the bottom side of the element.
+   */
+  public static int getShadowBottom(float shadowSize, float shadowDy) {
+    return (int) Math.ceil(toEven(shadowSize) + shadowDy);
+  }
+
+  /**
+   * @param shadowSize
+   * @return Shadow applied to the bottom side of the element. Shadow offset equals to half of
+   *     shadowSize.
+   */
   public static int getShadowBottom(float shadowSize) {
-    return (int) Math.ceil(shadowSize * SHADOW_MULTIPLIER);
+    float shadowDy = getDefaultShadowDy(shadowSize);
+    return getShadowBottom(shadowSize, shadowDy);
   }
 
   @Override
   public void setColorFilter(ColorFilter cf) {
-    mCornerShadowPaint.setColorFilter(cf);
+    mCornerShadowLeftPaint.setColorFilter(cf);
+    mCornerShadowRightPaint.setColorFilter(cf);
     mEdgeShadowPaint.setColorFilter(cf);
   }
 
@@ -105,7 +192,7 @@ public class CardShadowDrawable extends Drawable {
     drawShadowEdges(canvas, bounds);
   }
 
-  void setShadowStartColor(int shadowStartColor) {
+  public void setShadowStartColor(int shadowStartColor) {
     if (mShadowStartColor == shadowStartColor) {
       return;
     }
@@ -116,7 +203,7 @@ public class CardShadowDrawable extends Drawable {
     invalidateSelf();
   }
 
-  void setShadowEndColor(int shadowEndColor) {
+  public void setShadowEndColor(int shadowEndColor) {
     if (mShadowEndColor == shadowEndColor) {
       return;
     }
@@ -127,7 +214,7 @@ public class CardShadowDrawable extends Drawable {
     invalidateSelf();
   }
 
-  void setCornerRadius(float radius) {
+  public void setCornerRadius(float radius) {
     radius = (int) (radius + .5f);
     if (mCornerRadius == radius) {
       return;
@@ -139,85 +226,119 @@ public class CardShadowDrawable extends Drawable {
     invalidateSelf();
   }
 
-  void setShadowSize(float shadowSize) {
+  public void setShadowSize(float shadowSize) {
     if (shadowSize < 0) {
       throw new IllegalArgumentException("invalid shadow size");
     }
 
     shadowSize = toEven(shadowSize);
-    if (mRawShadowSize == shadowSize) {
+    if (mShadowSize == shadowSize) {
       return;
     }
 
-    mRawShadowSize = shadowSize;
-    mShadowSize = (int) (shadowSize * SHADOW_MULTIPLIER + .5f);
+    mShadowSize = shadowSize;
 
     mDirty = true;
     invalidateSelf();
   }
 
-  void setHideTopShadow(boolean hideTopShadow) {
+  public void setShadowDx(float shadowDx) {
+    if (shadowDx == mShadowDx) {
+      return;
+    }
+
+    mShadowDx = shadowDx;
+
+    mDirty = true;
+    invalidateSelf();
+  }
+
+  public void setShadowDy(float shadowDy) {
+    if (shadowDy == mShadowDy) {
+      return;
+    }
+
+    mShadowDy = shadowDy;
+
+    mDirty = true;
+    invalidateSelf();
+  }
+
+  public void setHideTopShadow(boolean hideTopShadow) {
     mHideTopShadow = hideTopShadow;
   }
 
-  void setHideBottomShadow(boolean hideBottomShadow) {
+  public void setHideBottomShadow(boolean hideBottomShadow) {
     mHideBottomShadow = hideBottomShadow;
   }
 
-  private void buildShadow() {
-    final int shadowHorizontal = getShadowHorizontal(mRawShadowSize);
-    final int shadowTop = getShadowTop(mRawShadowSize);
-    final int shadowBottom = getShadowBottom(mRawShadowSize);
-    final float shadowCornerRadius = shadowHorizontal + mCornerRadius;
+  public void setShadowLeftSizeOverride(float shadowLeftSize) {
+    mShadowLeftSizeOverride = shadowLeftSize;
+  }
 
-    mCornerShadowPaint.setShader(
+  public void setShadowRightSizeOverride(float shadowRightSizeOverride) {
+    mShadowRightSizeOverride = shadowRightSizeOverride;
+  }
+
+  private static void setPath(Path path, int shadowX, int shadowY, float cornerRadius) {
+
+    final RectF innerBounds =
+        new RectF(shadowX, shadowY, shadowX + 2 * cornerRadius, shadowY + 2 * cornerRadius);
+
+    final RectF outerBounds = new RectF(0, 0, 2 * cornerRadius, 2 * cornerRadius);
+
+    path.reset();
+    path.setFillType(Path.FillType.EVEN_ODD);
+    path.moveTo(shadowX + cornerRadius, shadowY);
+    path.arcTo(innerBounds, 270f, -90f, true);
+    path.rLineTo(-shadowX, 0);
+    path.lineTo(0, cornerRadius);
+    path.arcTo(outerBounds, 180f, 90f, true);
+    path.lineTo(shadowX + cornerRadius, 0);
+    path.rLineTo(0, shadowY);
+    path.close();
+  }
+
+  private void buildShadow() {
+
+    final float shadowLeftSideUnadjusted =
+        mShadowLeftSizeOverride == UNDEFINED ? mShadowSize : mShadowLeftSizeOverride;
+    final float shadowRightSideUnadjusted =
+        mShadowRightSizeOverride == UNDEFINED ? mShadowSize : mShadowRightSizeOverride;
+
+    final float shadowCornerLeftRadius = shadowLeftSideUnadjusted + mCornerRadius;
+    final float shadowCornerRightRadius = shadowRightSideUnadjusted + mCornerRadius;
+
+    mCornerShadowLeftPaint.setShader(
         new RadialGradient(
-            shadowCornerRadius,
-            shadowCornerRadius,
-            shadowCornerRadius,
+            shadowCornerLeftRadius,
+            shadowCornerLeftRadius,
+            shadowCornerLeftRadius,
             new int[] {mShadowStartColor, mShadowStartColor, mShadowEndColor},
             new float[] {0f, .2f, 1f},
             Shader.TileMode.CLAMP));
 
-    final RectF topInnerBounds =
-        new RectF(
-            shadowHorizontal,
-            shadowTop,
-            shadowHorizontal + 2 * mCornerRadius,
-            shadowTop + 2 * mCornerRadius);
+    mCornerShadowRightPaint.setShader(
+        new RadialGradient(
+            shadowCornerRightRadius,
+            shadowCornerRightRadius,
+            shadowCornerRightRadius,
+            new int[] {mShadowStartColor, mShadowStartColor, mShadowEndColor},
+            new float[] {0f, .2f, 1f},
+            Shader.TileMode.CLAMP));
 
-    final RectF topOuterBounds = new RectF(0, 0, 2 * mCornerRadius, 2 * mCornerRadius);
+    final float shadowDx = mShadowDx == UNDEFINED ? 0 : mShadowDx;
+    final float shadowDy = mShadowDy == UNDEFINED ? getDefaultShadowDy(mShadowSize) : mShadowDy;
 
-    mCornerShadowTopPath.reset();
-    mCornerShadowTopPath.setFillType(Path.FillType.EVEN_ODD);
-    mCornerShadowTopPath.moveTo(shadowHorizontal + mCornerRadius, shadowTop);
-    mCornerShadowTopPath.arcTo(topInnerBounds, 270f, -90f, true);
-    mCornerShadowTopPath.rLineTo(-shadowHorizontal, 0);
-    mCornerShadowTopPath.lineTo(0, mCornerRadius);
-    mCornerShadowTopPath.arcTo(topOuterBounds, 180f, 90f, true);
-    mCornerShadowTopPath.lineTo(shadowHorizontal + mCornerRadius, 0);
-    mCornerShadowTopPath.rLineTo(0, shadowTop);
-    mCornerShadowTopPath.close();
+    final int shadowLeft = getShadowLeft(shadowLeftSideUnadjusted, shadowDx);
+    final int shadowRight = getShadowRight(shadowRightSideUnadjusted, shadowDx);
+    final int shadowTop = getShadowTop(mShadowSize, shadowDy);
+    final int shadowBottom = getShadowBottom(mShadowSize, shadowDy);
 
-    final RectF bottomInnerBounds =
-        new RectF(
-            getShadowHorizontal(mRawShadowSize),
-            getShadowBottom(mRawShadowSize),
-            getShadowHorizontal(mRawShadowSize) + 2 * mCornerRadius,
-            getShadowBottom(mRawShadowSize) + 2 * mCornerRadius);
-
-    final RectF bottomOuterBounds = new RectF(0, 0, 2 * mCornerRadius, 2 * mCornerRadius);
-
-    mCornerShadowBottomPath.reset();
-    mCornerShadowBottomPath.setFillType(Path.FillType.EVEN_ODD);
-    mCornerShadowBottomPath.moveTo(shadowHorizontal + mCornerRadius, shadowBottom);
-    mCornerShadowBottomPath.arcTo(bottomInnerBounds, 270f, -90f, true);
-    mCornerShadowBottomPath.rLineTo(-shadowHorizontal, 0);
-    mCornerShadowBottomPath.lineTo(0, mCornerRadius);
-    mCornerShadowBottomPath.arcTo(bottomOuterBounds, 180f, 90f, true);
-    mCornerShadowBottomPath.lineTo(shadowHorizontal + mCornerRadius, 0);
-    mCornerShadowBottomPath.rLineTo(0, shadowBottom);
-    mCornerShadowBottomPath.close();
+    setPath(mCornerShadowTopLeftPath, shadowLeft, shadowTop, mCornerRadius);
+    setPath(mCornerShadowTopRightPath, shadowRight, shadowTop, mCornerRadius);
+    setPath(mCornerShadowBottomLeftPath, shadowLeft, shadowBottom, mCornerRadius);
+    setPath(mCornerShadowBottomRightPath, shadowRight, shadowBottom, mCornerRadius);
 
     // We offset the content (shadowSize / 2) pixels up to make it more realistic.
     // This is why edge shadow shader has some extra space. When drawing bottom edge
@@ -225,7 +346,7 @@ public class CardShadowDrawable extends Drawable {
     mEdgeShadowPaint.setShader(
         new LinearGradient(
             0,
-            shadowCornerRadius,
+            shadowCornerLeftRadius,
             0,
             0,
             new int[] {mShadowStartColor, mShadowStartColor, mShadowEndColor},
@@ -240,14 +361,14 @@ public class CardShadowDrawable extends Drawable {
     if (!mHideTopShadow) {
       // left-top
       canvas.translate(bounds.left, bounds.top);
-      canvas.drawPath(mCornerShadowTopPath, mCornerShadowPaint);
+      canvas.drawPath(mCornerShadowTopLeftPath, mCornerShadowLeftPaint);
       canvas.restoreToCount(saved);
 
       // right-top
       saved = canvas.save();
       canvas.translate(bounds.right, bounds.top);
       canvas.scale(-1f, 1f);
-      canvas.drawPath(mCornerShadowTopPath, mCornerShadowPaint);
+      canvas.drawPath(mCornerShadowTopRightPath, mCornerShadowLeftPaint);
       canvas.restoreToCount(saved);
     }
 
@@ -256,23 +377,32 @@ public class CardShadowDrawable extends Drawable {
       saved = canvas.save();
       canvas.translate(bounds.right, bounds.bottom);
       canvas.scale(-1f, -1f);
-      canvas.drawPath(mCornerShadowBottomPath, mCornerShadowPaint);
+      canvas.drawPath(mCornerShadowBottomRightPath, mCornerShadowRightPaint);
       canvas.restoreToCount(saved);
 
       // left-bottom
       saved = canvas.save();
       canvas.translate(bounds.left, bounds.bottom);
       canvas.scale(1f, -1f);
-      canvas.drawPath(mCornerShadowBottomPath, mCornerShadowPaint);
+      canvas.drawPath(mCornerShadowBottomLeftPath, mCornerShadowRightPaint);
       canvas.restoreToCount(saved);
     }
   }
 
   private void drawShadowEdges(Canvas canvas, Rect bounds) {
-    final int paddingLeft = getShadowHorizontal(mRawShadowSize);
-    final int paddingTop = getShadowTop(mRawShadowSize);
-    final int paddingRight = getShadowRight(mRawShadowSize);
-    final int paddingBottom = getShadowBottom(mRawShadowSize);
+
+    final float shadowDx = mShadowDx == UNDEFINED ? 0 : mShadowDx;
+    final float shadowDy = mShadowDy == UNDEFINED ? getDefaultShadowDy(mShadowSize) : mShadowDy;
+
+    float shadowLeftSideNonAdjusted =
+        mShadowLeftSizeOverride == UNDEFINED ? mShadowSize : mShadowLeftSizeOverride;
+    float shadowRightSideNonAdjusted =
+        mShadowRightSizeOverride == UNDEFINED ? mShadowSize : mShadowRightSizeOverride;
+    final int paddingLeft = getShadowLeft(shadowLeftSideNonAdjusted, shadowDx);
+    final int paddingRight = getShadowRight(shadowRightSideNonAdjusted, shadowDx);
+
+    final int paddingTop = getShadowTop(mShadowSize, shadowDy);
+    final int paddingBottom = getShadowBottom(mShadowSize, shadowDy);
 
     int saved = canvas.save();
 

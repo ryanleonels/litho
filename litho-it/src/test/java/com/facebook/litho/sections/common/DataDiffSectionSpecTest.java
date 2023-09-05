@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,7 @@
 
 package com.facebook.litho.sections.common;
 
+import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.facebook.litho.testing.sections.TestTarget.DELETE;
 import static com.facebook.litho.testing.sections.TestTarget.DELETE_RANGE;
 import static com.facebook.litho.testing.sections.TestTarget.INSERT;
@@ -24,44 +25,56 @@ import static com.facebook.litho.testing.sections.TestTarget.MOVE;
 import static com.facebook.litho.testing.sections.TestTarget.UPDATE;
 import static com.facebook.litho.testing.sections.TestTarget.UPDATE_RANGE;
 import static junit.framework.Assert.assertEquals;
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
+import android.annotation.SuppressLint;
+import androidx.annotation.Nullable;
+import com.facebook.litho.ComponentsReporter;
+import com.facebook.litho.DefaultComponentsReporter;
 import com.facebook.litho.EventHandler;
 import com.facebook.litho.HasEventDispatcher;
-import com.facebook.litho.sections.Section;
+import com.facebook.litho.config.ComponentsConfiguration;
 import com.facebook.litho.sections.SectionContext;
 import com.facebook.litho.sections.SectionTree;
 import com.facebook.litho.specmodels.internal.ImmutableList;
+import com.facebook.litho.testing.sections.TestDataDiffSection;
+import com.facebook.litho.testing.sections.TestDataDiffSectionNull;
 import com.facebook.litho.testing.sections.TestGroupSection;
 import com.facebook.litho.testing.sections.TestTarget;
 import com.facebook.litho.testing.sections.TestTarget.Operation;
-import com.facebook.litho.testing.testrunner.ComponentsTestRunner;
+import com.facebook.litho.testing.testrunner.LithoTestRunner;
+import com.facebook.rendercore.ErrorReporterDelegate;
+import com.facebook.rendercore.LogLevel;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Queue;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.robolectric.RuntimeEnvironment;
+import org.robolectric.annotation.LooperMode;
 
 /** Tests {@link DataDiffSectionSpec} */
-@RunWith(ComponentsTestRunner.class)
+@LooperMode(LooperMode.Mode.LEGACY)
+@RunWith(LithoTestRunner.class)
 public class DataDiffSectionSpecTest {
 
   private SectionContext mSectionContext;
   private SectionTree mSectionTree;
   private TestTarget mTestTarget;
 
-  @Mock public EventHandler<OnCheckIsSameItemEvent> mIsSameItemEventEventHandler;
+  @Mock public EventHandler<OnCheckIsSameItemEvent<String>> mIsSameItemEventEventHandler;
   @Mock public HasEventDispatcher mHasEventDispatcher;
 
   @Before
   public void setup() throws Exception {
     MockitoAnnotations.initMocks(this);
-    mSectionContext = new SectionContext(RuntimeEnvironment.application);
+    mSectionContext = new SectionContext(getApplicationContext());
     mTestTarget = new TestTarget();
     mSectionTree = SectionTree.create(mSectionContext, mTestTarget).build();
   }
@@ -77,6 +90,18 @@ public class DataDiffSectionSpecTest {
     final Operation operation = executedOperations.get(0);
     assertRangeOperation(operation, INSERT_RANGE, 0, 100);
     assertOperation(operation, INSERT_RANGE, 0, -1, 100, null, data);
+  }
+
+  @Test
+  public void testOnEventReturnNull() {
+    final List<String> data = generateData(100);
+    RecordingComponentsReporter reporter = new RecordingComponentsReporter();
+    ComponentsReporter.provide(reporter);
+    final TestDataDiffSectionNull section =
+        TestDataDiffSectionNull.create(mSectionContext).data(data).build();
+    mSectionTree.setRoot(section);
+    ComponentsReporter.provide(null);
+    assertThat(reporter.containsMessage(DataDiffSectionSpec.RENDER_INFO_RETURNS_NULL_MSG)).isTrue();
   }
 
   @Test
@@ -158,10 +183,10 @@ public class DataDiffSectionSpecTest {
     assertThat(executedOperations.size()).isEqualTo(2);
 
     final Operation newOperation1 = executedOperations.get(0);
-    assertOperation(newOperation1, MOVE, 1, 0, 1, "1", "1");
+    assertOperation(newOperation1, MOVE, 1, 2, 1, "1", "1");
 
     final Operation newOperation2 = executedOperations.get(1);
-    assertOperation(newOperation2, MOVE, 2, 0, 1, "2", "2");
+    assertOperation(newOperation2, MOVE, 0, 2, 1, "0", "0");
   }
 
   @Test
@@ -383,7 +408,7 @@ public class DataDiffSectionSpecTest {
             .build());
 
     executedOperations = mTestTarget.getOperations();
-    assertBulkOperations(executedOperations,0, 20,20);
+    assertBulkOperations(executedOperations, 0, 20, 20);
   }
 
   @Test
@@ -434,21 +459,69 @@ public class DataDiffSectionSpecTest {
     assertThat(section.getLogTag()).isEqualTo(section.getClass().getSimpleName());
   }
 
+  @Test
+  public void testDuplicatesDefault() {
+    final List<String> oldData = generateDuplicatedData(100);
+    RecordingComponentsReporter reporter = new RecordingComponentsReporter();
+    ComponentsReporter.provide(reporter);
+    mSectionTree.setRoot(TestDataDiffSection.create(mSectionContext).data(oldData).build());
+    ComponentsReporter.provide(null);
+    assertThat(reporter.containsMessage(DataDiffSectionSpec.DUPLICATES_EXIST_MSG))
+        .isEqualTo(ComponentsConfiguration.isDebugModeEnabled);
+  }
+
+  @Test
+  public void testDuplicatesOff() {
+    final List<String> oldData = generateDuplicatedData(100);
+    RecordingComponentsReporter reporter = new RecordingComponentsReporter();
+    ComponentsReporter.provide(reporter);
+    mSectionTree.setRoot(
+        TestDataDiffSection.create(mSectionContext)
+            .data(oldData)
+            .alwaysDetectDuplicates(false)
+            .build());
+    ComponentsReporter.provide(null);
+    assertThat(reporter.containsMessage(DataDiffSectionSpec.DUPLICATES_EXIST_MSG)).isFalse();
+  }
+
+  @Test
+  public void testDuplicatesOn() {
+    final List<String> oldData = generateDuplicatedData(100);
+    RecordingComponentsReporter reporter = new RecordingComponentsReporter();
+    ComponentsReporter.provide(reporter);
+    mSectionTree.setRoot(
+        TestDataDiffSection.create(mSectionContext)
+            .data(oldData)
+            .alwaysDetectDuplicates(true)
+            .build());
+    ComponentsReporter.provide(null);
+    assertThat(reporter.containsMessage(DataDiffSectionSpec.DUPLICATES_EXIST_MSG)).isTrue();
+  }
+
+  @Test
+  public void testDuplicatesOnIdentity() {
+    final List<String> oldData = generateDuplicatedDataSameRef(100);
+    RecordingComponentsReporter reporter = new RecordingComponentsReporter();
+    ComponentsReporter.provide(reporter);
+    mSectionTree.setRoot(
+        TestDataDiffSection.create(mSectionContext)
+            .data(oldData)
+            .skipCheckIsSameHandler(true)
+            .alwaysDetectDuplicates(true)
+            .build());
+    ComponentsReporter.provide(null);
+    assertThat(reporter.containsMessage(DataDiffSectionSpec.DUPLICATES_EXIST_MSG)).isTrue();
+  }
+
   private void assertRangeOperation(
-      Operation operation,
-      int opType,
-      int startIndex,
-      int rangeCount) {
+      Operation operation, int opType, int startIndex, int rangeCount) {
     assertEquals("opreation type", operation.mOp, opType);
     assertEquals("operation starting index", operation.mIndex, startIndex);
     assertEquals("operation range count", operation.mRangeCount, rangeCount);
   }
 
   private void assertBulkOperations(
-      List<Operation> operations,
-      int expectedInserted,
-      int expectedUpdated,
-      int expectedRemoved) {
+      List<Operation> operations, int expectedInserted, int expectedUpdated, int expectedRemoved) {
 
     int totalRemoved = 0;
     int totalUpdated = 0;
@@ -524,5 +597,46 @@ public class DataDiffSectionSpecTest {
       data.add(Integer.toString(i));
     }
     return data;
+  }
+
+  private static List<String> generateDuplicatedData(int length) {
+    final List<String> data = generateData(length - 1);
+    data.add(Integer.toString(0));
+    return data;
+  }
+
+  private static List<String> generateDuplicatedDataSameRef(int length) {
+    final List<String> data = generateData(length - 1);
+    data.add(data.get(0));
+    return data;
+  }
+
+  @SuppressLint("AvoidSubClassing")
+  private static class RecordingComponentsReporter implements ErrorReporterDelegate {
+    private final DefaultComponentsReporter mDefaultComponentsReporter =
+        new DefaultComponentsReporter();
+    private final Queue<String> mMessages = new LinkedList<>();
+
+    @Override
+    public void report(
+        LogLevel level,
+        String categoryKey,
+        String message,
+        @Nullable Throwable cause,
+        int samplingFrequency,
+        @Nullable Map<String, Object> metadata) {
+      mDefaultComponentsReporter.report(
+          level, categoryKey, message, cause, samplingFrequency, metadata);
+      mMessages.offer(message);
+    }
+
+    boolean containsMessage(String message) {
+      for (String msg : mMessages) {
+        if (msg.contains(message)) {
+          return true;
+        }
+      }
+      return false;
+    }
   }
 }

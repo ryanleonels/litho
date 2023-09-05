@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,11 +16,13 @@
 
 package com.facebook.litho.widget;
 
+import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.facebook.litho.SizeSpec.EXACTLY;
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 import android.os.Looper;
+import androidx.annotation.Nullable;
 import com.facebook.litho.Component;
 import com.facebook.litho.ComponentContext;
 import com.facebook.litho.ComponentTree;
@@ -28,20 +30,21 @@ import com.facebook.litho.EventHandler;
 import com.facebook.litho.RenderCompleteEvent;
 import com.facebook.litho.Size;
 import com.facebook.litho.SizeSpec;
-import com.facebook.litho.testing.TestDrawableComponent;
+import com.facebook.litho.TreeState;
 import com.facebook.litho.testing.Whitebox;
-import com.facebook.litho.testing.testrunner.ComponentsTestRunner;
+import com.facebook.litho.testing.testrunner.LithoTestRunner;
 import com.facebook.litho.viewcompat.ViewBinder;
 import com.facebook.litho.viewcompat.ViewCreator;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
+import org.robolectric.annotation.LooperMode;
 import org.robolectric.shadows.ShadowLooper;
 
 /** Tests for {@link ComponentTreeHolder} */
-@RunWith(ComponentsTestRunner.class)
+@LooperMode(LooperMode.Mode.LEGACY)
+@RunWith(LithoTestRunner.class)
 public class ComponentTreeHolderTest {
 
   private ComponentContext mContext;
@@ -49,6 +52,7 @@ public class ComponentTreeHolderTest {
   private EventHandler<RenderCompleteEvent> mRenderCompleteEventHandler;
   private ComponentRenderInfo mComponentRenderInfo;
   private ViewRenderInfo mViewRenderInfo;
+  private @Nullable ShadowLooper mResolveThreadShadowLooper;
   private ShadowLooper mLayoutThreadShadowLooper;
   private int mWidthSpec = SizeSpec.makeSizeSpec(100, EXACTLY);
   private int mHeightSpec = SizeSpec.makeSizeSpec(100, EXACTLY);
@@ -57,8 +61,8 @@ public class ComponentTreeHolderTest {
 
   @Before
   public void setUp() throws Exception {
-    mContext = new ComponentContext(RuntimeEnvironment.application);
-    mComponent = TestDrawableComponent.create(mContext).build();
+    mContext = new ComponentContext(getApplicationContext());
+    mComponent = SimpleMountSpecTester.create(mContext).build();
     mRenderCompleteEventHandler = (EventHandler<RenderCompleteEvent>) mock(EventHandler.class);
     mComponentRenderInfo =
         ComponentRenderInfo.create()
@@ -71,10 +75,20 @@ public class ComponentTreeHolderTest {
             .viewBinder(mock(ViewBinder.class))
             .viewCreator(mock(ViewCreator.class))
             .build();
-
     mLayoutThreadShadowLooper =
         Shadows.shadowOf(
             (Looper) Whitebox.invokeMethod(ComponentTree.class, "getDefaultLayoutThreadLooper"));
+    mResolveThreadShadowLooper =
+        Shadows.shadowOf(
+            (Looper) Whitebox.invokeMethod(ComponentTree.class, "getDefaultResolveThreadLooper"));
+  }
+
+  private void runToEndOfTasks() {
+    if (mResolveThreadShadowLooper != null) {
+      mResolveThreadShadowLooper.runToEndOfTasks();
+    }
+
+    mLayoutThreadShadowLooper.runToEndOfTasks();
   }
 
   @Test
@@ -88,15 +102,59 @@ public class ComponentTreeHolderTest {
     ComponentTreeHolder holder = createComponentTreeHolder(mComponentRenderInfo);
     holder.computeLayoutSync(mContext, mWidthSpec, mHeightSpec, new Size());
     assertThat(holder.getComponentTree().hasMounted()).isFalse();
-    Whitebox.setInternalState(holder.getComponentTree(), "mHasMounted", true);
+    TreeState treeState = holder.getComponentTree().getTreeState();
+    if (treeState == null) {
+      treeState = new TreeState();
+    }
+    TreeState.TreeMountInfo treeMountInfo = treeState.getMountInfo();
+    treeMountInfo.mHasMounted = true;
+    Whitebox.setInternalState(holder.getComponentTree(), "mTreeState", treeState);
 
     // component goes out of range
-    holder.acquireStateAndReleaseTree();
+    holder.acquireStateAndReleaseTree(true);
     assertThat(holder.getComponentTree()).isNull();
 
     // component comes back within range
     holder.computeLayoutSync(mContext, mWidthSpec, mHeightSpec, new Size());
     assertThat(holder.getComponentTree().hasMounted()).isTrue();
+  }
+
+  @Test
+  public void testRetainStateHandlerAfterExitingRange() {
+    ComponentTreeHolder holder = createComponentTreeHolder(mComponentRenderInfo);
+    holder.computeLayoutSync(mContext, mWidthSpec, mHeightSpec, new Size());
+
+    // component goes out of range
+    holder.acquireStateAndReleaseTree(true);
+    assertThat(holder.getComponentTree()).isNull();
+    assertThat(holder.getTreeState()).isNotNull();
+  }
+
+  @Test
+  public void testDropStateHandlerAfterExitingRange() {
+    ComponentTreeHolder holder = createComponentTreeHolder(mComponentRenderInfo);
+    holder.computeLayoutSync(mContext, mWidthSpec, mHeightSpec, new Size());
+
+    // component goes out of range
+    holder.acquireStateAndReleaseTree(false);
+    assertThat(holder.getComponentTree()).isNull();
+    assertThat(holder.getTreeState()).isNull();
+  }
+
+  @Test
+  public void testForceKeepStateHandlerAfterExitingRange() {
+    final ComponentRenderInfo renderInfo =
+        ComponentRenderInfo.create()
+            .customAttribute(ComponentTreeHolder.ACQUIRE_STATE_HANDLER_ON_RELEASE, true)
+            .component(mComponent)
+            .build();
+    ComponentTreeHolder holder = createComponentTreeHolder(renderInfo);
+    holder.computeLayoutSync(mContext, mWidthSpec, mHeightSpec, new Size());
+
+    // component goes out of range
+    holder.acquireStateAndReleaseTree(false);
+    assertThat(holder.getComponentTree()).isNull();
+    assertThat(holder.getTreeState()).isNotNull();
   }
 
   @Test
@@ -114,7 +172,7 @@ public class ComponentTreeHolderTest {
 
     assertThat(holder.hasCompletedLatestLayout()).isFalse();
 
-    mLayoutThreadShadowLooper.runToEndOfTasks();
+    runToEndOfTasks();
 
     assertThat(holder.hasCompletedLatestLayout()).isTrue();
 

@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,7 @@
 
 package com.facebook.litho.specmodels.model;
 
+import static com.facebook.litho.specmodels.model.DelegateMethodDescription.isAllowedTypeAndConsume;
 import static com.facebook.litho.specmodels.model.SpecMethodModelValidation.validateMethodIsStatic;
 import static com.facebook.litho.specmodels.model.SpecMethodModelValidation.validateMethodName;
 
@@ -28,6 +29,8 @@ import com.facebook.litho.annotations.OnMount;
 import com.facebook.litho.annotations.OnUnbind;
 import com.facebook.litho.annotations.OnUnmount;
 import com.facebook.litho.annotations.Param;
+import com.facebook.litho.annotations.Prop;
+import com.facebook.litho.annotations.State;
 import com.facebook.litho.annotations.TreeProp;
 import com.facebook.litho.specmodels.internal.ImmutableList;
 import com.facebook.litho.specmodels.model.DelegateMethodDescription.OptionalParameterType;
@@ -35,8 +38,11 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
+import java.util.StringJoiner;
 import javax.annotation.Nullable;
 
 /**
@@ -44,8 +50,7 @@ import javax.annotation.Nullable;
  */
 public class DelegateMethodValidation {
 
-  static List<SpecModelValidationError> validateLayoutSpecModel(
-      LayoutSpecModel specModel) {
+  static List<SpecModelValidationError> validateLayoutSpecModel(LayoutSpecModel specModel) {
     List<SpecModelValidationError> validationErrors = new ArrayList<>();
     validationErrors.addAll(
         validateMethods(
@@ -62,16 +67,16 @@ public class DelegateMethodValidation {
       validationErrors.add(
           new SpecModelValidationError(
               specModel.getRepresentedObject(),
-              "You need to have a method annotated with either @OnCreateLayout " +
-                  "or @OnCreateLayoutWithSizeSpec in your spec. In most cases, @OnCreateLayout " +
-                  "is what you want."));
+              "You need to have a method annotated with either @OnCreateLayout "
+                  + "or @OnCreateLayoutWithSizeSpec in your spec. In most cases, @OnCreateLayout "
+                  + "is what you want."));
     } else if (onCreateLayoutModel != null && onCreateLayoutWithSizeSpecModel != null) {
       validationErrors.add(
           new SpecModelValidationError(
               specModel.getRepresentedObject(),
-              "Your LayoutSpec should have a method annotated with either @OnCreateLayout " +
-                  "or @OnCreateLayoutWithSizeSpec, but not both. In most cases, @OnCreateLayout " +
-                  "is what you want."));
+              "Your LayoutSpec should have a method annotated with either @OnCreateLayout "
+                  + "or @OnCreateLayoutWithSizeSpec, but not both. In most cases, @OnCreateLayout "
+                  + "is what you want."));
     }
 
     return validationErrors;
@@ -99,15 +104,19 @@ public class DelegateMethodValidation {
       for (Class<? extends Annotation> annotation : methodsAcceptingMountTypeAsSecondParam) {
         final SpecMethodModel<DelegateMethod, Void> method =
             SpecModelUtils.getMethodModelWithAnnotation(specModel, annotation);
-        if (method != null &&
-            (method.methodParams.size() < 2 ||
-                !method.methodParams.get(1).getTypeName().equals(mountType))) {
+        if (method != null
+            && (method.methodParams.size() < 2
+                || !method.methodParams.get(1).getTypeName().equals(mountType))) {
           validationErrors.add(
               new SpecModelValidationError(
                   method.representedObject,
-                  "The second parameter of a method annotated with " + annotation + " must " +
-                      "have the same type as the return type of the method annotated with " +
-                      "@OnCreateMountContent (i.e. " + mountType + ")."));
+                  "The second parameter of a method annotated with "
+                      + annotation
+                      + " must "
+                      + "have the same type as the return type of the method annotated with "
+                      + "@OnCreateMountContent (i.e. "
+                      + mountType
+                      + ")."));
         }
       }
     }
@@ -137,28 +146,32 @@ public class DelegateMethodValidation {
       if (delegateMethod == null) {
         continue;
       }
-      final ImmutableList<TypeName> definedParameterTypes =
-          delegateMethodDescription.definedParameterTypes;
+      final ImmutableList<TypeName> allowedDelegateMethodArgs =
+          delegateMethodDescription.allowedDelegateMethodArguments();
 
       validationErrors.addAll(
           validateDefinedParameterTypes(
-              delegateMethod, delegateMethodAnnotation, definedParameterTypes));
+              delegateMethod, delegateMethodAnnotation, allowedDelegateMethodArgs));
 
       validationErrors.addAll(
           validateReturnType(delegateMethod, delegateMethodAnnotation, delegateMethodDescription));
 
-      for (int i = definedParameterTypes.size(), size = delegateMethod.methodParams.size();
+      int numberOfAllowedMethodArgsUsed =
+          getNumberOfAllowedMethodArgsUsed(delegateMethod.methodParams, allowedDelegateMethodArgs);
+
+      for (int i = numberOfAllowedMethodArgsUsed, size = delegateMethod.methodParams.size();
           i < size;
           i++) {
         final MethodParamModel delegateMethodParam = delegateMethod.methodParams.get(i);
         if (isOptionalParameter(delegateMethodParam, delegateMethodDescription.optionalParameters)
             && i
-                < definedParameterTypes.size()
+                < numberOfAllowedMethodArgsUsed
                     + delegateMethodDescription.optionalParameters.size()) {
           continue;
         }
 
-        if (delegateMethodParam instanceof InterStageInputParamModel) {
+        if (delegateMethodParam instanceof InterStageInputParamModel
+            || delegateMethodParam instanceof PrepareInterStageInputParamModel) {
           final Annotation annotation =
               getInterStageInputAnnotation(
                   delegateMethodParam, delegateMethodDescription.interStageInputAnnotations);
@@ -213,13 +226,22 @@ public class DelegateMethodValidation {
                           + "> "
                           + delegateMethodParam.getName()));
             }
+
+            validateUniqueInterStatePropNames(
+                interStageOutputMethodAnnotation,
+                delegateMethodParam.getName(),
+                specModel,
+                validationErrors);
           }
         } else if (!isOptionalParamValid(
             specModel, delegateMethodDescription.optionalParameterTypes, delegateMethodParam)) {
           validationErrors.add(
               new SpecModelValidationError(
                   delegateMethodParam.getRepresentedObject(),
-                  getOptionalParamsError(delegateMethodDescription)));
+                  "Argument at index "
+                      + i
+                      + " is "
+                      + getOptionalParamsError(delegateMethodDescription)));
         }
       }
     }
@@ -227,53 +249,140 @@ public class DelegateMethodValidation {
     return validationErrors;
   }
 
+  private static int getNumberOfAllowedMethodArgsUsed(
+      ImmutableList<MethodParamModel> params, ImmutableList<TypeName> types) {
+    int count = 0;
+
+    for (MethodParamModel param : params) {
+      if (DelegateMethodDescription.isArgumentTypeAllowed(param, types)) {
+        count++;
+      }
+    }
+
+    return count;
+  }
+
+  static void validateUniqueInterStatePropNames(
+      Class<? extends Annotation> interStageOutputMethodAnnotation,
+      String interStageInputParamName,
+      SpecModel specModel,
+      List<SpecModelValidationError> validationErrors) {
+    validateDuplicateName(
+        interStageInputParamName,
+        specModel.getProps(),
+        interStageOutputMethodAnnotation,
+        Prop.class,
+        validationErrors);
+    validateDuplicateName(
+        interStageInputParamName,
+        specModel.getStateValues(),
+        interStageOutputMethodAnnotation,
+        State.class,
+        validationErrors);
+    validateDuplicateName(
+        interStageInputParamName,
+        specModel.getInjectProps(),
+        interStageOutputMethodAnnotation,
+        InjectProp.class,
+        validationErrors);
+    validateDuplicateName(
+        interStageInputParamName,
+        specModel.getTreeProps(),
+        interStageOutputMethodAnnotation,
+        TreeProp.class,
+        validationErrors);
+  }
+
+  static void validateDuplicateName(
+      String fieldName,
+      List<? extends MethodParamModel> propModelList,
+      Class existingAnnotation,
+      Class expectedAnnotation,
+      List<SpecModelValidationError> validationErrors) {
+    if (propModelList == null) {
+      return;
+    }
+
+    for (int i = 0, size = propModelList.size(); i < size; i++) {
+      final MethodParamModel model = propModelList.get(i);
+      if (fieldName.equals(model.getName())) {
+
+        validationErrors.add(
+            new SpecModelValidationError(
+                model.getRepresentedObject(),
+                "The parameter name of @"
+                    + expectedAnnotation.getSimpleName()
+                    + " \""
+                    + model.getName()
+                    + "\" and @"
+                    + existingAnnotation.getSimpleName()
+                    + " \""
+                    + model.getName()
+                    + "\" collide!"));
+      }
+    }
+  }
+
   public static List<SpecModelValidationError> validateDefinedParameterTypes(
       SpecMethodModel<DelegateMethod, Void> delegateMethod,
       Class<? extends Annotation> delegateMethodAnnotation,
-      ImmutableList<TypeName> definedParameterTypes) {
+      ImmutableList<TypeName> allowedArgTypes) {
+
     List<SpecModelValidationError> validationErrors = new ArrayList<>();
 
-    if (delegateMethod.methodParams.size() < definedParameterTypes.size()) {
-      StringBuilder stringBuilder = new StringBuilder();
-      for (int i = 0, size = definedParameterTypes.size(); i < size; i++) {
-        stringBuilder.append(definedParameterTypes.get(i));
-        if (i < size - 1) {
-          stringBuilder.append(", ");
-        }
-      }
-      validationErrors.add(
-          new SpecModelValidationError(
-              delegateMethod.representedObject,
-              "Methods annotated with "
-                  + delegateMethodAnnotation
-                  + " must have at least "
-                  + definedParameterTypes.size()
-                  + " parameters, and they should be of type "
-                  + stringBuilder.toString()
-                  + "."));
+    ImmutableList<MethodParamModel> delegateArgs = delegateMethod.methodParams;
+
+    if (allowedArgTypes.size() == 0 || delegateArgs.size() == 0) {
+      return validationErrors;
     }
 
-    for (int i = 0, size = delegateMethod.methodParams.size(); i < size; i++) {
-      final MethodParamModel delegateMethodParam = delegateMethod.methodParams.get(i);
+    final Queue<TypeName> remainingAllowedTypes = new LinkedList<>(allowedArgTypes);
 
-      if (i < definedParameterTypes.size()) {
-        if (!definedParameterTypes.get(i).equals(ClassNames.OBJECT)
-            && !delegateMethodParam.getTypeName().equals(definedParameterTypes.get(i))) {
-          validationErrors.add(
-              new SpecModelValidationError(
-                  delegateMethodParam.getRepresentedObject(),
-                  "Parameter in position "
-                      + i
-                      + " of a method annotated with "
-                      + delegateMethodAnnotation
-                      + " should be of type "
-                      + definedParameterTypes.get(i)
-                      + "."));
-        }
+    int index = 0;
+    boolean canUseAllowedTypes = true;
+
+    for (MethodParamModel delegateArg : delegateArgs) {
+
+      // Check if the param is an allowed type
+      final boolean usesAllowedType = isAllowedTypeAndConsume(delegateArg, remainingAllowedTypes);
+
+      // Check if optional arguments can be used anymore.
+      if (usesAllowedType && !canUseAllowedTypes) {
+        validationErrors.add(
+            new SpecModelValidationError(
+                delegateArg.getRepresentedObject(),
+                "Parameter at position "
+                    + index
+                    + " of a method annotated with "
+                    + delegateMethodAnnotation
+                    + " is an optional arg and should be used in the beginning. "
+                    + " Allowed optional args are ["
+                    + argsToString(allowedArgTypes)
+                    + "]"));
+        break;
       }
+
+      if (!usesAllowedType) {
+        canUseAllowedTypes = false;
+      }
+
+      if (remainingAllowedTypes.isEmpty()) {
+        break;
+      }
+
+      index++;
     }
 
     return validationErrors;
+  }
+
+  /** Serialises a list of arguments to a comma separated string. Useful for logging. */
+  private static String argsToString(ImmutableList<TypeName> args) {
+    StringJoiner joiner = new StringJoiner(", ");
+    for (TypeName arg : args) {
+      joiner.add(arg.toString());
+    }
+    return joiner.toString();
   }
 
   private static List<SpecModelValidationError> validateReturnType(
@@ -335,12 +444,14 @@ public class DelegateMethodValidation {
   private static boolean hasMatchingInterStageOutput(
       SpecMethodModel<DelegateMethod, Void> method, MethodParamModel interStageInput) {
     for (MethodParamModel methodParam : method.methodParams) {
-      if (methodParam.getName().equals(interStageInput.getName()) &&
-          methodParam.getTypeName() instanceof ParameterizedTypeName &&
-          ((ParameterizedTypeName) methodParam.getTypeName()).rawType.equals(ClassNames.OUTPUT) &&
-          ((ParameterizedTypeName) methodParam.getTypeName()).typeArguments.size() == 1 &&
-          ((ParameterizedTypeName) methodParam.getTypeName()).typeArguments.get(0).equals(
-              interStageInput.getTypeName().box())) {
+      if (methodParam.getName().equals(interStageInput.getName())
+          && methodParam.getTypeName() instanceof ParameterizedTypeName
+          && ((ParameterizedTypeName) methodParam.getTypeName()).rawType.equals(ClassNames.OUTPUT)
+          && ((ParameterizedTypeName) methodParam.getTypeName()).typeArguments.size() == 1
+          && ((ParameterizedTypeName) methodParam.getTypeName())
+              .typeArguments
+              .get(0)
+              .equals(interStageInput.getTypeName().box())) {
         return true;
       }
     }
@@ -380,9 +491,11 @@ public class DelegateMethodValidation {
         return MethodParamModelUtils.isAnnotatedWith(methodParamModel, Param.class);
       case INJECT_PROP:
         return MethodParamModelUtils.isAnnotatedWith(methodParamModel, InjectProp.class);
+      case PREPARE_INTER_STAGE_OUTPUT:
       case INTER_STAGE_OUTPUT:
-        return methodParamModel.getTypeName() instanceof ParameterizedTypeName &&
-            ((ParameterizedTypeName) methodParamModel.getTypeName()).rawType.equals(ClassNames.OUTPUT);
+        return methodParamModel.getTypeName() instanceof ParameterizedTypeName
+            && ((ParameterizedTypeName) methodParamModel.getTypeName())
+                .rawType.equals(ClassNames.OUTPUT);
       case PROP_OUTPUT:
         return SpecModelUtils.isPropOutput(specModel, methodParamModel);
       case STATE_OUTPUT:
@@ -401,7 +514,7 @@ public class DelegateMethodValidation {
   public static String getOptionalParamsError(DelegateMethodDescription delegateMethodDescription) {
     StringBuilder stringBuilder = new StringBuilder();
     stringBuilder
-        .append("Not a valid parameter, should be one of the following: ")
+        .append("not a valid parameter, should be one of the following: ")
         .append(
             getStringRepresentationOfParamTypes(delegateMethodDescription.optionalParameterTypes));
 
@@ -421,9 +534,7 @@ public class DelegateMethodValidation {
       ImmutableList<OptionalParameterType> optionalParameterTypes) {
     final StringBuilder stringBuilder = new StringBuilder();
     for (OptionalParameterType parameterType : optionalParameterTypes) {
-      stringBuilder
-          .append(getStringRepresentationOfParamType(parameterType))
-          .append(". ");
+      stringBuilder.append(getStringRepresentationOfParamType(parameterType)).append(". ");
     }
 
     return stringBuilder.toString();
@@ -463,17 +574,17 @@ public class DelegateMethodValidation {
       case INTER_STAGE_OUTPUT:
         return "Output<T> someOutputName";
       case PROP_OUTPUT:
-        return "Output<T> propName, where a prop with type T and name propName is " +
-            "declared elsewhere in the spec";
+        return "Output<T> propName, where a prop with type T and name propName is "
+            + "declared elsewhere in the spec";
       case STATE_OUTPUT:
-        return "Output<T> stateName, where a state param with type T and name stateName is " +
-            "declared elsewhere in the spec";
+        return "Output<T> stateName, where a state param with type T and name stateName is "
+            + "declared elsewhere in the spec";
       case STATE_VALUE:
-        return "StateValue<T> stateName, where a state param with type T and name stateName is " +
-            "declared elsewhere in the spec";
+        return "StateValue<T> stateName, where a state param with type T and name stateName is "
+            + "declared elsewhere in the spec";
       case DIFF:
-        return "@State Diff<T> stateName or @Prop Diff<T> propName, where stateName/propName is " +
-            "a declared state or prop param declared elsewhere in the spec.";
+        return "@State Diff<T> stateName or @Prop Diff<T> propName, where stateName/propName is "
+            + "a declared state or prop param declared elsewhere in the spec.";
       case CACHED_VALUE:
         return "@CachedValue T value, where the cached value has a corresponding "
             + "@OnCalculateCachedValue method";

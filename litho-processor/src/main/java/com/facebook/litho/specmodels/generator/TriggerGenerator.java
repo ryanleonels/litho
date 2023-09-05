@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,17 +33,28 @@ import com.facebook.litho.specmodels.model.MethodParamModelUtils;
 import com.facebook.litho.specmodels.model.SpecMethodModel;
 import com.facebook.litho.specmodels.model.SpecModel;
 import com.facebook.litho.specmodels.model.SpecModelUtils;
+import com.facebook.litho.specmodels.model.TreePropModel;
 import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterSpec;
+import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeVariableName;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
+import javax.annotation.Nullable;
 import javax.lang.model.element.Modifier;
 
 /** Class that generates the trigger methods for a Component. */
+@SuppressWarnings("NewApi")
 public class TriggerGenerator {
+
+  private static final String DEPRECATED_METHOD_JAVADOC =
+      "@deprecated Use {@link #$L(ComponentContext, Handle)} instead.\n";
 
   private TriggerGenerator() {}
 
@@ -55,7 +66,7 @@ public class TriggerGenerator {
             .addTypeSpecDataHolder(generateStaticTriggerMethods(specModel));
 
     if (!specModel.getTriggerMethods().isEmpty()) {
-      builder.addMethod(generateAcceptTriggerEvent(specModel));
+      builder.addMethod(generateAcceptTriggerEventImpl(specModel));
       builder.addMethod(generateRecordTriggers(specModel));
     }
 
@@ -63,10 +74,10 @@ public class TriggerGenerator {
   }
 
   /** Generate acceptTriggerEvent() implementation for the component. */
-  static MethodSpec generateAcceptTriggerEvent(SpecModel specModel) {
+  static MethodSpec generateAcceptTriggerEventImpl(SpecModel specModel) {
     final MethodSpec.Builder methodBuilder =
-        MethodSpec.methodBuilder("acceptTriggerEvent")
-            .addModifiers(Modifier.PUBLIC)
+        MethodSpec.methodBuilder("acceptTriggerEventImpl")
+            .addModifiers(Modifier.PROTECTED)
             .addAnnotation(Override.class)
             .returns(TypeName.OBJECT)
             .addParameter(
@@ -79,22 +90,23 @@ public class TriggerGenerator {
 
     for (SpecMethodModel<EventMethod, EventDeclarationModel> eventMethodModel :
         specModel.getTriggerMethods()) {
-      String key =
-          specModel.getComponentName()
-              + ComponentBodyGenerator.getEventTriggerInstanceName(eventMethodModel.name);
-      methodBuilder.beginControlFlow("case $L:", key.hashCode());
+      methodBuilder.beginControlFlow(
+          "case $L:", getMethodIdInt(specModel.getComponentName(), eventMethodModel));
 
       final String eventVariableName = "_event";
 
       methodBuilder.addStatement(
           "$T $L = ($T) $L",
-          eventMethodModel.typeModel.name,
+          eventMethodModel.typeModel.getRawName(),
           eventVariableName,
-          eventMethodModel.typeModel.name,
+          eventMethodModel.typeModel.getRawName(),
           "eventState");
 
       final CodeBlock.Builder eventTriggerParams =
-          CodeBlock.builder().indent().add("\n$L", "eventTrigger.mTriggerTarget");
+          CodeBlock.builder()
+              .indent()
+              .add("\n($L) eventTrigger.mComponentContext", specModel.getContextClass());
+      eventTriggerParams.add(",\n$L", "eventTrigger.mTriggerTarget");
 
       int paramIndex = 0;
       for (MethodParamModel methodParamModel : eventMethodModel.methodParams) {
@@ -104,7 +116,8 @@ public class TriggerGenerator {
         }
 
         if (MethodParamModelUtils.isAnnotatedWith(methodParamModel, Param.class)) {
-          eventTriggerParams.add(",\n($T) params[$L]", methodParamModel.getTypeName(), paramIndex++);
+          eventTriggerParams.add(
+              ",\n($T) params[$L]", methodParamModel.getTypeName(), paramIndex++);
         }
       }
 
@@ -129,6 +142,7 @@ public class TriggerGenerator {
         MethodSpec.methodBuilder("recordEventTrigger")
             .addModifiers(Modifier.PUBLIC)
             .addAnnotation(Override.class)
+            .addParameter(ClassNames.COMPONENT_CONTEXT, "c")
             .addParameter(ParameterSpec.builder(EVENT_TRIGGER_CONTAINER, "container").build());
 
     for (SpecMethodModel<EventMethod, EventDeclarationModel> eventMethodModel :
@@ -136,6 +150,7 @@ public class TriggerGenerator {
       String trigger = ComponentBodyGenerator.getEventTriggerInstanceName(eventMethodModel.name);
       methodBuilder
           .beginControlFlow("if ($L != null)", trigger)
+          .addStatement("$L.mComponentContext = c", trigger)
           .addStatement("$L.mTriggerTarget = this", trigger)
           .addStatement("container.recordEventTrigger($L)", trigger)
           .endControlFlow();
@@ -158,10 +173,12 @@ public class TriggerGenerator {
   static MethodSpec generateOnTriggerMethodDelegate(
       SpecModel specModel, SpecMethodModel<EventMethod, EventDeclarationModel> eventMethodModel) {
     final String componentName = specModel.getComponentName();
+
     final MethodSpec.Builder methodSpec =
         MethodSpec.methodBuilder(eventMethodModel.name.toString())
             .addModifiers(Modifier.PRIVATE)
             .returns(eventMethodModel.returnType)
+            .addParameter(specModel.getContextClass(), "c")
             .addParameter(ClassNames.EVENT_TRIGGER_TARGET, ABSTRACT_PARAM_NAME)
             .addStatement(
                 "$L $L = ($L) $L",
@@ -171,6 +188,16 @@ public class TriggerGenerator {
                 ABSTRACT_PARAM_NAME);
 
     final CodeBlock.Builder delegation = CodeBlock.builder();
+
+    // Create a local variable for interstage props if they created or used.
+    if (ComponentBodyGenerator.requiresInterStatePropContainer(
+        eventMethodModel.methodParams, null)) {
+      delegation.addStatement(
+          "$L $L = $L",
+          ClassNames.INTER_STAGE_PROPS_CONTAINER,
+          ComponentBodyGenerator.LOCAL_INTER_STAGE_PROPS_CONTAINER_NAME,
+          "null");
+    }
 
     final String sourceDelegateAccessor = SpecModelUtils.getSpecAccessor(specModel);
     if (eventMethodModel.returnType.equals(TypeName.VOID)) {
@@ -185,22 +212,40 @@ public class TriggerGenerator {
     }
 
     delegation.indent();
+
     for (int i = 0, size = eventMethodModel.methodParams.size(); i < size; i++) {
       final MethodParamModel methodParamModel = eventMethodModel.methodParams.get(i);
 
       if (MethodParamModelUtils.isAnnotatedWith(methodParamModel, FromTrigger.class)
           || MethodParamModelUtils.isAnnotatedWith(methodParamModel, Param.class)) {
-        methodSpec.addParameter(methodParamModel.getTypeName(), methodParamModel.getName());
+        methodSpec.addParameter(
+            ParameterSpec.builder(methodParamModel.getTypeName(), methodParamModel.getName())
+                .addAnnotations(methodParamModel.getExternalAnnotations())
+                .build());
         delegation.add(methodParamModel.getName());
       } else if (methodParamModel.getTypeName().equals(specModel.getContextClass())) {
-        delegation.add(
-            "($T) $L.getScopedContext()", methodParamModel.getTypeName(), REF_VARIABLE_NAME);
+        delegation.add("c", methodParamModel.getTypeName());
+      } else if (methodParamModel instanceof TreePropModel) {
+        if (specModel.isStateful()) {
+          delegation.add(
+              "(($T) $L.$L)",
+              methodParamModel.getTypeName(),
+              REF_VARIABLE_NAME,
+              methodParamModel.getName());
+        } else {
+          delegation.add(
+              "(($T) $L)",
+              methodParamModel.getTypeName(),
+              "c.getParentTreeProp("
+                  + TreePropGenerator.findTypeByTypeName(methodParamModel.getTypeName())
+                  + ".class)");
+        }
       } else {
         delegation.add(
             "($T) $L.$L",
             methodParamModel.getTypeName(),
             REF_VARIABLE_NAME,
-            getImplAccessor(specModel, methodParamModel));
+            getImplAccessor(eventMethodModel.name.toString(), specModel, methodParamModel, "c"));
       }
 
       delegation.add((i < eventMethodModel.methodParams.size() - 1) ? ",\n" : ");\n");
@@ -221,35 +266,116 @@ public class TriggerGenerator {
     final TypeSpecDataHolder.Builder typeSpecDataHolder = TypeSpecDataHolder.newBuilder();
     for (SpecMethodModel<EventMethod, EventDeclarationModel> eventMethodModel :
         specModel.getTriggerMethods()) {
+      // This is a bit of a hack -- this method is not used for Surfaces since they can't register
+      // triggers from a builder. Instead of providing a dummy implementation of newEventTrigger
+      // that this calls which would throw,
+      // we just don't generate it
+      if (specModel.getComponentClass().equals(ClassNames.COMPONENT)
+          || specModel.getComponentClass().equals(ClassNames.SECTION)) {
+        typeSpecDataHolder.addMethod(
+            generateStaticGetTrigger(
+                specModel.getComponentName(),
+                specModel.getContextClass(),
+                specModel.getComponentClass(),
+                eventMethodModel));
+      }
       typeSpecDataHolder.addMethod(
-          generateStaticGetTrigger(
+          generateDeprecatedStaticGetTrigger(
               specModel.getComponentName(), specModel.getContextClass(), eventMethodModel));
     }
 
     return typeSpecDataHolder.build();
   }
 
-  private static MethodSpec generateStaticGetTrigger(
+  private static MethodSpec generateDeprecatedStaticGetTrigger(
       String componentName,
       ClassName contextClassName,
       SpecMethodModel<EventMethod, EventDeclarationModel> eventMethodModel) {
 
+    final @Nullable EventDeclarationModel eventDeclarationModel = eventMethodModel.typeModel;
+
     MethodSpec.Builder triggerMethod =
         MethodSpec.methodBuilder(
                 ComponentBodyGenerator.getEventTriggerInstanceName(eventMethodModel.name))
-            .returns(ClassNames.EVENT_TRIGGER)
+            .addTypeVariables(getEventDeclarationTypeVariables(eventDeclarationModel))
+            .returns(
+                eventDeclarationModel == null
+                    ? ClassNames.EVENT_TRIGGER
+                    : ParameterizedTypeName.get(
+                        ClassNames.EVENT_TRIGGER, eventDeclarationModel.name))
             .addModifiers(Modifier.PUBLIC, Modifier.STATIC);
 
-    String methodId =
-        componentName + ComponentBodyGenerator.getEventTriggerInstanceName(eventMethodModel.name);
+    triggerMethod
+        .addJavadoc(
+            "@deprecated Do not use this method to get a EventTrigger to use later. Instead give the component a Handle and use {@link #$L(ComponentContext, Handle)}.\n",
+            eventMethodModel.name.toString())
+        .addAnnotation(java.lang.Deprecated.class)
+        .addParameter(contextClassName, "c")
+        .addParameter(ClassNames.STRING, "key")
+        .addStatement(
+            "$T methodId = $L", TypeName.INT, getMethodIdInt(componentName, eventMethodModel))
+        .addStatement(
+            "return newEventTrigger(c, key, methodId)",
+            ComponentBodyGenerator.getEventTriggerInstanceName(eventMethodModel.name));
+
+    return triggerMethod.build();
+  }
+
+  private static MethodSpec generateStaticGetTrigger(
+      String componentName,
+      ClassName contextClassName,
+      ClassName componentClassName,
+      SpecMethodModel<EventMethod, EventDeclarationModel> eventMethodModel) {
+
+    final @Nullable EventDeclarationModel eventDeclarationModel = eventMethodModel.typeModel;
+
+    MethodSpec.Builder triggerMethod =
+        MethodSpec.methodBuilder(getCreateEventTriggerMethodName(eventMethodModel.name))
+            .addTypeVariables(getEventDeclarationTypeVariables(eventDeclarationModel))
+            .returns(
+                eventDeclarationModel == null
+                    ? ClassNames.EVENT_TRIGGER
+                    : ParameterizedTypeName.get(
+                        ClassNames.EVENT_TRIGGER, eventDeclarationModel.name))
+            .addModifiers(Modifier.PRIVATE, Modifier.STATIC);
 
     triggerMethod
         .addParameter(contextClassName, "c")
-        .addParameter(ClassNames.STRING, "key")
-        .addStatement("$T methodId = $L", TypeName.INT, methodId.hashCode())
-        .addStatement("return newEventTrigger(c, key, methodId)");
+        .addParameter(componentClassName, "component")
+        .addStatement(
+            "$T methodId = $L", TypeName.INT, getMethodIdInt(componentName, eventMethodModel))
+        .addStatement("return newEventTrigger(c, component, methodId)");
 
     return triggerMethod.build();
+  }
+
+  private static int getMethodIdInt(
+      String componentName, SpecMethodModel<EventMethod, EventDeclarationModel> eventMethodModel) {
+    String methodId =
+        componentName + ComponentBodyGenerator.getEventTriggerInstanceName(eventMethodModel.name);
+    return methodId.hashCode();
+  }
+
+  public static String getCreateEventTriggerMethodName(CharSequence triggerClassName) {
+    String asString = triggerClassName.toString();
+    return "create"
+        + asString.substring(0, 1).toUpperCase(Locale.ROOT)
+        + asString.substring(1)
+        + "Trigger";
+  }
+
+  private enum TriggerLookup {
+    HANDLE(ClassNames.HANDLE, "handle"),
+    KEY(ClassNames.STRING, "key"),
+    ;
+
+    TriggerLookup(ClassName keyType, String paramName) {
+      this.keyType = keyType;
+      this.paramName = paramName;
+    }
+
+    public ClassName keyType;
+    public String paramName;
   }
 
   static TypeSpecDataHolder generateStaticTriggerMethods(SpecModel specModel) {
@@ -257,15 +383,25 @@ public class TriggerGenerator {
     for (SpecMethodModel<EventMethod, EventDeclarationModel> eventMethodModel :
         specModel.getTriggerMethods()) {
       typeSpecDataHolder.addMethod(
-          generateStaticTriggerMethodWithKey(
-              specModel.getComponentName(), specModel.getContextClass(), eventMethodModel));
+          generateStaticTriggerMethod(
+              specModel.getComponentName(),
+              specModel.getContextClass(),
+              eventMethodModel,
+              TriggerLookup.HANDLE));
+
+      typeSpecDataHolder.addMethod(
+          generateStaticTriggerMethod(
+              specModel.getComponentName(),
+              specModel.getContextClass(),
+              eventMethodModel,
+              TriggerLookup.KEY));
 
       typeSpecDataHolder.addMethod(
           generateStaticTriggerMethodWithTriggerHandler(
               specModel.getContextClass(), eventMethodModel));
 
       typeSpecDataHolder.addMethod(
-          generateStateSelfTriggerMethod(
+          generateDeprecatedStateSelfTriggerMethod(
               specModel.getComponentName(),
               specModel.getContextClass(),
               specModel.getScopeMethodName(),
@@ -275,23 +411,34 @@ public class TriggerGenerator {
     return typeSpecDataHolder.build();
   }
 
-  private static MethodSpec generateStaticTriggerMethodWithKey(
+  private static MethodSpec generateStaticTriggerMethod(
       String componentName,
       ClassName contextClassName,
-      SpecMethodModel<EventMethod, EventDeclarationModel> eventMethodModel) {
+      SpecMethodModel<EventMethod, EventDeclarationModel> eventMethodModel,
+      TriggerLookup triggerLookup) {
 
     MethodSpec.Builder triggerMethod =
         MethodSpec.methodBuilder(eventMethodModel.name.toString())
             .addModifiers(Modifier.PUBLIC, Modifier.STATIC);
 
-    String methodId =
-        componentName + ComponentBodyGenerator.getEventTriggerInstanceName(eventMethodModel.name);
+    if (triggerLookup == TriggerLookup.KEY) {
+      triggerMethod
+          .addJavadoc(DEPRECATED_METHOD_JAVADOC, eventMethodModel.name.toString())
+          .addAnnotation(java.lang.Deprecated.class);
+    } else if (triggerLookup == TriggerLookup.HANDLE) {
+      triggerMethod.addJavadoc(
+          "This will send the $L trigger to the component with the given handle.\nFor more information about using triggers, see https://fblitho.com/docs/trigger-events\n",
+          eventMethodModel.name.toString());
+    }
 
     triggerMethod
         .addParameter(contextClassName, "c")
-        .addParameter(ClassNames.STRING, "key")
-        .addStatement("$T methodId = $L", TypeName.INT, methodId.hashCode())
-        .addStatement("$T trigger = getEventTrigger(c, methodId, key)", ClassNames.EVENT_TRIGGER);
+        .addParameter(triggerLookup.keyType, triggerLookup.paramName)
+        .addStatement(
+            "$T methodId = $L", TypeName.INT, getMethodIdInt(componentName, eventMethodModel))
+        .addStatement(
+            "$T trigger = getEventTrigger(c, methodId, " + triggerLookup.paramName + ")",
+            ClassNames.EVENT_TRIGGER);
 
     EventDeclarationModel eventDeclaration = eventMethodModel.typeModel;
 
@@ -311,6 +458,8 @@ public class TriggerGenerator {
 
     MethodSpec.Builder triggerMethod =
         MethodSpec.methodBuilder(eventMethodModel.name.toString())
+            .addJavadoc(DEPRECATED_METHOD_JAVADOC, eventMethodModel.name.toString())
+            .addAnnotation(java.lang.Deprecated.class)
             .addModifiers(Modifier.PUBLIC, Modifier.STATIC);
 
     triggerMethod.addParameter(ClassNames.EVENT_TRIGGER, "trigger");
@@ -318,13 +467,16 @@ public class TriggerGenerator {
     return generateCommonStaticTriggerMethodCode(contextClassName, eventMethodModel, triggerMethod);
   }
 
-  private static MethodSpec generateStateSelfTriggerMethod(
+  private static MethodSpec generateDeprecatedStateSelfTriggerMethod(
       String componentClass,
       ClassName contextClassName,
       String scopeMethodName,
       SpecMethodModel<EventMethod, EventDeclarationModel> eventMethodModel) {
     MethodSpec.Builder triggerMethod =
-        MethodSpec.methodBuilder(eventMethodModel.name.toString()).addModifiers(Modifier.STATIC);
+        MethodSpec.methodBuilder(eventMethodModel.name.toString())
+            .addModifiers(Modifier.STATIC)
+            .addJavadoc(DEPRECATED_METHOD_JAVADOC, eventMethodModel.name.toString())
+            .addAnnotation(java.lang.Deprecated.class);
 
     triggerMethod.addParameter(contextClassName, "c");
 
@@ -333,8 +485,8 @@ public class TriggerGenerator {
     triggerMethod.addStatement(
         "$L component = ($L) c.$L()", componentClass, componentClass, scopeMethodName);
 
-    final CodeBlock.Builder eventTriggerParams =
-        CodeBlock.builder().add("\n($T) $L", ClassNames.EVENT_TRIGGER_TARGET, "component");
+    final CodeBlock.Builder eventTriggerParams = CodeBlock.builder().add("\nc");
+    eventTriggerParams.add(",\n($T) $L", ClassNames.EVENT_TRIGGER_TARGET, "component");
 
     for (MethodParamModel methodParamModel : eventMethodModel.methodParams) {
       if (MethodParamModelUtils.isAnnotatedWith(methodParamModel, FromTrigger.class)) {
@@ -410,11 +562,17 @@ public class TriggerGenerator {
       }
 
       if (MethodParamModelUtils.isAnnotatedWith(methodParamModel, FromTrigger.class)) {
-        eventTriggerMethod.addParameter(methodParamModel.getTypeName(), methodParamModel.getName());
+        eventTriggerMethod.addParameter(
+            ParameterSpec.builder(methodParamModel.getTypeName(), methodParamModel.getName())
+                .addAnnotations(methodParamModel.getExternalAnnotations())
+                .build());
       }
 
       if (MethodParamModelUtils.isAnnotatedWith(methodParamModel, Param.class)) {
-        eventTriggerMethod.addParameter(methodParamModel.getTypeName(), methodParamModel.getName());
+        eventTriggerMethod.addParameter(
+            ParameterSpec.builder(methodParamModel.getTypeName(), methodParamModel.getName())
+                .addAnnotations(methodParamModel.getExternalAnnotations())
+                .build());
 
         maybeAddGenericTypeToStaticFunction(methodParamModel, eventTriggerMethod);
       }
@@ -453,5 +611,19 @@ public class TriggerGenerator {
     }
 
     return eventTriggerMethod;
+  }
+
+  private static List<TypeVariableName> getEventDeclarationTypeVariables(
+      final @Nullable EventDeclarationModel eventDeclarationModel) {
+    if (eventDeclarationModel == null
+        || !(eventDeclarationModel.name instanceof ParameterizedTypeName)) {
+      return Collections.emptyList();
+    }
+
+    final List<TypeVariableName> typeVariables = new ArrayList<>();
+    for (TypeName name : ((ParameterizedTypeName) eventDeclarationModel.name).typeArguments) {
+      typeVariables.add((TypeVariableName) name);
+    }
+    return typeVariables;
   }
 }

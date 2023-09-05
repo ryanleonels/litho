@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,11 +17,10 @@
 package com.facebook.litho.specmodels.model;
 
 import static com.facebook.litho.specmodels.model.DelegateMethodDescriptions.LAYOUT_SPEC_DELEGATE_METHODS_MAP;
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.facebook.litho.annotations.FromBind;
 import com.facebook.litho.annotations.FromPrepare;
 import com.facebook.litho.annotations.OnBind;
 import com.facebook.litho.annotations.OnCreateLayout;
@@ -30,7 +29,6 @@ import com.facebook.litho.annotations.OnCreateMountContent;
 import com.facebook.litho.annotations.OnEvent;
 import com.facebook.litho.annotations.OnMount;
 import com.facebook.litho.annotations.OnPrepare;
-import com.facebook.litho.annotations.OnUnmount;
 import com.facebook.litho.specmodels.internal.ImmutableList;
 import com.facebook.litho.testing.specmodels.MockMethodParamModel;
 import com.squareup.javapoet.ClassName;
@@ -48,8 +46,7 @@ import org.junit.runners.JUnit4;
 /** Tests {@link DelegateMethodValidation} */
 @RunWith(JUnit4.class)
 public class DelegateMethodValidationTest {
-  private final LayoutSpecModel mLayoutSpecModel = mock(LayoutSpecModel.class);
-  private final MountSpecModel mMountSpecModel = mock(MountSpecModel.class);
+
   private final Object mModelRepresentedObject = new Object();
   private final Object mMountSpecObject = new Object();
   private final Object mDelegateMethodObject1 = new Object();
@@ -57,13 +54,25 @@ public class DelegateMethodValidationTest {
   private final Object mMethodParamObject1 = new Object();
   private final Object mMethodParamObject2 = new Object();
   private final Object mMethodParamObject3 = new Object();
-  private SpecMethodModel<DelegateMethod, Void> mOnCreateMountContent;
   private final Object mOnCreateMountContentObject = new Object();
+  private final SimpleMethodParamModel mAndroidContextParamModel =
+      MethodParamModelFactory.createSimpleMethodParamModel(
+          new TypeSpec(ClassNames.ANDROID_CONTEXT), "context", new Object());
+  private final SimpleMethodParamModel mComponentContextParamModel =
+      MethodParamModelFactory.createSimpleMethodParamModel(
+          new TypeSpec(ClassNames.COMPONENT_CONTEXT), "c", new Object());
+
+  private LayoutSpecModel mLayoutSpecModel;
+  private MountSpecModel mMountSpecModel;
+  private SpecMethodModel<DelegateMethod, Void> mOnCreateMountContent;
 
   @Before
   public void setup() {
+    mLayoutSpecModel = mock(LayoutSpecModel.class);
+    mMountSpecModel = mock(MountSpecModel.class);
     when(mLayoutSpecModel.getRepresentedObject()).thenReturn(mModelRepresentedObject);
     when(mMountSpecModel.getRepresentedObject()).thenReturn(mMountSpecObject);
+    when(mMountSpecModel.getContextClass()).thenReturn(ClassNames.COMPONENT_CONTEXT);
 
     mOnCreateMountContent =
         SpecMethodModel.<DelegateMethod, Void>builder()
@@ -72,13 +81,7 @@ public class DelegateMethodValidationTest {
             .name("onCreateMountContent")
             .returnTypeSpec(new TypeSpec(ClassName.bestGuess("java.lang.MadeUpClass")))
             .typeVariables(ImmutableList.of())
-            .methodParams(
-                ImmutableList.of(
-                    MockMethodParamModel.newBuilder()
-                        .name("c")
-                        .type(ClassNames.ANDROID_CONTEXT)
-                        .representedObject(new Object())
-                        .build()))
+            .methodParams(ImmutableList.of(mAndroidContextParamModel))
             .representedObject(mOnCreateMountContentObject)
             .typeModel(null)
             .build();
@@ -92,10 +95,11 @@ public class DelegateMethodValidationTest {
         DelegateMethodValidation.validateLayoutSpecModel(mLayoutSpecModel);
     assertThat(validationErrors).hasSize(1);
     assertThat(validationErrors.get(0).element).isEqualTo(mModelRepresentedObject);
-    assertThat(validationErrors.get(0).message).isEqualTo(
-        "You need to have a method annotated with either @OnCreateLayout " +
-            "or @OnCreateLayoutWithSizeSpec in your spec. In most cases, @OnCreateLayout " +
-            "is what you want.");
+    assertThat(validationErrors.get(0).message)
+        .isEqualTo(
+            "You need to have a method annotated with either @OnCreateLayout "
+                + "or @OnCreateLayoutWithSizeSpec in your spec. In most cases, @OnCreateLayout "
+                + "is what you want.");
   }
 
   @Test
@@ -109,13 +113,7 @@ public class DelegateMethodValidationTest {
                     .name("name")
                     .returnTypeSpec(new TypeSpec(ClassNames.COMPONENT))
                     .typeVariables(ImmutableList.of())
-                    .methodParams(
-                        ImmutableList.of(
-                            MockMethodParamModel.newBuilder()
-                                .name("c")
-                                .type(ClassNames.COMPONENT_CONTEXT)
-                                .representedObject(new Object())
-                                .build()))
+                    .methodParams(ImmutableList.of(mComponentContextParamModel))
                     .representedObject(new Object())
                     .typeModel(null)
                     .build(),
@@ -128,21 +126,11 @@ public class DelegateMethodValidationTest {
                     .typeVariables(ImmutableList.of())
                     .methodParams(
                         ImmutableList.of(
-                            MockMethodParamModel.newBuilder()
-                                .name("c")
-                                .type(ClassNames.COMPONENT_CONTEXT)
-                                .representedObject(new Object())
-                                .build(),
-                            MockMethodParamModel.newBuilder()
-                                .name("widthSpec")
-                                .type(TypeName.INT)
-                                .representedObject(new Object())
-                                .build(),
-                            MockMethodParamModel.newBuilder()
-                                .name("heightSpec")
-                                .type(TypeName.INT)
-                                .representedObject(new Object())
-                                .build()))
+                            mComponentContextParamModel,
+                            MethodParamModelFactory.createSimpleMethodParamModel(
+                                new TypeSpec(TypeName.INT), "widthSpec", new Object()),
+                            MethodParamModelFactory.createSimpleMethodParamModel(
+                                new TypeSpec(TypeName.INT), "heightSpec", new Object())))
                     .representedObject(new Object())
                     .typeModel(null)
                     .build()));
@@ -151,38 +139,11 @@ public class DelegateMethodValidationTest {
         DelegateMethodValidation.validateLayoutSpecModel(mLayoutSpecModel);
     assertThat(validationErrors).hasSize(1);
     assertThat(validationErrors.get(0).element).isEqualTo(mModelRepresentedObject);
-    assertThat(validationErrors.get(0).message).isEqualTo(
-        "Your LayoutSpec should have a method annotated with either @OnCreateLayout " +
-            "or @OnCreateLayoutWithSizeSpec, but not both. In most cases, @OnCreateLayout " +
-            "is what you want.");
-  }
-
-  @Test
-  public void testDelegateMethodDoesNotDefineEnoughParams() {
-    when(mLayoutSpecModel.getDelegateMethods())
-        .thenReturn(
-            ImmutableList.of(
-                SpecMethodModel.<DelegateMethod, Void>builder()
-                    .annotations(
-                        ImmutableList.of((Annotation) () -> OnCreateLayoutWithSizeSpec.class))
-                    .modifiers(ImmutableList.of(Modifier.STATIC))
-                    .name("name")
-                    .returnTypeSpec(new TypeSpec(ClassNames.COMPONENT))
-                    .typeVariables(ImmutableList.of())
-                    .methodParams(ImmutableList.of())
-                    .representedObject(mDelegateMethodObject1)
-                    .typeModel(null)
-                    .build()));
-
-    final List<SpecModelValidationError> validationErrors =
-        DelegateMethodValidation.validateLayoutSpecModel(mLayoutSpecModel);
-    assertThat(validationErrors).hasSize(1);
-    assertThat(validationErrors.get(0).element).isEqualTo(mDelegateMethodObject1);
-    assertThat(validationErrors.get(0).message).isEqualTo(
-        "Methods annotated with interface " +
-            "com.facebook.litho.annotations.OnCreateLayoutWithSizeSpec " +
-            "must have at least 3 parameters, and they should be of type " +
-            "com.facebook.litho.ComponentContext, int, int.");
+    assertThat(validationErrors.get(0).message)
+        .isEqualTo(
+            "Your LayoutSpec should have a method annotated with either @OnCreateLayout "
+                + "or @OnCreateLayoutWithSizeSpec, but not both. In most cases, @OnCreateLayout "
+                + "is what you want.");
   }
 
   @Test
@@ -223,10 +184,8 @@ public class DelegateMethodValidationTest {
                     .typeVariables(ImmutableList.of())
                     .methodParams(
                         ImmutableList.of(
-                            MockMethodParamModel.newBuilder()
-                                .type(TypeName.BOOLEAN)
-                                .representedObject(mMethodParamObject1)
-                                .build()))
+                            MethodParamModelFactory.createSimpleMethodParamModel(
+                                new TypeSpec(TypeName.BOOLEAN), "someBool", mMethodParamObject1)))
                     .representedObject(mDelegateMethodObject1)
                     .typeModel(null)
                     .build()));
@@ -235,10 +194,12 @@ public class DelegateMethodValidationTest {
         DelegateMethodValidation.validateLayoutSpecModel(mLayoutSpecModel);
     assertThat(validationErrors).hasSize(1);
     assertThat(validationErrors.get(0).element).isEqualTo(mMethodParamObject1);
-    assertThat(validationErrors.get(0).message).isEqualTo(
-        "Parameter in position 0 of a method annotated with interface " +
-            "com.facebook.litho.annotations.OnCreateLayout should be of type " +
-            "com.facebook.litho.ComponentContext.");
+    assertThat(validationErrors.get(0).message)
+        .isEqualTo(
+            "Argument at index 0 is not a valid parameter, should be one of the following: "
+                + "@Prop T somePropName. @TreeProp T someTreePropName. @State T someStateName. "
+                + "@InjectProp T someInjectPropName. @CachedValue T value, where the cached value "
+                + "has a corresponding @OnCalculateCachedValue method. ");
   }
 
   @Test
@@ -254,10 +215,7 @@ public class DelegateMethodValidationTest {
                     .typeVariables(ImmutableList.of())
                     .methodParams(
                         ImmutableList.of(
-                            MockMethodParamModel.newBuilder()
-                                .type(ClassNames.COMPONENT_CONTEXT)
-                                .representedObject(mMethodParamObject1)
-                                .build(),
+                            mComponentContextParamModel,
                             MockMethodParamModel.newBuilder()
                                 .type(TypeName.INT)
                                 .representedObject(mMethodParamObject2)
@@ -272,7 +230,10 @@ public class DelegateMethodValidationTest {
     assertThat(validationErrors.get(0).element).isEqualTo(mMethodParamObject2);
     assertThat(validationErrors.get(0).message)
         .isEqualTo(
-            "Not a valid parameter, should be one of the following: @Prop T somePropName. @TreeProp T someTreePropName. @State T someStateName. @InjectProp T someInjectPropName. @CachedValue T value, where the cached value has a corresponding @OnCalculateCachedValue method. ");
+            "Argument at index 1 is not a valid parameter, should be one of the following: "
+                + "@Prop T somePropName. @TreeProp T someTreePropName. @State T someStateName. "
+                + "@InjectProp T someInjectPropName. @CachedValue T value, where the cached value "
+                + "has a corresponding @OnCalculateCachedValue method. ");
   }
 
   @Test
@@ -287,12 +248,7 @@ public class DelegateMethodValidationTest {
                     .name("name")
                     .returnTypeSpec(new TypeSpec(ClassNames.COMPONENT))
                     .typeVariables(ImmutableList.of())
-                    .methodParams(
-                        ImmutableList.of(
-                            MockMethodParamModel.newBuilder()
-                                .type(ClassNames.COMPONENT_CONTEXT)
-                                .representedObject(mMethodParamObject1)
-                                .build()))
+                    .methodParams(ImmutableList.of(mComponentContextParamModel))
                     .representedObject(mDelegateMethodObject1)
                     .typeModel(null)
                     .build()));
@@ -316,12 +272,7 @@ public class DelegateMethodValidationTest {
                     .name("name")
                     .returnTypeSpec(new TypeSpec(ClassNames.COMPONENT))
                     .typeVariables(ImmutableList.of())
-                    .methodParams(
-                        ImmutableList.of(
-                            MockMethodParamModel.newBuilder()
-                                .type(ClassNames.COMPONENT_CONTEXT)
-                                .representedObject(mMethodParamObject1)
-                                .build()))
+                    .methodParams(ImmutableList.of(mComponentContextParamModel))
                     .representedObject(mDelegateMethodObject1)
                     .typeModel(null)
                     .build()));
@@ -342,12 +293,7 @@ public class DelegateMethodValidationTest {
                     .name("name")
                     .returnTypeSpec(new TypeSpec(ClassNames.COMPONENT_LAYOUT))
                     .typeVariables(ImmutableList.of())
-                    .methodParams(
-                        ImmutableList.of(
-                            MockMethodParamModel.newBuilder()
-                                .type(ClassNames.COMPONENT_CONTEXT)
-                                .representedObject(mMethodParamObject1)
-                                .build()))
+                    .methodParams(ImmutableList.of(mComponentContextParamModel))
                     .representedObject(mDelegateMethodObject1)
                     .typeModel(null)
                     .build()));
@@ -372,8 +318,8 @@ public class DelegateMethodValidationTest {
         DelegateMethodValidation.validateMountSpecModel(mMountSpecModel);
     assertThat(validationErrors).hasSize(1);
     assertThat(validationErrors.get(0).element).isEqualTo(mMountSpecObject);
-    assertThat(validationErrors.get(0).message).isEqualTo(
-        "All MountSpecs need to have a method annotated with @OnCreateMountContent.");
+    assertThat(validationErrors.get(0).message)
+        .isEqualTo("All MountSpecs need to have a method annotated with @OnCreateMountContent.");
   }
 
   @Test
@@ -390,14 +336,9 @@ public class DelegateMethodValidationTest {
                     .typeVariables(ImmutableList.of())
                     .methodParams(
                         ImmutableList.of(
-                            MockMethodParamModel.newBuilder()
-                                .type(ClassNames.COMPONENT_CONTEXT)
-                                .representedObject(mMethodParamObject1)
-                                .build(),
-                            MockMethodParamModel.newBuilder()
-                                .type(ClassNames.OBJECT)
-                                .representedObject(mMethodParamObject2)
-                                .build()))
+                            mComponentContextParamModel,
+                            MethodParamModelFactory.createSimpleMethodParamModel(
+                                new TypeSpec(ClassNames.OBJECT), "content", mMethodParamObject2)))
                     .representedObject(mDelegateMethodObject1)
                     .typeModel(null)
                     .build(),
@@ -409,14 +350,9 @@ public class DelegateMethodValidationTest {
                     .typeVariables(ImmutableList.of())
                     .methodParams(
                         ImmutableList.of(
-                            MockMethodParamModel.newBuilder()
-                                .type(ClassNames.COMPONENT_CONTEXT)
-                                .representedObject(mMethodParamObject1)
-                                .build(),
-                            MockMethodParamModel.newBuilder()
-                                .type(ClassNames.OBJECT)
-                                .representedObject(mMethodParamObject2)
-                                .build()))
+                            mComponentContextParamModel,
+                            MethodParamModelFactory.createSimpleMethodParamModel(
+                                new TypeSpec(ClassNames.OBJECT), "content", mMethodParamObject2)))
                     .representedObject(mDelegateMethodObject2)
                     .typeModel(null)
                     .build()));
@@ -425,63 +361,19 @@ public class DelegateMethodValidationTest {
         DelegateMethodValidation.validateMountSpecModel(mMountSpecModel);
     assertThat(validationErrors).hasSize(2);
     assertThat(validationErrors.get(0).element).isEqualTo(mDelegateMethodObject1);
-    assertThat(validationErrors.get(0).message).isEqualTo(
-        "The second parameter of a method annotated with interface " +
-            "com.facebook.litho.annotations.OnMount must have the same type as the " +
-            "return type of the method annotated with @OnCreateMountContent (i.e. " +
-            "java.lang.MadeUpClass).");
-    assertThat(validationErrors.get(1).element).isEqualTo(mDelegateMethodObject2);
-    assertThat(validationErrors.get(1).message).isEqualTo(
-        "The second parameter of a method annotated with interface " +
-            "com.facebook.litho.annotations.OnBind must have the same type as the " +
-            "return type of the method annotated with @OnCreateMountContent (i.e. " +
-            "java.lang.MadeUpClass).");
-  }
-
-  @Test
-  public void testInterStageInputParamAnnotationNotValid() {
-    final InterStageInputParamModel interStageInputParamModel =
-        mock(InterStageInputParamModel.class);
-    when(interStageInputParamModel.getAnnotations())
-        .thenReturn(ImmutableList.of((Annotation) () -> FromBind.class));
-    when(interStageInputParamModel.getRepresentedObject()).thenReturn(mMethodParamObject3);
-    when(mMountSpecModel.getDelegateMethods())
-        .thenReturn(
-            ImmutableList.of(
-                mOnCreateMountContent,
-                SpecMethodModel.<DelegateMethod, Void>builder()
-                    .annotations(ImmutableList.of((Annotation) () -> OnUnmount.class))
-                    .modifiers(ImmutableList.of(Modifier.STATIC))
-                    .name("onUnmount")
-                    .returnTypeSpec(new TypeSpec(TypeName.VOID))
-                    .typeVariables(ImmutableList.of())
-                    .methodParams(
-                        ImmutableList.of(
-                            MockMethodParamModel.newBuilder()
-                                .type(ClassNames.COMPONENT_CONTEXT)
-                                .representedObject(mMethodParamObject1)
-                                .build(),
-                            MockMethodParamModel.newBuilder()
-                                .type(ClassName.bestGuess("java.lang.MadeUpClass"))
-                                .representedObject(mMethodParamObject2)
-                                .build(),
-                            interStageInputParamModel))
-                    .representedObject(mDelegateMethodObject1)
-                    .typeModel(null)
-                    .build()));
-
-    final List<SpecModelValidationError> validationErrors =
-        DelegateMethodValidation.validateMountSpecModel(mMountSpecModel);
-    assertThat(validationErrors).hasSize(1);
-    assertThat(validationErrors.get(0).element).isEqualTo(mMethodParamObject3);
     assertThat(validationErrors.get(0).message)
         .isEqualTo(
-            "Inter-stage input annotation is not valid for methods annotated with interface "
-                + "com.facebook.litho.annotations.OnUnmount; please use one of the "
-                + "following: [interface com.facebook.litho.annotations.FromPrepare, "
-                + "interface com.facebook.litho.annotations.FromMeasure, "
-                + "interface com.facebook.litho.annotations.FromMeasureBaseline, "
-                + "interface com.facebook.litho.annotations.FromBoundsDefined]");
+            "The second parameter of a method annotated with interface "
+                + "com.facebook.litho.annotations.OnMount must have the same type as the "
+                + "return type of the method annotated with @OnCreateMountContent (i.e. "
+                + "java.lang.MadeUpClass).");
+    assertThat(validationErrors.get(1).element).isEqualTo(mDelegateMethodObject2);
+    assertThat(validationErrors.get(1).message)
+        .isEqualTo(
+            "The second parameter of a method annotated with interface "
+                + "com.facebook.litho.annotations.OnBind must have the same type as the "
+                + "return type of the method annotated with @OnCreateMountContent (i.e. "
+                + "java.lang.MadeUpClass).");
   }
 
   @Test
@@ -505,14 +397,11 @@ public class DelegateMethodValidationTest {
                     .typeVariables(ImmutableList.of())
                     .methodParams(
                         ImmutableList.of(
-                            MockMethodParamModel.newBuilder()
-                                .type(ClassNames.COMPONENT_CONTEXT)
-                                .representedObject(mMethodParamObject1)
-                                .build(),
-                            MockMethodParamModel.newBuilder()
-                                .type(ClassName.bestGuess("java.lang.MadeUpClass"))
-                                .representedObject(mMethodParamObject2)
-                                .build(),
+                            mComponentContextParamModel,
+                            MethodParamModelFactory.createSimpleMethodParamModel(
+                                new TypeSpec(ClassName.bestGuess("java.lang.MadeUpClass")),
+                                "content",
+                                mMethodParamObject2),
                             interStageInputParamModel))
                     .representedObject(mDelegateMethodObject1)
                     .typeModel(null)
@@ -525,11 +414,12 @@ public class DelegateMethodValidationTest {
     }
     assertThat(validationErrors).hasSize(1);
     assertThat(validationErrors.get(0).element).isEqualTo(mMethodParamObject3);
-    assertThat(validationErrors.get(0).message).isEqualTo(
-        "To use interface com.facebook.litho.annotations.FromPrepare on param interStageInput " +
-            "you must have a method annotated with interface " +
-            "com.facebook.litho.annotations.OnPrepare that has a param Output<java.lang.Integer> " +
-            "interStageInput");
+    assertThat(validationErrors.get(0).message)
+        .isEqualTo(
+            "To use interface com.facebook.litho.annotations.FromPrepare on param interStageInput "
+                + "you must have a method annotated with interface "
+                + "com.facebook.litho.annotations.OnPrepare that has a param Output<java.lang.Integer> "
+                + "interStageInput");
   }
 
   @Test
@@ -553,16 +443,11 @@ public class DelegateMethodValidationTest {
                     .typeVariables(ImmutableList.of())
                     .methodParams(
                         ImmutableList.of(
-                            MockMethodParamModel.newBuilder()
-                                .name("c")
-                                .type(ClassNames.COMPONENT_CONTEXT)
-                                .representedObject(mMethodParamObject1)
-                                .build(),
-                            MockMethodParamModel.newBuilder()
-                                .name("param")
-                                .type(ClassName.bestGuess("java.lang.MadeUpClass"))
-                                .representedObject(mMethodParamObject2)
-                                .build(),
+                            mComponentContextParamModel,
+                            MethodParamModelFactory.createSimpleMethodParamModel(
+                                new TypeSpec(ClassName.bestGuess("java.lang.MadeUpClass")),
+                                "param",
+                                mMethodParamObject2),
                             interStageInputParamModel))
                     .representedObject(mDelegateMethodObject1)
                     .typeModel(null)
@@ -573,13 +458,7 @@ public class DelegateMethodValidationTest {
                     .name("onPrepare")
                     .returnTypeSpec(new TypeSpec(TypeName.VOID))
                     .typeVariables(ImmutableList.of())
-                    .methodParams(
-                        ImmutableList.of(
-                            MockMethodParamModel.newBuilder()
-                                .name("c")
-                                .type(ClassNames.COMPONENT_CONTEXT)
-                                .representedObject(mMethodParamObject1)
-                                .build()))
+                    .methodParams(ImmutableList.of(mComponentContextParamModel))
                     .representedObject(mDelegateMethodObject2)
                     .typeModel(null)
                     .build()));
@@ -591,10 +470,11 @@ public class DelegateMethodValidationTest {
     }
     assertThat(validationErrors).hasSize(1);
     assertThat(validationErrors.get(0).element).isEqualTo(mMethodParamObject3);
-    assertThat(validationErrors.get(0).message).isEqualTo(
-        "To use interface com.facebook.litho.annotations.FromPrepare on param interStageInput " +
-            "your method annotated with interface com.facebook.litho.annotations.OnPrepare must " +
-            "have a param Output<java.lang.Integer> interStageInput");
+    assertThat(validationErrors.get(0).message)
+        .isEqualTo(
+            "To use interface com.facebook.litho.annotations.FromPrepare on param interStageInput "
+                + "your method annotated with interface com.facebook.litho.annotations.OnPrepare must "
+                + "have a param Output<java.lang.Integer> interStageInput");
   }
 
   @Test
@@ -623,10 +503,7 @@ public class DelegateMethodValidationTest {
                     .typeVariables(ImmutableList.of())
                     .methodParams(
                         ImmutableList.of(
-                            MockMethodParamModel.newBuilder()
-                                .type(ClassNames.COMPONENT_CONTEXT)
-                                .representedObject(mMethodParamObject1)
-                                .build(),
+                            mComponentContextParamModel,
                             MethodParamModelFactory.createSimpleMethodParamModel(
                                 new TypeSpec(TypeName.INT.box()), "matched", mMethodParamObject2),
                             MethodParamModelFactory.createSimpleMethodParamModel(
@@ -642,6 +519,11 @@ public class DelegateMethodValidationTest {
     assertThat(validationErrors.get(0).element).isEqualTo(mMethodParamObject3);
     assertThat(validationErrors.get(0).message)
         .isEqualTo(
-            "Not a valid parameter, should be one of the following: @Prop T somePropName. @TreeProp T someTreePropName. @State T someStateName. @InjectProp T someInjectPropName. @CachedValue T value, where the cached value has a corresponding @OnCalculateCachedValue method. Or one of the following, where no annotations should be added to the parameter: java.lang.Integer matched. char unmatched. ");
+            "Argument at index 2 is not a valid parameter, should be one of the following: "
+                + "@Prop T somePropName. @TreeProp T someTreePropName. @State T someStateName. "
+                + "@InjectProp T someInjectPropName. @CachedValue T value, where the cached value "
+                + "has a corresponding @OnCalculateCachedValue method. Or one of the following, "
+                + "where no annotations should be added to the parameter: java.lang.Integer "
+                + "matched. char unmatched. ");
   }
 }

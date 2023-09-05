@@ -1,14 +1,19 @@
 /*
- * This file provided by Facebook is for non-commercial testing and evaluation
- * purposes only.  Facebook reserves all rights not expressly granted.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * FACEBOOK BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
- * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
+
 package com.facebook.samples.lithocodelab.examples.modules;
 
 import static org.hamcrest.core.Is.is;
@@ -20,10 +25,10 @@ import com.facebook.litho.ComponentContext;
 import com.facebook.litho.EventHandler;
 import com.facebook.litho.StateValue;
 import com.facebook.litho.config.ComponentsConfiguration;
-import com.facebook.litho.testing.ComponentsRule;
-import com.facebook.litho.testing.assertj.LithoAssertions;
+import com.facebook.litho.testing.LegacyLithoViewRule;
+import com.facebook.litho.testing.assertj.LegacyLithoAssertions;
 import com.facebook.litho.testing.assertj.SubComponentExtractor;
-import com.facebook.litho.testing.testrunner.ComponentsTestRunner;
+import com.facebook.litho.testing.testrunner.LithoTestRunner;
 import com.facebook.litho.widget.TestText;
 import org.hamcrest.core.IsNull;
 import org.junit.Before;
@@ -31,9 +36,9 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-@RunWith(ComponentsTestRunner.class)
+@RunWith(LithoTestRunner.class)
 public class LearningStateComponentSpecTest {
-  @Rule public ComponentsRule mComponentsRule = new ComponentsRule();
+  @Rule public LegacyLithoViewRule mLegacyLithoViewRule = new LegacyLithoViewRule();
 
   @Before
   public void assumeDebug() {
@@ -45,10 +50,10 @@ public class LearningStateComponentSpecTest {
 
   @Test
   public void testComponentOnClick() {
-    final ComponentContext c = mComponentsRule.getContext();
+    final ComponentContext c = mLegacyLithoViewRule.getContext();
     final Component component = LearningStateComponent.create(c).canClick(true).build();
 
-    LithoAssertions.assertThat(c, component)
+    LegacyLithoAssertions.assertThat(c, component)
         .has(
             SubComponentExtractor.subComponentWith(
                 c,
@@ -59,10 +64,10 @@ public class LearningStateComponentSpecTest {
 
   @Test
   public void testNoComponentOnClick() {
-    final ComponentContext c = mComponentsRule.getContext();
+    final ComponentContext c = mLegacyLithoViewRule.getContext();
     final Component component = LearningStateComponent.create(c).canClick(false).build();
 
-    LithoAssertions.assertThat(c, component)
+    LegacyLithoAssertions.assertThat(c, component)
         .has(
             SubComponentExtractor.subComponentWith(
                 c,
@@ -77,6 +82,6 @@ public class LearningStateComponentSpecTest {
     count.set(0);
     LearningStateComponentSpec.incrementClickCount(count);
 
-    LithoAssertions.assertThat(count).valueEqualTo(1);
+    LegacyLithoAssertions.assertThat(count).valueEqualTo(1);
   }
 }

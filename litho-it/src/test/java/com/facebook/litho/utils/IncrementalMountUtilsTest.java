@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,9 +16,9 @@
 
 package com.facebook.litho.utils;
 
-import static org.assertj.core.api.Java6Assertions.assertThat;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.eq;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -30,7 +30,7 @@ import android.graphics.Rect;
 import android.view.View;
 import android.view.ViewGroup;
 import com.facebook.litho.LithoView;
-import com.facebook.litho.testing.testrunner.ComponentsTestRunner;
+import com.facebook.litho.testing.testrunner.LithoTestRunner;
 import com.facebook.litho.utils.IncrementalMountUtils.WrapperView;
 import org.junit.Before;
 import org.junit.Test;
@@ -38,10 +38,8 @@ import org.junit.runner.RunWith;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
-/**
- * Tests {@link IncrementalMountUtils}
- */
-@RunWith(ComponentsTestRunner.class)
+/** Tests {@link IncrementalMountUtils} */
+@RunWith(LithoTestRunner.class)
 public class IncrementalMountUtilsTest {
   private static final int SCROLLING_VIEW_WIDTH = 100;
   private static final int SCROLLING_VIEW_HEIGHT = 1000;
@@ -73,7 +71,7 @@ public class IncrementalMountUtilsTest {
               }
             })
         .when(mLithoView)
-        .performIncrementalMount(any(Rect.class), eq(true));
+        .notifyVisibleBoundsChanged((Rect) any(), eq(true));
   }
 
   @Test
@@ -102,7 +100,7 @@ public class IncrementalMountUtilsTest {
 
     IncrementalMountUtils.performIncrementalMount(mViewGroup);
 
-    verify(mLithoView, never()).performIncrementalMount(any(Rect.class), eq(true));
+    verify(mLithoView, never()).notifyVisibleBoundsChanged((Rect) any(), eq(true));
   }
 
   @Test
@@ -122,7 +120,7 @@ public class IncrementalMountUtilsTest {
 
     IncrementalMountUtils.performIncrementalMount(mViewGroup);
 
-    verify(mLithoView, never()).performIncrementalMount(any(Rect.class), eq(true));
+    verify(mLithoView, never()).notifyVisibleBoundsChanged((Rect) any(), eq(true));
   }
 
   @Test
@@ -138,11 +136,7 @@ public class IncrementalMountUtilsTest {
   @Test
   public void testIncrementalMountForLithoViewVisibleAtBottom() {
     setupViewBounds(
-        mLithoView,
-        0,
-        SCROLLING_VIEW_HEIGHT - 5,
-        SCROLLING_VIEW_WIDTH,
-        SCROLLING_VIEW_HEIGHT + 5);
+        mLithoView, 0, SCROLLING_VIEW_HEIGHT - 5, SCROLLING_VIEW_WIDTH, SCROLLING_VIEW_HEIGHT + 5);
 
     IncrementalMountUtils.performIncrementalMount(mViewGroup);
 
@@ -152,11 +146,7 @@ public class IncrementalMountUtilsTest {
   @Test
   public void testIncrementalMountForLithoViewVisibleAtRight() {
     setupViewBounds(
-        mLithoView,
-        SCROLLING_VIEW_WIDTH - 5,
-        0,
-        SCROLLING_VIEW_WIDTH + 5,
-        SCROLLING_VIEW_HEIGHT);
+        mLithoView, SCROLLING_VIEW_WIDTH - 5, 0, SCROLLING_VIEW_WIDTH + 5, SCROLLING_VIEW_HEIGHT);
 
     IncrementalMountUtils.performIncrementalMount(mViewGroup);
 
@@ -180,22 +170,18 @@ public class IncrementalMountUtilsTest {
 
     IncrementalMountUtils.performIncrementalMount(mViewGroup);
 
-    verify(mLithoView, never()).performIncrementalMount(any(Rect.class), eq(true));
+    verify(mLithoView, never()).notifyVisibleBoundsChanged((Rect) any(), eq(true));
   }
 
   @Test
   public void testNoIncrementalMountWhenNotEnabled() {
     setupViewBounds(
-        mLithoView,
-        0,
-        SCROLLING_VIEW_HEIGHT - 5,
-        SCROLLING_VIEW_WIDTH,
-        SCROLLING_VIEW_HEIGHT + 5);
+        mLithoView, 0, SCROLLING_VIEW_HEIGHT - 5, SCROLLING_VIEW_WIDTH, SCROLLING_VIEW_HEIGHT + 5);
     when(mLithoView.isIncrementalMountEnabled()).thenReturn(false);
 
     IncrementalMountUtils.performIncrementalMount(mViewGroup);
 
-    verify(mLithoView, never()).performIncrementalMount(any(Rect.class), eq(true));
+    verify(mLithoView, never()).notifyVisibleBoundsChanged((Rect) any(), eq(true));
   }
 
   @Test
@@ -246,7 +232,7 @@ public class IncrementalMountUtilsTest {
 
     IncrementalMountUtils.performIncrementalMount(mViewGroup);
 
-    verify(mLithoView, never()).performIncrementalMount(any(Rect.class), eq(true));
+    verify(mLithoView, never()).notifyVisibleBoundsChanged((Rect) any(), eq(true));
   }
 
   private static void setupViewBounds(View view, int l, int t, int r, int b) {
@@ -263,10 +249,7 @@ public class IncrementalMountUtilsTest {
     when(view.getTranslationY()).thenReturn(translationY);
   }
 
-  private static void setupLithoViewPreviousBounds(
-      LithoView lithoView,
-      int width,
-      int height) {
+  private static void setupLithoViewPreviousBounds(LithoView lithoView, int width, int height) {
     when(lithoView.getPreviousMountBounds()).thenReturn(new Rect(0, 0, width, height));
   }
 

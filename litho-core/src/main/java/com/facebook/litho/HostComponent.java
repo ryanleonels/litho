@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,10 +19,13 @@ package com.facebook.litho;
 import android.content.Context;
 import android.os.Build;
 import android.util.SparseArray;
+import androidx.annotation.Nullable;
+import com.facebook.infer.annotation.Nullsafe;
 import com.facebook.litho.config.ComponentsConfiguration;
-import javax.annotation.Nullable;
+import com.facebook.rendercore.MountItemsPool;
 
-class HostComponent extends Component {
+@Nullsafe(Nullsafe.Mode.LOCAL)
+class HostComponent extends SpecGeneratedComponent {
 
   /**
    * We duplicate mComponentDynamicProps here, in order to provide {@link
@@ -31,16 +34,27 @@ class HostComponent extends Component {
    */
   @Nullable private SparseArray<DynamicValue<?>> mCommonDynamicProps;
 
+  private boolean mImplementsVirtualViews = false;
+
   protected HostComponent() {
     super("HostComponent");
   }
 
   @Override
-  protected MountContentPool onCreateMountContentPool() {
-    if (ComponentsConfiguration.disableComponentHostPool) {
-      return new DisabledMountContentPool();
-    }
-    return super.onCreateMountContentPool();
+  public MountItemsPool.ItemPool onCreateMountContentPool() {
+    return new HostMountContentPool(
+        ComponentsConfiguration.hostComponentPoolSize,
+        ComponentsConfiguration.unsafeHostComponentRecyclingIsEnabled);
+  }
+
+  @Override
+  public boolean isRecyclingDisabled() {
+    return !ComponentsConfiguration.unsafeHostComponentRecyclingIsEnabled;
+  }
+
+  @Override
+  public boolean canPreallocate() {
+    return ComponentsConfiguration.isHostComponentPreallocationEnabled;
   }
 
   @Override
@@ -49,7 +63,10 @@ class HostComponent extends Component {
   }
 
   @Override
-  protected void onMount(ComponentContext c, Object convertContent) {
+  protected void onMount(
+      final @Nullable ComponentContext c,
+      final Object convertContent,
+      final @Nullable InterStagePropsContainer interStagePropsContainer) {
     final ComponentHost host = (ComponentHost) convertContent;
 
     if (Build.VERSION.SDK_INT >= 11) {
@@ -57,10 +74,15 @@ class HostComponent extends Component {
       // to 0, which will mean that it won't draw anything.
       host.setAlpha(1.0f);
     }
+
+    host.setImplementsVirtualViews(mImplementsVirtualViews);
   }
 
   @Override
-  protected void onUnmount(ComponentContext c, Object mountedContent) {
+  protected void onUnmount(
+      final @Nullable ComponentContext c,
+      final Object mountedContent,
+      final @Nullable InterStagePropsContainer interStagePropsContainer) {
     final ComponentHost host = (ComponentHost) mountedContent;
 
     // Some hosts might be duplicating parent state which could be 'pressed' and under certain
@@ -71,6 +93,17 @@ class HostComponent extends Component {
     if (host.isPressed()) {
       host.setPressed(false);
     }
+
+    host.setImplementsVirtualViews(false);
+  }
+
+  @Override
+  protected void onBind(
+      @Nullable ComponentContext c,
+      Object mountedContent,
+      @Nullable InterStagePropsContainer interStagePropsContainer) {
+    final ComponentHost host = (ComponentHost) mountedContent;
+    host.maybeInvalidateAccessibilityState();
   }
 
   @Override
@@ -83,18 +116,26 @@ class HostComponent extends Component {
   }
 
   @Override
-  public boolean isEquivalentTo(Component other) {
+  public boolean isEquivalentProps(@Nullable Component other, boolean shouldCompareCommonProps) {
     return this == other;
   }
 
   @Override
-  protected int poolSize() {
+  public int poolSize() {
     return 45;
   }
 
   @Override
-  protected boolean shouldUpdate(Component previous, Component next) {
-    return true;
+  protected boolean shouldUpdate(
+      final Component previous,
+      final @Nullable StateContainer previousStateContainer,
+      final Component next,
+      final @Nullable StateContainer nextStateContainer) {
+    if (ComponentsConfiguration.hostComponentAlwaysShouldUpdate) {
+      return true;
+    }
+    return ((HostComponent) previous).mImplementsVirtualViews
+        != ((HostComponent) next).mImplementsVirtualViews;
   }
 
   @Nullable
@@ -105,7 +146,7 @@ class HostComponent extends Component {
 
   @Override
   boolean hasCommonDynamicProps() {
-    return mCommonDynamicProps != null;
+    return CollectionsUtils.isNotNullOrEmpty(mCommonDynamicProps);
   }
 
   /**
@@ -113,9 +154,13 @@ class HostComponent extends Component {
    * to the host, that's wrapping it
    *
    * @param commonDynamicProps common dynamic props to set.
-   * @see LayoutState#createHostLayoutOutput(LayoutState, InternalNode, boolean)
+   * @see LayoutState#createHostLayoutOutput(LayoutState, LithoNode, boolean)
    */
   void setCommonDynamicProps(SparseArray<DynamicValue<?>> commonDynamicProps) {
     mCommonDynamicProps = commonDynamicProps;
+  }
+
+  void setImplementsVirtualViews() {
+    mImplementsVirtualViews = true;
   }
 }

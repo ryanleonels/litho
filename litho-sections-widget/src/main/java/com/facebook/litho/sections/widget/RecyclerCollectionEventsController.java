@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,15 +23,13 @@ import static com.facebook.litho.widget.SnapUtil.SNAP_TO_END;
 import static com.facebook.litho.widget.SnapUtil.SNAP_TO_START;
 
 import android.view.View;
-import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-import androidx.recyclerview.widget.StaggeredGridLayoutManager;
 import com.facebook.litho.sections.SectionTree;
+import com.facebook.litho.widget.LayoutInfo;
 import com.facebook.litho.widget.RecyclerEventsController;
 import com.facebook.litho.widget.SmoothScrollAlignmentType;
 import com.facebook.litho.widget.SnapUtil;
-import com.facebook.litho.widget.StaggeredGridLayoutHelper;
-import java.lang.ref.WeakReference;
+import javax.annotation.Nullable;
 
 /**
  * An controller that can be passed as {@link com.facebook.litho.annotations.Prop} to a
@@ -39,30 +37,30 @@ import java.lang.ref.WeakReference;
  */
 public class RecyclerCollectionEventsController extends RecyclerEventsController {
 
-  private WeakReference<SectionTree> mSectionTree;
+  @Nullable private SectionTree mSectionTree;
   private int mSnapMode = SNAP_NONE;
   private int mFirstCompletelyVisibleItemPosition = 0;
   private int mLastCompletelyVisibleItemPosition = 0;
+  private int mItemCount = 0;
 
-  /**
-   * Sent the RecyclerCollection a request to refresh it's backing data.
-   */
+  /** Sent the RecyclerCollection a request to refresh it's backing data. */
   public void requestRefresh() {
     requestRefresh(false);
   }
 
   /**
-   * Sent the RecyclerCollection a request to refresh it's backing data. If showSpinner is
-   * true, then refresh spinner is shown.
+   * Sent the RecyclerCollection a request to refresh it's backing data. If showSpinner is true,
+   * then refresh spinner is shown.
+   *
    * @param showSpinner
    */
   public void requestRefresh(boolean showSpinner) {
-    if (mSectionTree != null && mSectionTree.get() != null) {
+    if (mSectionTree != null) {
       if (showSpinner) {
         showRefreshing();
       }
 
-      mSectionTree.get().refresh();
+      mSectionTree.refresh();
     }
   }
 
@@ -104,6 +102,14 @@ public class RecyclerCollectionEventsController extends RecyclerEventsController
 
   /**
    * Send the {@link RecyclerCollectionComponent} a request to scroll the content to the given
+   * target position taking into account snapping behavior. Can toggle if the scroll is animated
+   */
+  public void requestScrollToPositionWithSnap(final int target, final boolean animated) {
+    requestScrollToPositionInner(animated, target, target);
+  }
+
+  /**
+   * Send the {@link RecyclerCollectionComponent} a request to scroll the content to the given
    * target position taking into account provided snapping behavior. The provided smoothScroller is
    * used to scroll to the target.
    */
@@ -123,6 +129,30 @@ public class RecyclerCollectionEventsController extends RecyclerEventsController
     }
 
     recyclerView.scrollBy(dx, dy);
+  }
+
+  /**
+   * Send the {@link RecyclerCollectionComponent} a request to scroll the content by the given
+   * margins, animate a scroll by the given amount of pixels along either axis.
+   */
+  public void requestSmoothScrollBy(int dx, int dy) {
+    final RecyclerView recyclerView = getRecyclerView();
+    if (recyclerView == null) {
+      return;
+    }
+
+    recyclerView.smoothScrollBy(dx, dy);
+  }
+
+  /**
+   * Send the {@link RecyclerCollectionComponent} a request to scroll the content to the target with
+   * the given custom attribute {@link com.facebook.litho.widget.RecyclerBinder#ID_CUSTOM_ATTR_KEY
+   * "id"}.
+   */
+  public void requestSmoothScroll(Object id, int offset, SmoothScrollAlignmentType type) {
+    if (mSectionTree != null) {
+      mSectionTree.requestSmoothFocusOnRoot(id, offset, type);
+    }
   }
 
   /**
@@ -152,6 +182,11 @@ public class RecyclerCollectionEventsController extends RecyclerEventsController
 
     final RecyclerView.LayoutManager layoutManager = recyclerView.getLayoutManager();
     if (layoutManager == null || recyclerView.isLayoutFrozen()) {
+      return;
+    }
+
+    if (!animated && mSnapMode == SNAP_TO_START) {
+      requestScrollToPositionWithOffset(snapTarget, /* offset */ 0);
       return;
     }
 
@@ -224,48 +259,38 @@ public class RecyclerCollectionEventsController extends RecyclerEventsController
     }
   }
 
-  void setSectionTree(SectionTree sectionTree) {
-    mSectionTree = new WeakReference<>(sectionTree);
+  public void setSectionTree(SectionTree sectionTree) {
+    mSectionTree = sectionTree;
   }
 
-  void setSnapMode(int snapMode) {
+  public void setSnapMode(int snapMode) {
     mSnapMode = snapMode;
   }
 
-  private static int getFirstCompletelyVisibleItemPosition(
-      RecyclerView.LayoutManager layoutManager) {
-    if (layoutManager instanceof StaggeredGridLayoutManager) {
-      return StaggeredGridLayoutHelper.findFirstFullyVisibleItemPosition(
-          (StaggeredGridLayoutManager) layoutManager);
-    } else {
-      return ((LinearLayoutManager) layoutManager).findFirstCompletelyVisibleItemPosition();
-    }
-  }
-
-  private static int getLastCompletelyVisibleItemPosition(
-      RecyclerView.LayoutManager layoutManager) {
-    if (layoutManager instanceof StaggeredGridLayoutManager) {
-      return StaggeredGridLayoutHelper.findLastFullyVisibleItemPosition(
-          (StaggeredGridLayoutManager) layoutManager);
-    } else {
-      return ((LinearLayoutManager) layoutManager).findLastCompletelyVisibleItemPosition();
-    }
-  }
-
-  public void updateFirstLastFullyVisibleItemPositions(RecyclerView.LayoutManager layoutManager) {
-    final int firstCompletelyVisibleItemPosition =
-        getFirstCompletelyVisibleItemPosition(layoutManager);
+  public void updateFirstLastFullyVisibleItemPositions(LayoutInfo layoutInfo) {
+    final int firstCompletelyVisibleItemPosition = layoutInfo.findFirstFullyVisibleItemPosition();
     if (firstCompletelyVisibleItemPosition != -1) {
       // firstCompletelyVisibleItemPosition can be -1 in middle of the scroll, so
       // wait until it finishes to set the state.
       mFirstCompletelyVisibleItemPosition = firstCompletelyVisibleItemPosition;
     }
 
-    final int lastCompletelyVisibleItemPosition =
-        getLastCompletelyVisibleItemPosition(layoutManager);
+    final int lastCompletelyVisibleItemPosition = layoutInfo.findLastFullyVisibleItemPosition();
     if (lastCompletelyVisibleItemPosition != -1) {
       mLastCompletelyVisibleItemPosition = lastCompletelyVisibleItemPosition;
     }
+    mItemCount = layoutInfo.getItemCount();
   }
 
+  public int getFirstCompletelyVisibleItemPosition() {
+    return mFirstCompletelyVisibleItemPosition;
+  }
+
+  public int getLastCompletelyVisibleItemPosition() {
+    return mLastCompletelyVisibleItemPosition;
+  }
+
+  public int getItemCount() {
+    return mItemCount;
+  }
 }

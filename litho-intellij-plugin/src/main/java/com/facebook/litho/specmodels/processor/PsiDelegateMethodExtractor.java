@@ -1,11 +1,11 @@
 /*
- * Copyright 2004-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.litho.specmodels.processor;
 
 import static com.facebook.litho.specmodels.processor.PsiMethodExtractorUtils.getMethodParams;
@@ -21,7 +22,6 @@ import com.facebook.litho.specmodels.internal.ImmutableList;
 import com.facebook.litho.specmodels.model.DelegateMethod;
 import com.facebook.litho.specmodels.model.MethodParamModel;
 import com.facebook.litho.specmodels.model.SpecMethodModel;
-import com.intellij.codeInsight.AnnotationUtil;
 import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiMethod;
 import com.squareup.javapoet.TypeVariableName;
@@ -36,6 +36,7 @@ public class PsiDelegateMethodExtractor {
       PsiClass psiClass,
       List<Class<? extends Annotation>> permittedMethodAnnotations,
       List<Class<? extends Annotation>> permittedInterStageInputAnnotations,
+      List<Class<? extends Annotation>> permittedPrepareInterStageInputAnnotations,
       List<Class<? extends Annotation>> delegateMethodAnnotationsThatSkipDiffModels) {
     final List<SpecMethodModel<DelegateMethod, Void>> delegateMethods = new ArrayList<>();
 
@@ -48,14 +49,16 @@ public class PsiDelegateMethodExtractor {
             getMethodParams(
                 psiMethod,
                 DelegateMethodExtractor.getPermittedMethodParamAnnotations(
-                    permittedInterStageInputAnnotations),
+                    permittedInterStageInputAnnotations,
+                    permittedPrepareInterStageInputAnnotations),
                 permittedInterStageInputAnnotations,
+                permittedPrepareInterStageInputAnnotations,
                 delegateMethodAnnotationsThatSkipDiffModels);
 
         final SpecMethodModel<DelegateMethod, Void> delegateMethod =
             new SpecMethodModel<>(
                 ImmutableList.copyOf(methodAnnotations),
-                PsiProcessingUtils.extractModifiers(psiMethod.getModifierList()),
+                PsiModifierExtractor.extractModifiers(psiMethod.getModifierList()),
                 psiMethod.getName(),
                 PsiTypeUtils.generateTypeSpec(psiMethod.getReturnType()),
                 ImmutableList.<TypeVariableName>of(),
@@ -75,7 +78,8 @@ public class PsiDelegateMethodExtractor {
     for (Class<? extends Annotation> possibleDelegateMethodAnnotation :
         permittedMethodAnnotations) {
       final Annotation methodAnnotation =
-          AnnotationUtil.findAnnotationInHierarchy(psiMethod, possibleDelegateMethodAnnotation);
+          PsiAnnotationProxyUtils.findAnnotationInHierarchy(
+              psiMethod, possibleDelegateMethodAnnotation);
       if (methodAnnotation != null) {
         methodAnnotations.add(methodAnnotation);
       }

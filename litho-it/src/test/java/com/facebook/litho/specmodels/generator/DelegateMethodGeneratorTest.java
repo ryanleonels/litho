@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,7 +18,7 @@ package com.facebook.litho.specmodels.generator;
 
 import static com.facebook.litho.specmodels.generator.DelegateMethodGenerator.generateDelegates;
 import static com.facebook.litho.specmodels.model.DelegateMethodDescriptions.LAYOUT_SPEC_DELEGATE_METHODS_MAP;
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 import com.facebook.litho.annotations.OnCreateLayout;
@@ -36,6 +36,8 @@ import com.facebook.litho.specmodels.model.SpecMethodModel;
 import com.facebook.litho.specmodels.model.SpecModel;
 import com.facebook.litho.specmodels.model.SpecModelImpl;
 import com.facebook.litho.specmodels.model.TypeSpec;
+import com.facebook.litho.testing.specmodels.MockSpecModel;
+import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.TypeName;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
@@ -78,6 +80,7 @@ public class DelegateMethodGeneratorTest {
                         ImmutableList.of(),
                         new ArrayList<>(),
                         ImmutableList.of(),
+                        ImmutableList.of(),
                         true,
                         null),
                     MethodParamModelFactory.create(
@@ -85,6 +88,7 @@ public class DelegateMethodGeneratorTest {
                         "prop",
                         ImmutableList.of(createAnnotation(Prop.class)),
                         new ArrayList<>(),
+                        ImmutableList.of(),
                         ImmutableList.of(),
                         true,
                         null),
@@ -94,23 +98,30 @@ public class DelegateMethodGeneratorTest {
                         ImmutableList.of(createAnnotation(State.class)),
                         new ArrayList<>(),
                         ImmutableList.of(),
+                        ImmutableList.of(),
                         true,
                         null)))
             .representedObject(null)
             .typeModel(null)
             .build();
 
-    mSpecModelWithoutDI = SpecModelImpl.newBuilder()
-        .qualifiedSpecClassName(TEST_QUALIFIED_SPEC_NAME)
-        .componentClass(ClassNames.COMPONENT)
-        .delegateMethods(ImmutableList.of(mDelegateMethodModel))
-        .representedObject(new Object())
-        .build();
+    mSpecModelWithoutDI =
+        MockSpecModel.newBuilder()
+            .specTypeName(ClassName.bestGuess(TEST_QUALIFIED_SPEC_NAME))
+            .specName("TestSpec")
+            .componentClass(ClassNames.COMPONENT)
+            .contextClass(ClassNames.COMPONENT_CONTEXT)
+            .delegateMethods(ImmutableList.of(mDelegateMethodModel))
+            .representedObject(new Object())
+            .stateContainerClass(
+                ClassName.bestGuess("Test" + GeneratorConstants.STATE_CONTAINER_NAME_SUFFIX))
+            .build();
 
     mSpecModelWithDI =
         SpecModelImpl.newBuilder()
             .qualifiedSpecClassName(TEST_QUALIFIED_SPEC_NAME)
             .componentClass(ClassNames.COMPONENT)
+            .contextClassName(ClassNames.COMPONENT_CONTEXT)
             .delegateMethods(ImmutableList.of(mDelegateMethodModel))
             .dependencyInjectionHelper(mDependencyInjectionHelper)
             .representedObject(new Object())
@@ -131,6 +142,7 @@ public class DelegateMethodGeneratorTest {
             "@java.lang.Override\n"
                 + "protected com.facebook.litho.Component onCreateLayout(com.facebook.litho.ComponentContext c) {\n"
                 + "  com.facebook.litho.Component _result;\n"
+                + "  TestStateContainer _state = getStateContainerImpl(c);\n"
                 + "  _result = (com.facebook.litho.Component) TestSpec.onCreateLayout(\n"
                 + "    (com.facebook.litho.ComponentContext) c,\n"
                 + "    (boolean) prop,\n"
@@ -174,6 +186,7 @@ public class DelegateMethodGeneratorTest {
                         ImmutableList.of(),
                         new ArrayList<>(),
                         ImmutableList.of(),
+                        ImmutableList.of(),
                         true,
                         null),
                     MethodParamModelFactory.createSimpleMethodParamModel(
@@ -183,6 +196,7 @@ public class DelegateMethodGeneratorTest {
                         "prop",
                         ImmutableList.of(createAnnotation(Prop.class)),
                         new ArrayList<>(),
+                        ImmutableList.of(),
                         ImmutableList.of(),
                         true,
                         null)))

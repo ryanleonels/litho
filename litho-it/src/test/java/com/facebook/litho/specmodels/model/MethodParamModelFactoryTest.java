@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +16,7 @@
 
 package com.facebook.litho.specmodels.model;
 
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 import com.facebook.litho.annotations.FromPrepare;
@@ -48,8 +48,8 @@ public class MethodParamModelFactoryTest {
             ClassNames.DIFF,
             ClassNames.DIFF.packageName() + "." + ClassNames.DIFF.simpleName(),
             () -> new TypeSpec(TypeName.OBJECT),
-            ImmutableList.of(),
-            ImmutableList.of(new TypeSpec(TypeName.INT.box())));
+            () -> ImmutableList.of(),
+            () -> ImmutableList.of(new TypeSpec(TypeName.INT.box())));
   }
 
   @Test
@@ -61,6 +61,7 @@ public class MethodParamModelFactoryTest {
             new ArrayList<Annotation>(),
             new ArrayList<AnnotationSpec>(),
             ImmutableList.<Class<? extends Annotation>>of(),
+            ImmutableList.of(),
             true,
             null);
 
@@ -78,6 +79,7 @@ public class MethodParamModelFactoryTest {
             annotations,
             new ArrayList<AnnotationSpec>(),
             ImmutableList.<Class<? extends Annotation>>of(),
+            ImmutableList.of(),
             true,
             null);
 
@@ -95,6 +97,7 @@ public class MethodParamModelFactoryTest {
             annotations,
             new ArrayList<AnnotationSpec>(),
             ImmutableList.<Class<? extends Annotation>>of(),
+            ImmutableList.of(),
             true,
             null);
 
@@ -104,12 +107,13 @@ public class MethodParamModelFactoryTest {
   @Test
   public void testCreateInterStageInputModel() {
     final List<Annotation> annotations = new ArrayList<>();
-    Annotation fromPrepare= new Annotation() {
-      @Override
-      public Class<? extends Annotation> annotationType() {
-        return FromPrepare.class;
-      }
-    };
+    Annotation fromPrepare =
+        new Annotation() {
+          @Override
+          public Class<? extends Annotation> annotationType() {
+            return FromPrepare.class;
+          }
+        };
     annotations.add(fromPrepare);
     MethodParamModel methodParamModel =
         MethodParamModelFactory.create(
@@ -118,6 +122,7 @@ public class MethodParamModelFactoryTest {
             annotations,
             new ArrayList<AnnotationSpec>(),
             ImmutableList.<Class<? extends Annotation>>of(FromPrepare.class),
+            ImmutableList.of(),
             true,
             null);
 
@@ -127,12 +132,13 @@ public class MethodParamModelFactoryTest {
   @Test
   public void testCreateDiffModel() {
     final List<Annotation> annotations = new ArrayList<>();
-    Annotation annotation = new Annotation() {
-      @Override
-      public Class<? extends Annotation> annotationType() {
-        return OnCreateTransition.class;
-      }
-    };
+    Annotation annotation =
+        new Annotation() {
+          @Override
+          public Class<? extends Annotation> annotationType() {
+            return OnCreateTransition.class;
+          }
+        };
     annotations.add(annotation);
 
     MethodParamModel methodParamModel =
@@ -142,6 +148,7 @@ public class MethodParamModelFactoryTest {
             annotations,
             new ArrayList<AnnotationSpec>(),
             ImmutableList.<Class<? extends Annotation>>of(),
+            ImmutableList.of(),
             true,
             null);
 
@@ -151,12 +158,13 @@ public class MethodParamModelFactoryTest {
   @Test
   public void testDontCreateDiffForShouldUpdate() {
     final List<Annotation> annotations = new ArrayList<>();
-    Annotation annotation = new Annotation() {
-      @Override
-      public Class<? extends Annotation> annotationType() {
-        return ShouldUpdate.class;
-      }
-    };
+    Annotation annotation =
+        new Annotation() {
+          @Override
+          public Class<? extends Annotation> annotationType() {
+            return ShouldUpdate.class;
+          }
+        };
     annotations.add(annotation);
 
     MethodParamModel methodParamModel =
@@ -166,6 +174,7 @@ public class MethodParamModelFactoryTest {
             annotations,
             new ArrayList<AnnotationSpec>(),
             ImmutableList.<Class<? extends Annotation>>of(),
+            ImmutableList.of(),
             false,
             null);
 

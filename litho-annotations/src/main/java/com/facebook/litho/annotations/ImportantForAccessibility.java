@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -29,27 +29,23 @@ import java.lang.annotation.RetentionPolicy;
 })
 @Retention(RetentionPolicy.SOURCE)
 public @interface ImportantForAccessibility {
-  /**
-   * Automatically determine whether a view is important for accessibility.
-   */
+  /** Automatically determine whether a view is important for accessibility. */
   int IMPORTANT_FOR_ACCESSIBILITY_AUTO = 0x00000000;
 
-  /**
-   * The view is important for accessibility.
-   */
+  /** The view is important for accessibility. */
   int IMPORTANT_FOR_ACCESSIBILITY_YES = 0x00000001;
 
-  /**
-   * The view is not important for accessibility.
-   */
+  /** The view is not important for accessibility. */
   int IMPORTANT_FOR_ACCESSIBILITY_NO = 0x00000002;
 
-  /**
-   * The view is not important for accessibility, nor are any of its
-   * descendant views.
-   */
+  /** The view is not important for accessibility, nor are any of its descendant views. */
   int IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS = 0x00000004;
 
-  /** The view is important for accessibility, but none of its descendant views are. */
-  int IMPORTANT_FOR_ACCESSIBILITY_YES_HIDE_DESCENDANTS = 0x00000008;
+  /**
+   * The view is important for accessibility, but none of its descendant views are.
+   *
+   * @deprecated prefer to add an intermediate child with
+   *     IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS instead
+   */
+  @Deprecated int IMPORTANT_FOR_ACCESSIBILITY_YES_HIDE_DESCENDANTS = 0x00000008;
 }

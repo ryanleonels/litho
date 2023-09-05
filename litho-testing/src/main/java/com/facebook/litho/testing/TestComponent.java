@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,6 +19,7 @@ package com.facebook.litho.testing;
 import androidx.annotation.Nullable;
 import com.facebook.litho.Component;
 import com.facebook.litho.EventHandler;
+import com.facebook.litho.SpecGeneratedComponent;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -26,9 +27,11 @@ import java.util.Set;
 /**
  * Base class for test components which expose lifecycle information.
  *
- * @param <L>
+ * @deprecated Component should not be directly subclassed, write a layout spec or mount spec
+ *     instead
  */
-public abstract class TestComponent extends Component {
+@Deprecated
+public abstract class TestComponent extends SpecGeneratedComponent {
 
   private final Map<EventHandler<?>, Object> mDispatchedEventHandlers = new HashMap<>();
   private boolean mOnMountCalled;
@@ -38,10 +41,10 @@ public abstract class TestComponent extends Component {
   private boolean mOnBindCalled;
   private boolean mBound;
   private boolean mOnUnbindCalled;
-  protected boolean mIsUnique;
   private boolean mOnMeasureCalled;
   private boolean mOnAttachedCalled;
   private boolean mOnDetachedCalled;
+  private boolean mIsEquivalentToCalled;
 
   protected TestComponent(String simpleName) {
     super(simpleName);
@@ -87,51 +90,37 @@ public abstract class TestComponent extends Component {
     mOnDetachedCalled = true;
   }
 
-  /**
-   * @return Whether onMount has been called.
-   */
+  /** @return Whether onMount has been called. */
   public boolean wasOnMountCalled() {
     return mOnMountCalled;
   }
 
-  /**
-   * @return Whether the component is currently mounted.
-   */
+  /** @return Whether the component is currently mounted. */
   public boolean isMounted() {
     return mMounted;
   }
 
-  /**
-   * @return Whether onUnmount has been called.
-   */
+  /** @return Whether onUnmount has been called. */
   public boolean wasOnUnmountCalled() {
     return mOnUnmountCalled;
   }
 
-  /**
-   * @return Whether onBoundsDefined has been called.
-   */
+  /** @return Whether onBoundsDefined has been called. */
   public boolean wasOnBoundsDefinedCalled() {
     return mOnBoundsDefinedCalled;
   }
 
-  /**
-   * @return Whether onBind has been called.
-   */
+  /** @return Whether onBind has been called. */
   public boolean wasOnBindCalled() {
     return mOnBindCalled;
   }
 
-  /**
-   * @return Whether the component is bound.
-   */
+  /** @return Whether the component is bound. */
   public boolean isBound() {
     return mBound;
   }
 
-  /**
-   * @return Whether onUnbind has been called.
-   */
+  /** @return Whether onUnbind has been called. */
   public boolean wasOnUnbindCalled() {
     return mOnUnbindCalled;
   }
@@ -151,25 +140,9 @@ public abstract class TestComponent extends Component {
   }
 
   @Override
-  public int hashCode() {
-    return mIsUnique ? 1 : 0;
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (o == null) {
-      return false;
-    }
-    if (o instanceof TestComponent) {
-      TestComponent c = (TestComponent) o;
-      return !(mIsUnique || c.mIsUnique);
-    }
-    return false;
-  }
-
-  @Override
-  public boolean isEquivalentTo(Component other) {
-    return this == other;
+  public boolean isEquivalentProps(Component other, boolean shouldCompareCommonProps) {
+    mIsEquivalentToCalled = true;
+    return super.isEquivalentProps(other, shouldCompareCommonProps);
   }
 
   /** Reset the tracking of which methods have been called on this component. */
@@ -182,10 +155,11 @@ public abstract class TestComponent extends Component {
     mOnUnmountCalled = false;
     mOnAttachedCalled = false;
     mOnDetachedCalled = false;
+    mIsEquivalentToCalled = false;
   }
 
   @Override
-  public Object dispatchOnEvent(EventHandler eventHandler, Object eventState) {
+  public Object dispatchOnEventImpl(EventHandler eventHandler, Object eventState) {
     mDispatchedEventHandlers.put(eventHandler, eventState);
     return null;
   }
@@ -196,5 +170,9 @@ public abstract class TestComponent extends Component {
 
   public @Nullable Object getEventState(EventHandler eventHandler) {
     return mDispatchedEventHandlers.get(eventHandler);
+  }
+
+  public boolean isEquivalentToCalled() {
+    return mIsEquivalentToCalled;
   }
 }

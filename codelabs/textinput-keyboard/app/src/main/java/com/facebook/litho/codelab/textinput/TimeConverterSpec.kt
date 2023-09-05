@@ -1,11 +1,11 @@
 /*
- * Copyright 2019-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.litho.codelab.textinput
 
 import android.text.InputType
@@ -37,10 +38,7 @@ import java.util.TimeZone
 object TimeConverterSpec {
 
   @OnCreateLayout
-  fun onCreateLayout(
-      c: ComponentContext,
-      @Prop textInputKey: String
-  ): Component {
+  fun onCreateLayout(c: ComponentContext, @Prop textInputKey: String): Component {
     val calendar = Calendar.getInstance(TimeZone.getTimeZone("Europe/London"))
 
     val londonTimeStr = timeStr(calendar)
@@ -59,56 +57,33 @@ object TimeConverterSpec {
         .child(
             Column.create(c)
                 .child(
-                    Clock.create(c)
-                        .timeMillis(londonTime)
-                        .radius(210)
-                        .marginDip(YogaEdge.ALL, 24f)
-                )
+                    Clock.create(c).timeMillis(londonTime).radius(210).marginDip(YogaEdge.ALL, 24f))
                 .child(
                     Clock.create(c)
                         .timeMillis(newYorkTime)
                         .radius(210)
-                        .marginDip(YogaEdge.ALL, 24f)
-                )
+                        .marginDip(YogaEdge.ALL, 24f))
                 .child(
                     Clock.create(c)
                         .timeMillis(sanFranciscoTime)
                         .radius(210)
-                        .marginDip(YogaEdge.ALL, 24f)
-                )
-                .justifyContent(YogaJustify.SPACE_AROUND)
-        )
+                        .marginDip(YogaEdge.ALL, 24f))
+                .justifyContent(YogaJustify.SPACE_AROUND))
         .child(
             Column.create(c)
                 .child(
                     Column.create(c)
-                        .child(
-                            Text.create(c)
-                                .text("London")
-                                .textSizeDip(24f)
-                        )
+                        .child(Text.create(c).text("London").textSizeDip(24f))
                         .child(
                             TextInput.create(c)
                                 .key(textInputKey)
                                 .inputType(InputType.TYPE_CLASS_DATETIME)
                                 .textSizeDip(24f)
                                 .initialText(londonTimeStr)
-                                .visibleHandler(TimeConverter.onVisibleEvent(c))
-                        )
-
-                )
-                .child(
-                    Text.create(c)
-                        .text("New York")
-                        .textSizeDip(24f)
-                )
-                .child(
-                    Text.create(c)
-                        .text("San Francisco")
-                        .textSizeDip(24f)
-                )
-                .justifyContent(YogaJustify.SPACE_AROUND)
-        )
+                                .visibleHandler(TimeConverter.onVisibleEvent(c))))
+                .child(Text.create(c).text("New York").textSizeDip(24f))
+                .child(Text.create(c).text("San Francisco").textSizeDip(24f))
+                .justifyContent(YogaJustify.SPACE_AROUND))
         .build()
   }
 
@@ -127,10 +102,7 @@ object TimeConverterSpec {
   }
 
   @OnEvent(VisibleEvent::class)
-  fun onVisibleEvent(
-      c: ComponentContext,
-      @Prop textInputKey: String
-  ) {
+  fun onVisibleEvent(c: ComponentContext, @Prop textInputKey: String) {
     TextInput.requestFocus(c, textInputKey)
   }
 

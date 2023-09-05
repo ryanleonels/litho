@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,27 +16,12 @@
 
 package com.facebook.litho.sections;
 
-import static com.facebook.litho.FrameworkLogEvents.EVENT_SECTIONS_GENERATE_CHANGESET;
-import static com.facebook.litho.FrameworkLogEvents.PARAM_CHANGESET_CHANGE_COUNT;
-import static com.facebook.litho.FrameworkLogEvents.PARAM_CHANGESET_DELETE_RANGE_COUNT;
-import static com.facebook.litho.FrameworkLogEvents.PARAM_CHANGESET_DELETE_SINGLE_COUNT;
-import static com.facebook.litho.FrameworkLogEvents.PARAM_CHANGESET_EFFECTIVE_COUNT;
-import static com.facebook.litho.FrameworkLogEvents.PARAM_CHANGESET_FINAL_COUNT;
-import static com.facebook.litho.FrameworkLogEvents.PARAM_CHANGESET_INSERT_RANGE_COUNT;
-import static com.facebook.litho.FrameworkLogEvents.PARAM_CHANGESET_INSERT_SINGLE_COUNT;
-import static com.facebook.litho.FrameworkLogEvents.PARAM_CHANGESET_MOVE_COUNT;
-import static com.facebook.litho.FrameworkLogEvents.PARAM_CHANGESET_UPDATE_RANGE_COUNT;
-import static com.facebook.litho.FrameworkLogEvents.PARAM_CHANGESET_UPDATE_SINGLE_COUNT;
-import static com.facebook.litho.FrameworkLogEvents.PARAM_CURRENT_ROOT_COUNT;
 import static com.facebook.litho.sections.Section.acquireChildrenMap;
-import static com.facebook.litho.sections.Section.releaseChildrenMap;
 
+import android.util.Pair;
 import android.util.SparseArray;
 import androidx.annotation.Nullable;
-import androidx.core.util.Pair;
-import com.facebook.litho.ComponentsLogger;
 import com.facebook.litho.ComponentsSystrace;
-import com.facebook.litho.PerfEvent;
 import com.facebook.litho.sections.logger.SectionsDebugLogger;
 import java.util.ArrayList;
 import java.util.List;
@@ -49,13 +34,20 @@ public class ChangeSetState {
 
   private static final List<Section> sEmptyList = new ArrayList<>();
 
-  private Section mCurrentRoot;
-  private Section mNewRoot;
-  private ChangeSet mChangeSet;
-  private List<Section> mRemovedComponents;
+  private final @Nullable Section mCurrentRoot;
+  private final @Nullable Section mNewRoot;
+  private final ChangeSet mChangeSet;
+  private final List<Section> mRemovedComponents;
 
-  private ChangeSetState() {
-    mRemovedComponents = new ArrayList<>();
+  private ChangeSetState(
+      @Nullable Section currentRoot,
+      @Nullable Section newRoot,
+      ChangeSet changeSet,
+      List<Section> removedComponents) {
+    mCurrentRoot = currentRoot;
+    mNewRoot = newRoot;
+    mChangeSet = changeSet;
+    mRemovedComponents = removedComponents;
   }
 
   /**
@@ -67,21 +59,14 @@ public class ChangeSetState {
   static ChangeSetState generateChangeSet(
       SectionContext sectionContext,
       @Nullable Section currentRoot,
-      Section newRoot,
+      @Nullable Section newRoot,
       SectionsDebugLogger sectionsDebugLogger,
       String sectionTreeTag,
       String currentPrefix,
       String nextPrefix,
       boolean enableStats) {
-    ChangeSetState changeSetState = acquireChangeSetState();
-    changeSetState.mCurrentRoot = currentRoot;
-    changeSetState.mNewRoot = newRoot;
-
-    final ComponentsLogger logger = sectionContext.getLogger();
-    final PerfEvent logEvent =
-        SectionsLogEventUtils.getSectionsPerformanceEvent(
-            sectionContext, EVENT_SECTIONS_GENERATE_CHANGESET, currentRoot, newRoot);
-
+    final ArrayList<Section> removedComponents = new ArrayList<>();
+    final ChangeSet changeSet;
     if (currentRoot != null
         && newRoot != null
         && !currentRoot.getSimpleName().equals(newRoot.getSimpleName())) {
@@ -90,7 +75,7 @@ public class ChangeSetState {
               sectionContext,
               currentRoot,
               null,
-              changeSetState.mRemovedComponents,
+              removedComponents,
               sectionsDebugLogger,
               sectionTreeTag,
               currentPrefix,
@@ -103,21 +88,21 @@ public class ChangeSetState {
               sectionContext,
               null,
               newRoot,
-              changeSetState.mRemovedComponents,
+              removedComponents,
               sectionsDebugLogger,
               sectionTreeTag,
               currentPrefix,
               nextPrefix,
               Thread.currentThread().getName(),
               enableStats);
-      changeSetState.mChangeSet = ChangeSet.merge(remove, add);
+      changeSet = ChangeSet.merge(remove, add);
     } else {
-      changeSetState.mChangeSet =
+      changeSet =
           generateChangeSetRecursive(
               sectionContext,
               currentRoot,
               newRoot,
-              changeSetState.mRemovedComponents,
+              removedComponents,
               sectionsDebugLogger,
               sectionTreeTag,
               currentPrefix,
@@ -126,44 +111,16 @@ public class ChangeSetState {
               enableStats);
     }
 
-    if (logger != null && logEvent != null) {
-      logEvent.markerAnnotate(
-          PARAM_CURRENT_ROOT_COUNT, currentRoot == null ? -1 : currentRoot.getCount());
-      logEvent.markerAnnotate(
-          PARAM_CHANGESET_CHANGE_COUNT, changeSetState.mChangeSet.getChangeCount());
-      logEvent.markerAnnotate(PARAM_CHANGESET_FINAL_COUNT, changeSetState.mChangeSet.getCount());
-
-      final ChangeSet.ChangeSetStats changeSetStats = changeSetState.mChangeSet.getChangeSetStats();
-      if (changeSetStats != null) {
-        logEvent.markerAnnotate(
-            PARAM_CHANGESET_EFFECTIVE_COUNT, changeSetStats.getEffectiveChangesCount());
-        logEvent.markerAnnotate(
-            PARAM_CHANGESET_INSERT_SINGLE_COUNT, changeSetStats.getInsertSingleCount());
-        logEvent.markerAnnotate(
-            PARAM_CHANGESET_INSERT_RANGE_COUNT, changeSetStats.getInsertRangeCount());
-        logEvent.markerAnnotate(
-            PARAM_CHANGESET_DELETE_SINGLE_COUNT, changeSetStats.getDeleteSingleCount());
-        logEvent.markerAnnotate(
-            PARAM_CHANGESET_DELETE_RANGE_COUNT, changeSetStats.getDeleteRangeCount());
-        logEvent.markerAnnotate(
-            PARAM_CHANGESET_UPDATE_SINGLE_COUNT, changeSetStats.getUpdateSingleCount());
-        logEvent.markerAnnotate(
-            PARAM_CHANGESET_UPDATE_RANGE_COUNT, changeSetStats.getUpdateRangeCount());
-        logEvent.markerAnnotate(PARAM_CHANGESET_MOVE_COUNT, changeSetStats.getMoveCount());
-      }
-
-      logger.logPerfEvent(logEvent);
-    }
-
+    final ChangeSetState changeSetState =
+        new ChangeSetState(currentRoot, newRoot, changeSet, removedComponents);
     checkCount(currentRoot, newRoot, changeSetState);
-
     return changeSetState;
   }
 
   private static ChangeSet generateChangeSetRecursive(
       SectionContext sectionContext,
-      Section currentRoot,
-      Section newRoot,
+      @Nullable Section currentRoot,
+      @Nullable Section newRoot,
       List<Section> removedComponents,
       SectionsDebugLogger sectionsDebugLogger,
       String sectionTreeTag,
@@ -198,8 +155,14 @@ public class ChangeSetState {
     final String updateCurrentPrefix = updatePrefix(currentRoot, currentPrefix);
     final String updateNewPrefix = updatePrefix(newRoot, newPrefix);
 
+    // Check the count of children to prevent from developers updating section based on
+    // some variables other than props and state, which could lead us to generate a bad diff
+    // later because a section is considered unchanged if the old one and the new one have
+    // the same props and state.
+    final boolean isChildrenOfSectionConsistent =
+        !currentRootIsNull && (currentRoot.getCount() == newRoot.getCount());
     // Components both exist and don't need to update.
-    if (!currentRootIsNull && !lifecycle.shouldComponentUpdate(currentRoot, newRoot)) {
+    if (isChildrenOfSectionConsistent && !lifecycle.shouldComponentUpdate(currentRoot, newRoot)) {
       final ChangeSet changeSet =
           ChangeSet.acquireChangeSet(currentRoot.getCount(), newRoot, enableStats);
       newRoot.setCount(changeSet.getCount());
@@ -231,7 +194,16 @@ public class ChangeSetState {
       final ChangeSet changeSet =
           ChangeSet.acquireChangeSet(
               currentRootIsNull ? 0 : currentRoot.getCount(), newRoot, enableStats);
-      lifecycle.generateChangeSet(newRoot.getScopedContext(), changeSet, currentRoot, newRoot);
+      final SectionContext newRootScopedContext = newRoot.getScopedContext();
+      final SectionContext currentRootScopedContext =
+          currentRoot == null ? null : currentRoot.getScopedContext();
+      lifecycle.generateChangeSet(
+          newRootScopedContext,
+          changeSet,
+          currentRootScopedContext,
+          currentRoot,
+          newRootScopedContext,
+          newRoot);
       newRoot.setCount(changeSet.getCount());
 
       if (isTracing) {
@@ -246,14 +218,19 @@ public class ChangeSetState {
     final Map<String, Pair<Section, Integer>> currentChildren = acquireChildrenMap(currentRoot);
     final Map<String, Pair<Section, Integer>> newChildren = acquireChildrenMap(newRoot);
 
-    List<Section> currentChildrenList;
-    if (currentRoot == null) {
+    final List<Section> currentChildrenList;
+    if (currentRoot == null || currentRoot.getChildren() == null) {
       currentChildrenList = sEmptyList;
     } else {
       currentChildrenList = new ArrayList<>(currentRoot.getChildren());
     }
 
-    final List<Section> newChildrenList = newRoot.getChildren();
+    final List<Section> newChildrenList;
+    if (newRoot.getChildren() == null) {
+      newChildrenList = sEmptyList;
+    } else {
+      newChildrenList = newRoot.getChildren();
+    }
 
     // Determine Move Changes.
     // Index of a section that was detected as moved.
@@ -317,13 +294,8 @@ public class ChangeSetState {
     for (int i = 0, size = changeSets.size(); i < size; i++) {
       ChangeSet changeSet = changeSets.valueAt(i);
       resultChangeSet = ChangeSet.merge(resultChangeSet, changeSet);
-
-      if (changeSet != null) {
-        changeSet.release();
-      }
     }
 
-    releaseChangeSetSparseArray(changeSets);
     newRoot.setCount(resultChangeSet.getCount());
 
     return resultChangeSet;
@@ -352,7 +324,7 @@ public class ChangeSetState {
       String newPrefix,
       String thread,
       boolean enableStats) {
-    final SparseArray<ChangeSet> changeSets = acquireChangeSetSparseArray();
+    final SparseArray<ChangeSet> changeSets = new SparseArray<>();
 
     // Find removed current children.
     for (int i = 0; i < currentChildrenList.size(); i++) {
@@ -399,12 +371,6 @@ public class ChangeSetState {
                 enableStats);
 
         changeSets.put(activeChildIndex, ChangeSet.merge(currentChangeSet, changeSet));
-
-        if (currentChangeSet != null) {
-          currentChangeSet.release();
-        }
-
-        changeSet.release();
       } else {
         activeChildIndex = currentChildIndex;
 
@@ -423,36 +389,13 @@ public class ChangeSetState {
                 enableStats);
 
         changeSets.put(activeChildIndex, ChangeSet.merge(currentChangeSet, changeSet));
-
-        if (currentChangeSet != null) {
-          currentChangeSet.release();
-        }
-
-        changeSet.release();
       }
     }
-
-    releaseChildrenMap(currentChildren);
-    releaseChildrenMap(newChildren);
 
     return changeSets;
   }
 
-  private static SparseArray<ChangeSet> acquireChangeSetSparseArray() {
-    // TODO use pools instead t11953296
-    return new SparseArray<>();
-  }
-
-  private static void releaseChangeSetSparseArray(SparseArray<ChangeSet> changeSets) {
-    // TODO use pools t11953296
-  }
-
-  private static ChangeSetState acquireChangeSetState() {
-    // TODO use pools t11953296
-    return new ChangeSetState();
-  }
-
-  private static final int getPreviousChildrenCount(List<Section> sections, String key) {
+  private static int getPreviousChildrenCount(List<Section> sections, String key) {
     int count = 0;
     for (Section s : sections) {
       if (s.getGlobalKey().equals(key)) {
@@ -465,7 +408,7 @@ public class ChangeSetState {
     return count;
   }
 
-  private static final String updatePrefix(Section root, String prefix) {
+  private static String updatePrefix(@Nullable Section root, String prefix) {
     if (root != null && root.getParent() == null) {
       return root.getClass().getSimpleName();
     } else if (root != null) {
@@ -475,7 +418,7 @@ public class ChangeSetState {
   }
 
   private static void checkCount(
-      Section currentRoot, Section newRoot, ChangeSetState changeSetState) {
+      @Nullable Section currentRoot, @Nullable Section newRoot, ChangeSetState changeSetState) {
     final boolean hasNegativeCount =
         (currentRoot != null && currentRoot.getCount() < 0)
             || (newRoot != null && newRoot.getCount() < 0);
@@ -485,7 +428,7 @@ public class ChangeSetState {
     }
 
     final StringBuilder message = new StringBuilder();
-    message.append("Changet count is below 0! ");
+    message.append("ChangeSet count is below 0! ");
 
     message.append("Current section: ");
     if (currentRoot == null) {
@@ -539,11 +482,13 @@ public class ChangeSetState {
   }
 
   /** @return the {@link Section} that was used as current root for this ChangeSet computation. */
+  @Nullable
   Section getCurrentRoot() {
     return mCurrentRoot;
   }
 
   /** @return the {@link Section} that was used as new root for this ChangeSet computation. */
+  @Nullable
   Section getNewRoot() {
     return mNewRoot;
   }
@@ -554,10 +499,5 @@ public class ChangeSetState {
    */
   List<Section> getRemovedComponents() {
     return mRemovedComponents;
-  }
-
-  void release() {
-    mRemovedComponents.clear();
-    // TODO use pools t11953296
   }
 }

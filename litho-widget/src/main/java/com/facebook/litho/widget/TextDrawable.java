@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -29,6 +29,7 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Rect;
 import android.graphics.Region;
+import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.text.Layout;
@@ -39,6 +40,9 @@ import android.text.style.ImageSpan;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
+import androidx.annotation.ColorInt;
+import androidx.annotation.NonNull;
+import androidx.annotation.VisibleForTesting;
 import com.facebook.fbui.textlayoutbuilder.util.LayoutMeasureUtil;
 import com.facebook.litho.TextContent;
 import com.facebook.litho.Touchable;
@@ -47,15 +51,14 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 /**
- * A {@link Drawable} for mounting text content from a
- * {@link Component}.
+ * A {@link Drawable} for mounting text content from a {@link Component}.
  *
  * @see Component
  * @see TextSpec
  */
 public class TextDrawable extends Drawable implements Touchable, TextContent, Drawable.Callback {
 
-  private Layout mLayout;
+  private @Nullable Layout mLayout;
   private float mLayoutTranslationY;
   private boolean mClipToBounds;
   private boolean mShouldHandleTouch;
@@ -78,7 +81,14 @@ public class TextDrawable extends Drawable implements Touchable, TextContent, Dr
   private @Nullable Handler mLongClickHandler;
   private @Nullable LongClickRunnable mLongClickRunnable;
   private @Nullable ClickableSpanListener mSpanListener;
+  private @Nullable TouchableSpanListener mTouchableSpanListener;
   private @Nullable String mContextLogTag;
+
+  /**
+   * This should be lazy loaded so that it is only created whenever it is needed. In most cases we
+   * won't need this data, so we can avoid this extra instance creation.
+   */
+  private @Nullable TextContent.Item mTextContentItem;
 
   @Override
   public void draw(Canvas canvas) {
@@ -95,8 +105,8 @@ public class TextDrawable extends Drawable implements Touchable, TextContent, Dr
     canvas.translate(bounds.left, bounds.top + mLayoutTranslationY);
     try {
       mLayout.draw(canvas, getSelectionPath(), mHighlightPaint, 0);
-    } catch (ArrayIndexOutOfBoundsException e) {
-      throw new ArrayIndexOutOfBoundsException(e.getMessage() + getDebugInfo());
+    } catch (IndexOutOfBoundsException e) {
+      throw new IndexOutOfBoundsException(e.getMessage() + getDebugInfo());
     }
 
     canvas.restoreToCount(saveCount);
@@ -163,6 +173,9 @@ public class TextDrawable extends Drawable implements Touchable, TextContent, Dr
     if (action == ACTION_CANCEL) {
       clearSelection();
       resetLongClick();
+      if (mTouchableSpanListener != null) {
+        mTouchableSpanListener.onTouch(null, event, view);
+      }
       return false;
     }
 
@@ -206,7 +219,9 @@ public class TextDrawable extends Drawable implements Touchable, TextContent, Dr
       }
       setSelection(clickedSpan);
     }
-
+    if (mTouchableSpanListener != null) {
+      mTouchableSpanListener.onTouch(clickedSpan, event, view);
+    }
     return true;
   }
 
@@ -278,10 +293,7 @@ public class TextDrawable extends Drawable implements Touchable, TextContent, Dr
   }
 
   public void mount(
-      CharSequence text,
-      Layout layout,
-      int userColor,
-      ClickableSpan[] clickableSpans) {
+      CharSequence text, Layout layout, int userColor, ClickableSpan[] clickableSpans) {
     mount(
         text,
         layout,
@@ -291,6 +303,7 @@ public class TextDrawable extends Drawable implements Touchable, TextContent, Dr
         userColor,
         0,
         clickableSpans,
+        null,
         null,
         null,
         null,
@@ -313,6 +326,7 @@ public class TextDrawable extends Drawable implements Touchable, TextContent, Dr
         null,
         null,
         null,
+        null,
         -1,
         -1,
         0f,
@@ -339,6 +353,7 @@ public class TextDrawable extends Drawable implements Touchable, TextContent, Dr
         null,
         null,
         null,
+        null,
         -1,
         -1,
         0f,
@@ -353,10 +368,11 @@ public class TextDrawable extends Drawable implements Touchable, TextContent, Dr
       ColorStateList colorStateList,
       int userColor,
       int highlightColor,
-      ClickableSpan[] clickableSpans,
-      ImageSpan[] imageSpans,
-      ClickableSpanListener spanListener,
-      TextOffsetOnTouchListener textOffsetOnTouchListener,
+      @Nullable ClickableSpan[] clickableSpans,
+      @Nullable ImageSpan[] imageSpans,
+      @Nullable ClickableSpanListener spanListener,
+      @Nullable TouchableSpanListener touchableSpanListener,
+      @Nullable TextOffsetOnTouchListener textOffsetOnTouchListener,
       int highlightStartOffset,
       int highlightEndOffset,
       float clickableSpanExpandedOffset,
@@ -366,6 +382,7 @@ public class TextDrawable extends Drawable implements Touchable, TextContent, Dr
     mClipToBounds = clipToBounds;
     mText = text;
     mClickableSpans = clickableSpans;
+    mTouchableSpanListener = touchableSpanListener;
     if (mLongClickHandler == null && containsLongClickableSpan(clickableSpans)) {
       mLongClickHandler = new Handler();
     }
@@ -404,6 +421,14 @@ public class TextDrawable extends Drawable implements Touchable, TextContent, Dr
     invalidateSelf();
   }
 
+  public void setTextColor(@ColorInt int textColor) {
+    mUserColor = textColor;
+    if (mLayout != null) {
+      mLayout.getPaint().setColor(textColor);
+    }
+    invalidateSelf();
+  }
+
   private static boolean containsLongClickableSpan(@Nullable ClickableSpan[] clickableSpans) {
     if (clickableSpans == null) {
       return false;
@@ -423,6 +448,7 @@ public class TextDrawable extends Drawable implements Touchable, TextContent, Dr
   }
 
   public void unmount() {
+    mTextContentItem = null;
     mLayout = null;
     mLayoutTranslationY = 0;
     mText = null;
@@ -448,12 +474,10 @@ public class TextDrawable extends Drawable implements Touchable, TextContent, Dr
   }
 
   @Override
-  public void setAlpha(int alpha) {
-  }
+  public void setAlpha(int alpha) {}
 
   @Override
-  public void setColorFilter(ColorFilter cf) {
-  }
+  public void setColorFilter(ColorFilter cf) {}
 
   @Override
   public int getOpacity() {
@@ -468,17 +492,21 @@ public class TextDrawable extends Drawable implements Touchable, TextContent, Dr
     return mLayout.getPaint().getColor();
   }
 
-  @Override
-  public List<CharSequence> getTextItems() {
-    return mText != null ? Collections.singletonList(mText) : Collections.<CharSequence>emptyList();
+  public float getTextSize() {
+    return mLayout.getPaint().getTextSize();
+  }
+
+  public Layout getLayout() {
+    return mLayout;
   }
 
   /**
    * Get the clickable span that is at the exact coordinates
+   *
    * @param x x-position of the click
    * @param y y-position of the click
-   * @return a clickable span that's located where the click occurred,
-   *   or: {@code null} if no clickable span was located there
+   * @return a clickable span that's located where the click occurred, or: {@code null} if no
+   *     clickable span was located there
    */
   @Nullable
   private ClickableSpan getClickableSpanInCoords(int x, int y) {
@@ -486,10 +514,8 @@ public class TextDrawable extends Drawable implements Touchable, TextContent, Dr
     if (offset < 0) {
       return null;
     }
-    final ClickableSpan[] clickableSpans = ((Spanned) mText).getSpans(
-        offset,
-        offset,
-        ClickableSpan.class);
+    final ClickableSpan[] clickableSpans =
+        ((Spanned) mText).getSpans(offset, offset, ClickableSpan.class);
 
     if (clickableSpans != null && clickableSpans.length > 0) {
       return clickableSpans[0];
@@ -535,25 +561,29 @@ public class TextDrawable extends Drawable implements Touchable, TextContent, Dr
       return mLayout.getOffsetForHorizontal(line, x);
     } catch (ArrayIndexOutOfBoundsException e) {
       // This happens for bidi text on Android 7-8.
-      // See https://android.googlesource.com/platform/frameworks/base/+/821e9bd5cc2be4b3210cb0226e40ba0f42b51aed
+      // See
+      // https://android.googlesource.com/platform/frameworks/base/+/821e9bd5cc2be4b3210cb0226e40ba0f42b51aed
       return -1;
     }
   }
 
+  @VisibleForTesting
+  @Nullable
+  Layout.Alignment getLayoutAlignment() {
+    return mLayout == null ? null : mLayout.getAlignment();
+  }
+
   /**
    * Get the clickable span that's close to where the view was clicked.
+   *
    * @param x x-position of the click
    * @param y y-position of the click
-   * @return a clickable span that's close the click position,
-   *   or: {@code null} if no clickable span was close to the click,
-   *   or if a link was directly clicked or if more than one clickable
-   *   span was in proximity to the click.
+   * @return a clickable span that's close the click position, or: {@code null} if no clickable span
+   *     was close to the click, or if a link was directly clicked or if more than one clickable
+   *     span was in proximity to the click.
    */
   @Nullable
-  private ClickableSpan getClickableSpanInProximityToClick(
-      float x,
-      float y,
-      float tapRadius) {
+  private ClickableSpan getClickableSpanInProximityToClick(float x, float y, float tapRadius) {
     final Region touchAreaRegion = new Region();
     final Region clipBoundsRegion = new Region();
 
@@ -562,10 +592,7 @@ public class TextDrawable extends Drawable implements Touchable, TextContent, Dr
     }
 
     clipBoundsRegion.set(
-        0,
-        0,
-        LayoutMeasureUtil.getWidth(mLayout),
-        LayoutMeasureUtil.getHeight(mLayout));
+        0, 0, LayoutMeasureUtil.getWidth(mLayout), LayoutMeasureUtil.getHeight(mLayout));
     mTouchAreaPath.reset();
     mTouchAreaPath.addCircle(x, y, tapRadius, Path.Direction.CW);
     touchAreaRegion.setPath(mTouchAreaPath, clipBoundsRegion);
@@ -615,12 +642,13 @@ public class TextDrawable extends Drawable implements Touchable, TextContent, Dr
 
   /**
    * Updates selection to [selectionStart, selectionEnd] range.
+   *
    * @param selectionStart
    * @param selectionEnd
    */
   private void setSelection(int selectionStart, int selectionEnd) {
-    if (Color.alpha(mHighlightColor) == 0 ||
-        (mSelectionStart == selectionStart && mSelectionEnd == selectionEnd)) {
+    if (Color.alpha(mHighlightColor) == 0
+        || (mSelectionStart == selectionStart && mSelectionEnd == selectionEnd)) {
       return;
     }
 
@@ -652,9 +680,7 @@ public class TextDrawable extends Drawable implements Touchable, TextContent, Dr
     final Path clickableSpanAreaPath = new Path();
 
     layout.getSelectionPath(
-        buffer.getSpanStart(span),
-        buffer.getSpanEnd(span),
-        clickableSpanAreaPath);
+        buffer.getSpanStart(span), buffer.getSpanEnd(span), clickableSpanAreaPath);
     clickableSpanAreaRegion.setPath(clickableSpanAreaPath, clipBoundsRegion);
 
     return clickableSpanAreaRegion.op(touchAreaRegion, Region.Op.INTERSECT);
@@ -673,6 +699,86 @@ public class TextDrawable extends Drawable implements Touchable, TextContent, Dr
   @Override
   public void unscheduleDrawable(Drawable drawable, Runnable runnable) {
     unscheduleSelf(runnable);
+  }
+
+  @NonNull
+  @Override
+  public List<Item> getItems() {
+    TextContent.Item item = getOrCreateTextItem();
+    if (item == null) {
+      return Collections.emptyList();
+    } else {
+      return Collections.singletonList(item);
+    }
+  }
+
+  @NonNull
+  @Override
+  public List<CharSequence> getTextList() {
+    TextContent.Item item = getOrCreateTextItem();
+    if (item == null) {
+      return Collections.emptyList();
+    } else {
+      return Collections.singletonList(item.getText());
+    }
+  }
+
+  @Nullable
+  private TextContent.Item getOrCreateTextItem() {
+    Layout layout = mLayout;
+    if (layout == null) {
+      return null;
+    }
+
+    if (mTextContentItem == null) {
+      /* we get a reference to the values of these properties when we need it. this potentially avoids
+       * situations where the `mLayout` could be set to null after we got access to the `TextContent.Item` */
+      CharSequence text = getText();
+      float textSize = getTextSize();
+      Typeface typeface = layout.getPaint().getTypeface();
+      int color = getColor();
+      float fontLineHeight =
+          (layout.getPaint().getFontMetricsInt(null) * layout.getSpacingMultiplier())
+              + layout.getSpacingAdd();
+      int linesCount = layout.getLineCount();
+
+      mTextContentItem =
+          new TextContent.Item() {
+            @NonNull
+            @Override
+            public CharSequence getText() {
+              return text;
+            }
+
+            @Override
+            public float getTextSize() {
+              return textSize;
+            }
+
+            @NonNull
+            @Override
+            public Typeface getTypeface() {
+              return typeface;
+            }
+
+            @Override
+            public int getColor() {
+              return color;
+            }
+
+            @Override
+            public float getFontLineHeight() {
+              return fontLineHeight;
+            }
+
+            @Override
+            public int getLinesCount() {
+              return linesCount;
+            }
+          };
+    }
+
+    return mTextContentItem;
   }
 
   interface TextOffsetOnTouchListener {

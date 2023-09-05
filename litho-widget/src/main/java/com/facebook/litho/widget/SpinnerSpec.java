@@ -1,11 +1,11 @@
 /*
- * Copyright 2018-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.litho.widget;
 
 import static com.facebook.yoga.YogaAlign.CENTER;
@@ -67,7 +68,7 @@ import javax.annotation.Nullable;
  * <p>If no optional values are provided the component will look like it's material design
  * counterpart.
  *
- * @uidocs https://fburl.com/Spinner:3bf4
+ * @uidocs
  * @prop-required selectedOption The initially selected option for the spinner
  * @prop-required options The options available from the dropdown
  * @prop-required onItemSelectedListener The listener for dropdown selections
@@ -93,8 +94,7 @@ public class SpinnerSpec {
   @PropDefault static final int selectedTextColor = 0xDE000000; // 87% Black
 
   @OnCreateInitialState
-  static void onCreateInitialState(
-      ComponentContext c, @Prop String selectedOption, StateValue<String> selection) {
+  static void onCreateInitialState(StateValue<String> selection, @Prop String selectedOption) {
     selection.set(selectedOption);
   }
 
@@ -106,7 +106,6 @@ public class SpinnerSpec {
       @Prop(resType = ResType.DIMEN_TEXT, optional = true) float selectedTextSize,
       @Prop(resType = ResType.COLOR, optional = true) int selectedTextColor,
       @Prop(resType = ResType.DRAWABLE, optional = true) @Nullable Drawable caret) {
-    assertAPI11orHigher();
     caret = caret == null ? new CaretDrawable(c.getAndroidContext(), DEFAULT_CARET_COLOR) : caret;
     selectedTextSize =
         selectedTextSize == -1
@@ -123,12 +122,6 @@ public class SpinnerSpec {
         .child(createCaret(c, caret, isShowingDropDown))
         .accessibilityRole(AccessibilityRole.DROP_DOWN_LIST)
         .build();
-  }
-
-  private static void assertAPI11orHigher() {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB) {
-      throw new RuntimeException("Spinner requires API 11 (HONEYCOMB) or greater");
-    }
   }
 
   private static Component createCaret(
@@ -225,7 +218,7 @@ public class SpinnerSpec {
     private final Point mP2 = new Point();
     private final Point mP3 = new Point();
 
-    public CaretDrawable(Context context, @ColorInt int caretColor) {
+    CaretDrawable(Context context, @ColorInt int caretColor) {
       paint.setColor(caretColor);
       paint.setFlags(Paint.ANTI_ALIAS_FLAG);
       mWidth = (int) dpToPx(context, CARET_WIDTH_DP);

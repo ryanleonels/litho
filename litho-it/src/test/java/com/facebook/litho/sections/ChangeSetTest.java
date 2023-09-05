@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,19 +18,21 @@ package com.facebook.litho.sections;
 
 import static com.facebook.litho.sections.Change.MOVE;
 import static com.facebook.litho.sections.ChangeSet.acquireChangeSet;
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.facebook.litho.specmodels.internal.ImmutableList;
-import com.facebook.litho.testing.testrunner.ComponentsTestRunner;
+import com.facebook.litho.testing.testrunner.LithoTestRunner;
 import com.facebook.litho.widget.ComponentRenderInfo;
 import com.facebook.litho.widget.RenderInfo;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.LooperMode;
 
 /** Tests {@link ChangeSet} */
-@RunWith(ComponentsTestRunner.class)
+@LooperMode(LooperMode.Mode.LEGACY)
+@RunWith(LithoTestRunner.class)
 public class ChangeSetTest {
 
   @Test
@@ -74,7 +76,7 @@ public class ChangeSetTest {
     changeSet.addChange(Change.updateRange(7, 3, dummyComponentInfos(3)));
     assertThat(changeSet.getCount()).isEqualTo(11);
 
-    changeSet.move(9,1);
+    changeSet.move(9, 1);
     assertThat(changeSet.getCount()).isEqualTo(11);
   }
 
@@ -128,18 +130,6 @@ public class ChangeSetTest {
     assertThat(mergedChangeSet.getChangeAt(6).getType()).isEqualTo(MOVE);
     assertThat(mergedChangeSet.getChangeAt(6).getIndex()).isEqualTo(3);
     assertThat(mergedChangeSet.getChangeAt(6).getToIndex()).isEqualTo(4);
-  }
-
-  @Test
-  public void testRelease() {
-    final ChangeSet changeSet = ChangeSet.acquireChangeSet(null, false);
-    changeSet.addChange(Change.insert(0, ComponentRenderInfo.createEmpty()));
-    changeSet.addChange(Change.insert(1, ComponentRenderInfo.createEmpty()));
-    changeSet.addChange(Change.insert(2, ComponentRenderInfo.createEmpty()));
-
-    changeSet.release();
-    assertThat(changeSet.getCount()).isEqualTo(0);
-    assertThat(changeSet.getChangeCount()).isEqualTo(0);
   }
 
   @Test

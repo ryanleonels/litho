@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,22 +16,22 @@
 
 package com.facebook.litho.widget;
 
+import static android.view.View.OVER_SCROLL_IF_CONTENT_SCROLLS;
 import static com.facebook.litho.SizeSpec.AT_MOST;
 import static com.facebook.litho.SizeSpec.EXACTLY;
 import static com.facebook.litho.SizeSpec.UNSPECIFIED;
 
 import android.content.Context;
 import android.os.Build;
-import android.view.MotionEvent;
-import android.view.ViewTreeObserver;
-import androidx.core.widget.NestedScrollView;
-import androidx.recyclerview.widget.RecyclerView;
+import android.view.LayoutInflater;
+import android.view.ViewGroup;
+import androidx.annotation.Nullable;
+import androidx.core.widget.NestedScrollView.OnScrollChangeListener;
 import com.facebook.litho.Component;
 import com.facebook.litho.ComponentContext;
 import com.facebook.litho.ComponentLayout;
 import com.facebook.litho.ComponentTree;
 import com.facebook.litho.Diff;
-import com.facebook.litho.LithoView;
 import com.facebook.litho.Output;
 import com.facebook.litho.Size;
 import com.facebook.litho.SizeSpec;
@@ -50,7 +50,6 @@ import com.facebook.litho.annotations.PropDefault;
 import com.facebook.litho.annotations.ResType;
 import com.facebook.litho.annotations.ShouldUpdate;
 import com.facebook.litho.annotations.State;
-import javax.annotation.Nullable;
 
 /**
  * Component that wraps another component, allowing it to be vertically scrollable. It's analogous
@@ -59,7 +58,7 @@ import javax.annotation.Nullable;
  *
  * <p>See also: {@link com.facebook.litho.widget.HorizontalScroll} for horizontal scrollability.
  *
- * @uidocs https://fburl.com/VerticalScroll:3f2b
+ * @uidocs
  * @prop scrollbarEnabled whether the vertical scrollbar should be drawn
  * @prop scrollbarFadingEnabled whether the scrollbar should fade out when the view is not scrolling
  * @props initialScrollOffsetPixels initial vertical scroll offset, in pixels
@@ -72,29 +71,23 @@ import javax.annotation.Nullable;
 @MountSpec(hasChildLithoViews = true, isPureRender = true)
 public class VerticalScrollSpec {
 
-  @PropDefault static final boolean scrollbarEnabled = true;
   @PropDefault static final boolean scrollbarFadingEnabled = true;
+  @PropDefault static final int overScrollMode = OVER_SCROLL_IF_CONTENT_SCROLLS;
 
   @OnCreateInitialState
   static void onCreateInitialState(
       ComponentContext context,
-      StateValue<ScrollPosition> scrollPosition,
+      StateValue<LithoScrollView.ScrollPosition> scrollPosition,
       StateValue<ComponentTree> childComponentTree,
-      @Prop(optional = true) Integer initialScrollOffsetPixels,
-      @Prop(optional = true) boolean incrementalMountEnabled,
-      @Prop Component childComponent) {
-    ScrollPosition initialScrollPosition = new ScrollPosition();
-    initialScrollPosition.y = initialScrollOffsetPixels == null ? 0 : initialScrollOffsetPixels;
+      @Prop Component childComponent,
+      @Prop(optional = true) int initialScrollOffsetPixels,
+      @Prop(optional = true) boolean incrementalMountEnabled) {
+    LithoScrollView.ScrollPosition initialScrollPosition = new LithoScrollView.ScrollPosition();
+    initialScrollPosition.y = initialScrollOffsetPixels;
     scrollPosition.set(initialScrollPosition);
 
     childComponentTree.set(
-        ComponentTree.create(
-                new ComponentContext(
-                    context.getAndroidContext(),
-                    context.getLogTag(),
-                    context.getLogger(),
-                    context.getTreePropsCopy()),
-                childComponent)
+        ComponentTree.createNestedComponentTree(context, childComponent)
             .incrementalMount(incrementalMountEnabled)
             .build());
   }
@@ -111,9 +104,16 @@ public class VerticalScrollSpec {
       @State ComponentTree childComponentTree,
       Output<Integer> measuredWidth,
       Output<Integer> measuredHeight) {
+    int horizontalPadding = layout.getPaddingLeft() + layout.getPaddingRight();
+    int childWidthSpec =
+        ViewGroup.getChildMeasureSpec(
+            widthSpec, horizontalPadding, ViewGroup.LayoutParams.MATCH_PARENT);
+
     measureVerticalScroll(
-        c, widthSpec, heightSpec, size, childComponentTree, childComponent, fillViewport);
-    measuredWidth.set(size.width);
+        c, childWidthSpec, heightSpec, size, childComponentTree, childComponent, fillViewport);
+
+    // Add back horizontal padding since we subtracted it when creating the child width spec above
+    measuredWidth.set(size.width + horizontalPadding);
     measuredHeight.set(size.height);
   }
 
@@ -141,19 +141,19 @@ public class VerticalScrollSpec {
 
     measureVerticalScroll(
         c,
-        SizeSpec.makeSizeSpec(layout.getWidth(), EXACTLY),
-        SizeSpec.makeSizeSpec(layout.getHeight(), EXACTLY),
-        new Size(),
+        SizeSpec.makeSizeSpec(layoutWidth, EXACTLY),
+        SizeSpec.makeSizeSpec(layoutHeight, EXACTLY),
+        null,
         childComponentTree,
         childComponent,
         fillViewport);
   }
 
-  static void measureVerticalScroll(
+  private static void measureVerticalScroll(
       ComponentContext c,
       int widthSpec,
       int heightSpec,
-      Size size,
+      @Nullable Size size,
       ComponentTree childComponentTree,
       Component childComponent,
       boolean fillViewport) {
@@ -166,28 +166,35 @@ public class VerticalScrollSpec {
               .build();
     }
 
-    childComponentTree.setRootAndSizeSpec(
+    childComponentTree.setRootAndSizeSpecSync(
         childComponent, widthSpec, SizeSpec.makeSizeSpec(0, UNSPECIFIED), size);
 
-    // Compute the appropriate size depending on the heightSpec
-    switch (SizeSpec.getMode(heightSpec)) {
-      case EXACTLY:
-        // If this Vertical scroll is being measured with a fixed height we don't care about
-        // the size of the content and just use that instead
-        size.height = SizeSpec.getSize(heightSpec);
-        break;
+    if (size != null) {
+      // Compute the appropriate size depending on the heightSpec
+      switch (SizeSpec.getMode(heightSpec)) {
+        case EXACTLY:
+          // If this Vertical scroll is being measured with a fixed height we don't care about
+          // the size of the content and just use that instead
+          size.height = SizeSpec.getSize(heightSpec);
+          break;
 
-      case AT_MOST:
-        // For at most we want the VerticalScroll to be as big as its content up to the maximum
-        // height specified in the heightSpec
-        size.height = Math.min(SizeSpec.getSize(heightSpec), size.height);
-        break;
+        case AT_MOST:
+          // For at most we want the VerticalScroll to be as big as its content up to the maximum
+          // height specified in the heightSpec
+          size.height = Math.max(0, Math.min(SizeSpec.getSize(heightSpec), size.height));
+          break;
+      }
+
+      // Ensure that size is not less than 0
+      size.width = Math.max(0, size.width);
+      size.height = Math.max(0, size.height);
     }
   }
 
   @OnCreateMountContent
-  static LithoScrollView onCreateMountContent(Context context) {
-    return new LithoScrollView(context);
+  public static LithoScrollView onCreateMountContent(Context context) {
+    return (LithoScrollView)
+        LayoutInflater.from(context).inflate(R.layout.litho_scroll_view, null, false);
   }
 
   @OnMount
@@ -200,12 +207,16 @@ public class VerticalScrollSpec {
       @Prop(optional = true) boolean incrementalMountEnabled,
       @Prop(optional = true) boolean verticalFadingEdgeEnabled,
       @Prop(optional = true, resType = ResType.DIMEN_SIZE) int fadingEdgeLength,
-      @Prop(optional = true) NestedScrollView.OnScrollChangeListener onScrollChangeListener,
+      @Prop(optional = true) @Nullable VerticalScrollEventsController eventsController,
+      @Prop(optional = true) @Nullable OnScrollChangeListener onScrollChangeListener,
+      @Prop(optional = true) ScrollStateListener scrollStateListener,
+      @Prop(optional = true) int overScrollMode,
       // NOT THE SAME AS LITHO'S interceptTouchHandler COMMON PROP, see class javadocs
-      @Prop(optional = true) OnInterceptTouchListener onInterceptTouchListener,
+      @Prop(optional = true) @Nullable
+          LithoScrollView.OnInterceptTouchListener onInterceptTouchListener,
       @State ComponentTree childComponentTree,
-      @State final ScrollPosition scrollPosition) {
-    lithoScrollView.mount(childComponentTree, scrollPosition, incrementalMountEnabled);
+      @State final LithoScrollView.ScrollPosition scrollPosition) {
+    lithoScrollView.mount(childComponentTree, scrollPosition, scrollStateListener);
     lithoScrollView.setScrollbarFadingEnabled(scrollbarFadingEnabled);
     lithoScrollView.setNestedScrollingEnabled(nestedScrollingEnabled);
     lithoScrollView.setVerticalFadingEdgeEnabled(verticalFadingEdgeEnabled);
@@ -221,11 +232,22 @@ public class VerticalScrollSpec {
     }
     lithoScrollView.setOnScrollChangeListener(onScrollChangeListener);
     lithoScrollView.setOnInterceptTouchListener(onInterceptTouchListener);
+    lithoScrollView.setOverScrollMode(overScrollMode);
+
+    if (eventsController != null) {
+      eventsController.setScrollView(lithoScrollView);
+    }
   }
 
   @OnUnmount
-  static void onUnmount(ComponentContext context, LithoScrollView lithoScrollView) {
-    lithoScrollView.setOnScrollChangeListener((NestedScrollView.OnScrollChangeListener) null);
+  static void onUnmount(
+      ComponentContext context,
+      LithoScrollView lithoScrollView,
+      @Prop(optional = true) @Nullable VerticalScrollEventsController eventsController) {
+    if (eventsController != null) {
+      eventsController.setScrollView(null);
+    }
+    lithoScrollView.setOnScrollChangeListener((OnScrollChangeListener) null);
     lithoScrollView.setOnInterceptTouchListener(null);
     lithoScrollView.unmount();
   }
@@ -244,102 +266,5 @@ public class VerticalScrollSpec {
         || !fillViewport.getPrevious().equals(fillViewport.getNext())
         || !nestedScrollingEnabled.getPrevious().equals(nestedScrollingEnabled.getNext())
         || !incrementalMountEnabled.getPrevious().equals(incrementalMountEnabled.getNext());
-  }
-
-  static class LithoScrollView extends NestedScrollView {
-    private final LithoView mLithoView;
-
-    @Nullable private ScrollPosition mScrollPosition;
-    @Nullable private ViewTreeObserver.OnPreDrawListener mOnPreDrawListener;
-    private boolean mIsIncrementalMountEnabled;
-    private OnInterceptTouchListener mOnInterceptTouchListener;
-
-    LithoScrollView(Context context) {
-      super(context);
-      mLithoView = new LithoView(context);
-
-      addView(mLithoView);
-    }
-
-    @Override
-    public boolean onInterceptTouchEvent(MotionEvent ev) {
-      boolean result = false;
-      if (mOnInterceptTouchListener != null) {
-        result = mOnInterceptTouchListener.onInterceptTouch(this, ev);
-      }
-      if (!result && super.onInterceptTouchEvent(ev)) {
-        result = true;
-      }
-      return result;
-    }
-
-    @Override
-    protected void onScrollChanged(int l, int t, int oldl, int oldt) {
-      super.onScrollChanged(l, t, oldl, oldt);
-
-      if (mIsIncrementalMountEnabled) {
-        mLithoView.performIncrementalMount();
-      }
-
-      if (mScrollPosition != null) {
-        mScrollPosition.y = getScrollY();
-      }
-    }
-
-    /**
-     * NestedScrollView does not automatically consume the fling event. However, RecyclerView
-     * consumes this event if it's either vertically or horizontally scrolling. {@link
-     * RecyclerView#fling} Since this view is specifically made for vertically scrolling components,
-     * we always consume the nested fling event just like recycler view.
-     */
-    @Override
-    public boolean dispatchNestedFling(float velocityX, float velocityY, boolean consumed) {
-      return super.dispatchNestedFling(velocityX, velocityY, true);
-    }
-
-    public void setOnInterceptTouchListener(OnInterceptTouchListener onInterceptTouchListener) {
-      mOnInterceptTouchListener = onInterceptTouchListener;
-    }
-
-    private void mount(
-        ComponentTree contentComponentTree,
-        final ScrollPosition scrollPosition,
-        boolean isIncrementalMountEnabled) {
-      mLithoView.setComponentTree(contentComponentTree);
-
-      mIsIncrementalMountEnabled = isIncrementalMountEnabled;
-      mScrollPosition = scrollPosition;
-      final ViewTreeObserver.OnPreDrawListener onPreDrawListener =
-          new ViewTreeObserver.OnPreDrawListener() {
-            @Override
-            public boolean onPreDraw() {
-              setScrollY(scrollPosition.y);
-              ViewTreeObserver currentViewTreeObserver = getViewTreeObserver();
-              if (currentViewTreeObserver.isAlive()) {
-                currentViewTreeObserver.removeOnPreDrawListener(this);
-              }
-              return true;
-            }
-          };
-      getViewTreeObserver().addOnPreDrawListener(onPreDrawListener);
-
-      mOnPreDrawListener = onPreDrawListener;
-    }
-
-    private void unmount() {
-      mLithoView.setComponentTree(null);
-
-      mScrollPosition = null;
-      getViewTreeObserver().removeOnPreDrawListener(mOnPreDrawListener);
-      mOnPreDrawListener = null;
-    }
-  }
-
-  static class ScrollPosition {
-    int y = 0;
-  }
-
-  public interface OnInterceptTouchListener {
-    boolean onInterceptTouch(NestedScrollView nestedScrollView, MotionEvent event);
   }
 }

@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,11 +16,12 @@
 
 package com.facebook.litho;
 
+import android.graphics.Rect;
 import android.text.TextUtils;
+import android.view.View;
 import android.view.ViewParent;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.core.widget.NestedScrollView;
 import com.facebook.infer.annotation.ThreadConfined;
 import com.facebook.litho.config.ComponentsConfiguration;
 import com.facebook.proguard.annotations.DoNotStrip;
@@ -35,13 +36,12 @@ import java.util.Deque;
 public class LithoViewTestHelper {
 
   /**
-   * Holds an opaque reference to an {@link InternalNode} without giving the holder any access to
-   * it.
+   * Holds an opaque reference to an {@link LithoNode} without giving the holder any access to it.
    */
   public static final class InternalNodeRef {
-    private final InternalNode mInternalNodeRef;
+    private final LithoLayoutResult mInternalNodeRef;
 
-    private InternalNodeRef(InternalNode node) {
+    private InternalNodeRef(LithoLayoutResult node) {
       this.mInternalNodeRef = node;
     }
   }
@@ -78,8 +78,8 @@ public class LithoViewTestHelper {
    *         return Column.create(c)
    *             .child(
    *                 Column.create(c)
-   *                     .child(TestDrawableComponent.create(c))
-   *                     .child(TestDrawableComponent.create(c))
+   *                     .child(SimpleMountSpecTester.create(c))
+   *                     .child(SimpleMountSpecTester.create(c))
    *                     .testKey("mytestkey"))
    *             .build();
    *       }
@@ -101,7 +101,40 @@ public class LithoViewTestHelper {
 
   @DoNotStrip
   public static String viewToString(LithoView view) {
-    return viewToString(view, false);
+    return viewToString(view, false).trim();
+  }
+
+  @DoNotStrip
+  public static String viewToStringForE2E(View view, int depth, boolean withProps) {
+    return viewToStringForE2E(view, depth, withProps, null);
+  }
+
+  /**
+   * Provide a nested string representation of a LithoView and its nested components for E2E testing
+   * purposes. Note: this method is called via reflection to prevent direct or shared dependencies.
+   * DO NOT CHANGE the method signature.
+   *
+   * @param depth the offset to set on the litho nodes
+   * @param withProps if to dump extra properties
+   */
+  @DoNotStrip
+  public static String viewToStringForE2E(
+      View view,
+      int depth,
+      boolean withProps,
+      @Nullable DebugComponentDescriptionHelper.ExtraDescription extraDescription) {
+    // TODO support other implementations of BaseMountingView T149859358
+    if (!(view instanceof LithoView)) {
+      return "";
+    }
+    LithoView lithoView = (LithoView) view;
+    DebugComponent root = DebugComponent.getRootInstance(lithoView);
+    if (root == null) {
+      return "";
+    }
+    final StringBuilder sb = new StringBuilder();
+    viewToString(root, sb, true, withProps, depth, 0, 0, extraDescription);
+    return sb.toString();
   }
 
   /**
@@ -114,45 +147,59 @@ public class LithoViewTestHelper {
   @DoNotStrip
   public static String viewToString(LithoView view, boolean embedded) {
     DebugComponent root = DebugComponent.getRootInstance(view);
+    return rootInstanceToString(root, embedded, 0);
+  }
+
+  /**
+   * Provides a nested string representation of a DebugComponent and its nested components for
+   * debugging.
+   *
+   * @param root A root DebugComponent
+   * @param embedded if the call is embedded in "adb dumpsys activity"
+   * @param startingDepth the starting depth of the true for printing components (normally defaults
+   *     to 0)
+   */
+  @DoNotStrip
+  public static String rootInstanceToString(
+      @Nullable final DebugComponent root, final boolean embedded, final int startingDepth) {
     if (root == null) {
       return "";
     }
 
+    @Nullable final LithoView view = root.getLithoView();
+
     final StringBuilder sb = new StringBuilder();
-
-    int left = view.getLeft();
-    int top = view.getTop();
-    if (view.getParent() instanceof NestedScrollView) {
-      // TODO(T37986749): understand why we need it and not for RecyclerView
-      NestedScrollView scrollingParentView = (NestedScrollView) view.getParent();
-      left -= scrollingParentView.computeHorizontalScrollOffset();
-      top -= scrollingParentView.computeVerticalScrollOffset();
-    }
-    DebugComponentDescriptionHelper.addViewDescription(left, top, root, sb, embedded);
-
-    int depth = embedded ? getLithoViewDepthInAndroid(view) : 0;
-    viewToString(root, sb, embedded, depth);
+    int depth = embedded && view != null ? getLithoViewDepthInAndroid(view) : startingDepth;
+    sb.append("\n");
+    viewToString(root, sb, embedded, false, depth, 0, 0, null);
     return sb.toString();
   }
 
-  /** For E2E tests we remove non-layout components because they break view-hierarchy parsing. */
+  /** For E2E tests */
   private static void viewToString(
-      DebugComponent component, StringBuilder sb, boolean embedded, int depth) {
+      DebugComponent component,
+      StringBuilder sb,
+      boolean embedded,
+      boolean withProps,
+      int depth,
+      int leftOffset,
+      int topOffset,
+      @Nullable DebugComponentDescriptionHelper.ExtraDescription extraDescription) {
+    writeIndentByDepth(sb, depth);
+    DebugComponentDescriptionHelper.addViewDescription(
+        component, sb, leftOffset, topOffset, embedded, withProps, extraDescription);
+    sb.append("\n");
+
+    final Rect bounds = component.getBoundsInLithoView();
     for (DebugComponent child : component.getChildComponents()) {
-      int nextDepth = depth;
-      // TODO(T37986749): add unit test for this scenario (need to create non-layout somehow)
-      if (!ComponentsConfiguration.isEndToEndTestRun || child.isLayoutNode()) {
-        writeNewLineWithIndentByDepth(sb, nextDepth);
-        DebugComponentDescriptionHelper.addViewDescription(0, 0, child, sb, embedded);
-        nextDepth++;
-      }
-      viewToString(child, sb, embedded, nextDepth);
+      viewToString(
+          child, sb, embedded, withProps, depth + 1, bounds.left, bounds.top, extraDescription);
     }
   }
 
   /** calculate the depth on the litho components in general android view hierarchy */
   private static int getLithoViewDepthInAndroid(LithoView view) {
-    int depth = 2;
+    int depth = 3;
     ViewParent parent = view.getParent();
     while (parent != null) {
       depth++;
@@ -162,20 +209,22 @@ public class LithoViewTestHelper {
   }
 
   /** Add new line and two-space indent for each level to match android view hierarchy dump */
-  private static void writeNewLineWithIndentByDepth(StringBuilder sb, int depth) {
-    sb.append("\n");
-    for (int i = 0; i <= depth; i++) {
+  private static void writeIndentByDepth(StringBuilder sb, int depth) {
+    for (int i = 0; i < depth; i++) {
       sb.append("  ");
     }
   }
 
-  public static String toDebugString(@Nullable LithoView lithoView) {
-    if (lithoView == null) {
+  public static String toDebugString(@Nullable BaseMountingView baseMountingView) {
+    // TODO support other implementaions of BaseMountingView T149859358
+    if (baseMountingView == null || (!(baseMountingView instanceof LithoView))) {
       return "";
     }
 
-    final String debugString = viewToString(lithoView, true);
-    return TextUtils.isEmpty(debugString) ? viewBoundsToString(lithoView) : debugString;
+    final String debugString = viewToString((LithoView) baseMountingView, true);
+    return TextUtils.isEmpty(debugString)
+        ? viewBoundsToString((LithoView) baseMountingView)
+        : debugString;
   }
 
   private static String viewBoundsToString(LithoView lithoView) {
@@ -205,7 +254,7 @@ public class LithoViewTestHelper {
     final LayoutState mainThreadLayoutState =
         componentTree != null ? componentTree.getMainThreadLayoutState() : null;
     return mainThreadLayoutState != null
-        ? new InternalNodeRef(mainThreadLayoutState.getLayoutRoot())
+        ? new InternalNodeRef(mainThreadLayoutState.getRootLayoutResult())
         : null;
   }
 
@@ -220,7 +269,7 @@ public class LithoViewTestHelper {
     final LayoutState mainThreadLayoutState =
         componentTree != null ? componentTree.getMainThreadLayoutState() : null;
     if (mainThreadLayoutState != null) {
-      mainThreadLayoutState.mLayoutRoot = rootLayoutNode.mInternalNodeRef;
+      mainThreadLayoutState.mLayoutResult = rootLayoutNode.mInternalNodeRef;
     }
   }
 }

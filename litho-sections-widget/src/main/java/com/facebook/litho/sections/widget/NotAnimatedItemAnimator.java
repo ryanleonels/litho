@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,11 +18,13 @@ package com.facebook.litho.sections.widget;
 
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.SimpleItemAnimator;
+import com.facebook.infer.annotation.Nullsafe;
 
 /**
  * This implementation of {@link RecyclerView.ItemAnimator} disables all animations in a {@link
  * RecyclerView}.
  */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class NotAnimatedItemAnimator extends SimpleItemAnimator {
 
   public NotAnimatedItemAnimator() {
@@ -51,11 +53,7 @@ public class NotAnimatedItemAnimator extends SimpleItemAnimator {
 
   @Override
   public boolean animateMove(
-      RecyclerView.ViewHolder holder,
-      int fromX,
-      int fromY,
-      int toX,
-      int toY) {
+      RecyclerView.ViewHolder holder, int fromX, int fromY, int toX, int toY) {
     dispatchMoveStarting(holder);
     dispatchMoveFinished(holder);
     return true;
@@ -81,12 +79,10 @@ public class NotAnimatedItemAnimator extends SimpleItemAnimator {
   }
 
   @Override
-  public void endAnimation(RecyclerView.ViewHolder item) {
-  }
+  public void endAnimation(RecyclerView.ViewHolder item) {}
 
   @Override
-  public void endAnimations() {
-  }
+  public void endAnimations() {}
 
   @Override
   public boolean isRunning() {

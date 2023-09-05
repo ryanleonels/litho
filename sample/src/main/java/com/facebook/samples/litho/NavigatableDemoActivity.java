@@ -1,13 +1,17 @@
 /*
- * This file provided by Facebook is for non-commercial testing and evaluation
- * purposes only.  Facebook reserves all rights not expressly granted.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * FACEBOOK BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
- * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.facebook.samples.litho;
@@ -19,18 +23,26 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.NavUtils;
 import java.util.Arrays;
-import java.util.List;
 
 public class NavigatableDemoActivity extends AppCompatActivity {
+
+  private Demos.DemoItem mDataModel;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     int[] indices = getIntent().getIntArrayExtra(DemoListActivity.INDICES);
     if (indices != null) {
+      mDataModel = getDataModel(indices);
       getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-      setTitleFromIndices(indices);
+      setTitle(mDataModel.getName());
     }
+  }
+
+  @Override
+  protected void onDestroy() {
+    super.onDestroy();
+    mDataModel = null;
   }
 
   @Override
@@ -51,21 +63,35 @@ public class NavigatableDemoActivity extends AppCompatActivity {
       return null;
     }
 
-    final Intent parentIntent = new Intent(this, DemoListActivity.class);
-    if (indices.length > 1) {
-      parentIntent.putExtra(DemoListActivity.INDICES, Arrays.copyOf(indices, indices.length - 1));
+    // Keep popping indices off the route until we get to an Activity we can navigate back to.
+    // If we can't find one, pop back to the root.
+    int[] parentIndices = indices;
+    Demos.DemoItem item = null;
+    while (parentIndices.length > 1 && !(item instanceof Demos.NavigableDemoItem)) {
+      parentIndices = Arrays.copyOf(indices, parentIndices.length - 1);
+      item = getDataModel(parentIndices);
     }
 
-    return parentIntent;
+    if (item != null && item instanceof Demos.NavigableDemoItem) {
+      return ((Demos.NavigableDemoItem) item).getIntent(this, parentIndices);
+    } else {
+      return new Intent(this, SampleRootActivity.class);
+    }
   }
 
-  private void setTitleFromIndices(int[] indices) {
-    List<DemoListActivity.DemoListDataModel> dataModels = DemoListActivity.DATA_MODELS;
-    for (int i = 0; i < indices.length - 1; i++) {
-      dataModels = dataModels.get(indices[i]).datamodels;
+  private Demos.DemoItem getDataModel(int[] indices) {
+    Demos.DemoItem model = Demos.DEMOS.get(indices[0]);
+    for (int i = 1; i < indices.length; i++) {
+      if (model instanceof Demos.HasChildrenDemos) {
+        model = ((Demos.HasChildrenDemos) model).getDemos().get(indices[i]);
+      } else {
+        throw new RuntimeException("Unexpected type: " + model);
+      }
     }
+    return model;
+  }
 
-    final String title = dataModels.get(indices[indices.length - 1]).name;
-    setTitle(title);
+  protected Demos.DemoItem getDataModel() {
+    return mDataModel;
   }
 }

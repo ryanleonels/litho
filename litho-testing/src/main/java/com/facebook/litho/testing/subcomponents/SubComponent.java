@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,8 +20,8 @@ import com.facebook.litho.Component;
 import org.assertj.core.api.Condition;
 
 /**
- * Allows convenient type matching comparison for instances of {@link Component}s.
- * Useful for verifying the existence of sub-components that are part of a layout.
+ * Allows convenient type matching comparison for instances of {@link Component}s. Useful for
+ * verifying the existence of sub-components that are part of a layout.
  */
 public class SubComponent {
 
@@ -66,7 +66,7 @@ public class SubComponent {
 
   @Override
   public String toString() {
-    return mComponentType.toString() + " [" + super.toString() +"]";
+    return mComponentType.toString();
   }
 
   /**
@@ -74,15 +74,16 @@ public class SubComponent {
    * just ignore them.
    */
   private static boolean arePropsEqual(Component thatComponent, Component thisComponent) {
-    return thatComponent == null ||
-        thisComponent == null ||
-        thatComponent.isEquivalentTo(thisComponent);
+    return thatComponent == null
+        || thisComponent == null
+        || thatComponent.isEquivalentTo(thisComponent);
   }
 
   /**
    * Use an old-style {@link SubComponent} in an assertj Condition.
    *
-   * For instance:
+   * <p>For instance:
+   *
    * <pre><code>
    *   assertThat(c, mComponent)
    *    .has(

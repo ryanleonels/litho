@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,6 +21,7 @@ import android.graphics.Color;
 import android.view.View;
 import androidx.annotation.IdRes;
 import androidx.annotation.Nullable;
+import androidx.core.view.ViewCompat;
 import androidx.recyclerview.widget.DefaultItemAnimator;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.RecyclerView.ItemAnimator;
@@ -31,11 +32,8 @@ import com.facebook.litho.ComponentContext;
 import com.facebook.litho.ComponentLayout;
 import com.facebook.litho.Diff;
 import com.facebook.litho.EventHandler;
-import com.facebook.litho.Output;
 import com.facebook.litho.Size;
 import com.facebook.litho.StateValue;
-import com.facebook.litho.annotations.FromBind;
-import com.facebook.litho.annotations.FromPrepare;
 import com.facebook.litho.annotations.MountSpec;
 import com.facebook.litho.annotations.OnBind;
 import com.facebook.litho.annotations.OnBoundsDefined;
@@ -44,7 +42,6 @@ import com.facebook.litho.annotations.OnCreateMountContent;
 import com.facebook.litho.annotations.OnEvent;
 import com.facebook.litho.annotations.OnMeasure;
 import com.facebook.litho.annotations.OnMount;
-import com.facebook.litho.annotations.OnPrepare;
 import com.facebook.litho.annotations.OnUnbind;
 import com.facebook.litho.annotations.OnUnmount;
 import com.facebook.litho.annotations.OnUpdateState;
@@ -60,7 +57,7 @@ import java.util.List;
 /**
  * Components that renders a {@link RecyclerView}.
  *
- * @uidocs https://fburl.com/Recycler:a3f7
+ * @uidocs
  * @prop binder Binder for RecyclerView.
  * @prop refreshHandler Event handler for refresh event.
  * @prop hasFixedSize If set, makes RecyclerView not affected by adapter changes.
@@ -123,23 +120,10 @@ class RecyclerSpec {
 
   @OnCreateMountContent
   static SectionsRecyclerView onCreateMountContent(Context c) {
-    return new SectionsRecyclerView(c, new LithoRecylerView(c));
-  }
-
-  @OnPrepare
-  static void onPrepare(
-      ComponentContext c,
-      @Nullable @Prop(optional = true) final EventHandler refreshHandler,
-      Output<OnRefreshListener> onRefreshListener) {
-    if (refreshHandler != null) {
-      onRefreshListener.set(
-          new OnRefreshListener() {
-            @Override
-            public void onRefresh() {
-              Recycler.dispatchPTRRefreshEvent(refreshHandler);
-            }
-          });
-    }
+    final SectionsRecyclerView sectionsRecyclerView =
+        new SectionsRecyclerView(c, new LithoRecyclerView(c));
+    sectionsRecyclerView.setId(R.id.recycler_view_container_id);
+    return sectionsRecyclerView;
   }
 
   @OnMount
@@ -153,30 +137,37 @@ class RecyclerSpec {
       @Prop(optional = true) int rightPadding,
       @Prop(optional = true) int topPadding,
       @Prop(optional = true) int bottomPadding,
+      @Prop(optional = true) boolean disableAddingPadding,
       @Prop(optional = true, resType = ResType.COLOR) @Nullable
           Integer refreshProgressBarBackgroundColor,
       @Prop(optional = true, resType = ResType.COLOR) int refreshProgressBarColor,
       @Prop(optional = true) boolean clipChildren,
       @Prop(optional = true) boolean nestedScrollingEnabled,
       @Prop(optional = true) int scrollBarStyle,
-      @Prop(optional = true) RecyclerView.ItemDecoration itemDecoration,
+      @Nullable @Prop(optional = true, varArg = "itemDecoration")
+          List<RecyclerView.ItemDecoration> itemDecorations,
       @Prop(optional = true) boolean horizontalFadingEdgeEnabled,
       @Prop(optional = true) boolean verticalFadingEdgeEnabled,
       @Prop(optional = true, resType = ResType.DIMEN_SIZE) int fadingEdgeLength,
       @Prop(optional = true) @IdRes int recyclerViewId,
       @Prop(optional = true) int overScrollMode,
-      @Prop(optional = true, isCommonProp = true) CharSequence contentDescription) {
+      @Nullable @Prop(optional = true, isCommonProp = true) CharSequence contentDescription,
+      @Prop(optional = true) @Nullable ItemAnimator itemAnimator) {
     final RecyclerView recyclerView = sectionsRecycler.getRecyclerView();
 
     if (recyclerView == null) {
       throw new IllegalStateException(
           "RecyclerView not found, it should not be removed from SwipeRefreshLayout");
     }
+
     recyclerView.setContentDescription(contentDescription);
     recyclerView.setHasFixedSize(hasFixedSize);
     recyclerView.setClipToPadding(clipToPadding);
     sectionsRecycler.setClipToPadding(clipToPadding);
-    recyclerView.setPadding(leftPadding, topPadding, rightPadding, bottomPadding);
+    if (!disableAddingPadding) {
+      ViewCompat.setPaddingRelative(
+          recyclerView, leftPadding, topPadding, rightPadding, bottomPadding);
+    }
     recyclerView.setClipChildren(clipChildren);
     sectionsRecycler.setClipChildren(clipChildren);
     recyclerView.setNestedScrollingEnabled(nestedScrollingEnabled);
@@ -193,9 +184,14 @@ class RecyclerSpec {
     }
     sectionsRecycler.setColorSchemeColors(refreshProgressBarColor);
 
-    if (itemDecoration != null) {
-      recyclerView.addItemDecoration(itemDecoration);
+    if (itemDecorations != null) {
+      for (RecyclerView.ItemDecoration itemDecoration : itemDecorations) {
+        recyclerView.addItemDecoration(itemDecoration);
+      }
     }
+
+    sectionsRecycler.setItemAnimator(
+        itemAnimator != RecyclerSpec.itemAnimator ? itemAnimator : new NoUpdateItemAnimator());
 
     binder.mount(recyclerView);
   }
@@ -205,34 +201,38 @@ class RecyclerSpec {
       ComponentContext context,
       SectionsRecyclerView sectionsRecycler,
       @Prop Binder<RecyclerView> binder,
-      @Prop(optional = true) ItemAnimator itemAnimator,
       @Prop(optional = true) final RecyclerEventsController recyclerEventsController,
-      @Prop(optional = true, varArg = "onScrollListener") List<OnScrollListener> onScrollListeners,
-      @Prop(optional = true) SnapHelper snapHelper,
+      @Prop(optional = true, varArg = "onScrollListener") @Nullable
+          List<OnScrollListener> onScrollListeners,
+      @Nullable @Prop(optional = true) SnapHelper snapHelper,
       @Prop(optional = true) boolean pullToRefresh,
-      @Prop(optional = true) LithoRecylerView.TouchInterceptor touchInterceptor,
-      @FromPrepare OnRefreshListener onRefreshListener,
-      Output<ItemAnimator> oldAnimator) {
+      @Prop(optional = true) @Nullable LithoRecyclerView.TouchInterceptor touchInterceptor,
+      @Prop(optional = true) @Nullable RecyclerView.OnItemTouchListener onItemTouchListener,
+      @Nullable @Prop(optional = true) final EventHandler refreshHandler,
+      @Prop(optional = true) SectionsRecyclerView.SectionsRecyclerViewLogger sectionsViewLogger) {
+
+    sectionsRecycler.setSectionsRecyclerViewLogger(sectionsViewLogger);
 
     // contentDescription should be set on the recyclerView itself, and not the sectionsRecycler.
     sectionsRecycler.setContentDescription(null);
 
-    sectionsRecycler.setEnabled(pullToRefresh && onRefreshListener != null);
-    sectionsRecycler.setOnRefreshListener(onRefreshListener);
+    sectionsRecycler.setEnabled(pullToRefresh && refreshHandler != null);
+    sectionsRecycler.setOnRefreshListener(
+        refreshHandler != null
+            ? new OnRefreshListener() {
+              @Override
+              public void onRefresh() {
+                Recycler.dispatchPTRRefreshEvent(refreshHandler);
+              }
+            }
+            : null);
 
-    final LithoRecylerView recyclerView = (LithoRecylerView) sectionsRecycler.getRecyclerView();
+    final LithoRecyclerView recyclerView = (LithoRecyclerView) sectionsRecycler.getRecyclerView();
 
     if (recyclerView == null) {
       throw new IllegalStateException(
           "RecyclerView not found, it should not be removed from SwipeRefreshLayout "
               + "before unmounting");
-    }
-
-    oldAnimator.set(recyclerView.getItemAnimator());
-    if (itemAnimator != RecyclerSpec.itemAnimator) {
-      recyclerView.setItemAnimator(itemAnimator);
-    } else {
-      recyclerView.setItemAnimator(new NoUpdateItemAnimator());
     }
 
     if (onScrollListeners != null) {
@@ -245,6 +245,10 @@ class RecyclerSpec {
       recyclerView.setTouchInterceptor(touchInterceptor);
     }
 
+    if (onItemTouchListener != null) {
+      recyclerView.addOnItemTouchListener(onItemTouchListener);
+    }
+
     // We cannot detach the snap helper in unbind, so it may be possible for it to get
     // attached twice which causes SnapHelper to raise an exception.
     if (snapHelper != null && recyclerView.getOnFlingListener() == null) {
@@ -255,6 +259,7 @@ class RecyclerSpec {
 
     if (recyclerEventsController != null) {
       recyclerEventsController.setSectionsRecyclerView(sectionsRecycler);
+      recyclerEventsController.setSnapHelper(snapHelper);
     }
 
     if (sectionsRecycler.hasBeenDetachedFromWindow()) {
@@ -269,9 +274,13 @@ class RecyclerSpec {
       SectionsRecyclerView sectionsRecycler,
       @Prop Binder<RecyclerView> binder,
       @Prop(optional = true) RecyclerEventsController recyclerEventsController,
-      @Prop(optional = true, varArg = "onScrollListener") List<OnScrollListener> onScrollListeners,
-      @FromBind ItemAnimator oldAnimator) {
-    final LithoRecylerView recyclerView = (LithoRecylerView) sectionsRecycler.getRecyclerView();
+      @Prop(optional = true) @Nullable RecyclerView.OnItemTouchListener onItemTouchListener,
+      @Prop(optional = true, varArg = "onScrollListener") @Nullable
+          List<OnScrollListener> onScrollListeners) {
+
+    sectionsRecycler.setSectionsRecyclerViewLogger(null);
+
+    final LithoRecyclerView recyclerView = (LithoRecyclerView) sectionsRecycler.getRecyclerView();
 
     if (recyclerView == null) {
       throw new IllegalStateException(
@@ -279,18 +288,21 @@ class RecyclerSpec {
               + "before unmounting");
     }
 
-    recyclerView.setItemAnimator(oldAnimator);
-
     binder.unbind(recyclerView);
 
     if (recyclerEventsController != null) {
       recyclerEventsController.setSectionsRecyclerView(null);
+      recyclerEventsController.setSnapHelper(null);
     }
 
     if (onScrollListeners != null) {
       for (OnScrollListener onScrollListener : onScrollListeners) {
         recyclerView.removeOnScrollListener(onScrollListener);
       }
+    }
+
+    if (onItemTouchListener != null) {
+      recyclerView.removeOnItemTouchListener(onItemTouchListener);
     }
 
     recyclerView.setTouchInterceptor(null);
@@ -303,10 +315,11 @@ class RecyclerSpec {
       ComponentContext context,
       SectionsRecyclerView sectionsRecycler,
       @Prop Binder<RecyclerView> binder,
-      @Prop(optional = true) RecyclerView.ItemDecoration itemDecoration,
+      @Nullable @Prop(optional = true, varArg = "itemDecoration")
+          List<RecyclerView.ItemDecoration> itemDecorations,
       @Prop(optional = true, resType = ResType.COLOR) @Nullable
           Integer refreshProgressBarBackgroundColor,
-      @Prop(optional = true) SnapHelper snapHelper) {
+      @Nullable @Prop(optional = true) SnapHelper snapHelper) {
     final RecyclerView recyclerView = sectionsRecycler.getRecyclerView();
 
     if (recyclerView == null) {
@@ -322,8 +335,10 @@ class RecyclerSpec {
           DEFAULT_REFRESH_SPINNER_BACKGROUND_COLOR);
     }
 
-    if (itemDecoration != null) {
-      recyclerView.removeItemDecoration(itemDecoration);
+    if (itemDecorations != null) {
+      for (RecyclerView.ItemDecoration itemDecoration : itemDecorations) {
+        recyclerView.removeItemDecoration(itemDecoration);
+      }
     }
 
     binder.unmount(recyclerView);
@@ -331,6 +346,8 @@ class RecyclerSpec {
     if (snapHelper != null) {
       snapHelper.attachToRecyclerView(null);
     }
+
+    sectionsRecycler.resetItemAnimator();
   }
 
   @ShouldUpdate(onMount = true)
@@ -347,10 +364,12 @@ class RecyclerSpec {
       @Prop(optional = true, resType = ResType.COLOR) Diff<Integer> refreshProgressBarColor,
       @Prop(optional = true) Diff<Boolean> clipChildren,
       @Prop(optional = true) Diff<Integer> scrollBarStyle,
-      @Prop(optional = true) Diff<RecyclerView.ItemDecoration> itemDecoration,
+      @Prop(optional = true, varArg = "itemDecoration")
+          Diff<List<RecyclerView.ItemDecoration>> itemDecorations,
       @Prop(optional = true) Diff<Boolean> horizontalFadingEdgeEnabled,
       @Prop(optional = true) Diff<Boolean> verticalFadingEdgeEnabled,
       @Prop(optional = true, resType = ResType.DIMEN_SIZE) Diff<Integer> fadingEdgeLength,
+      @Prop(optional = true) Diff<ItemAnimator> itemAnimator,
       @State Diff<Integer> measureVersion) {
 
     if (measureVersion.getPrevious().intValue() != measureVersion.getNext().intValue()) {
@@ -417,8 +436,17 @@ class RecyclerSpec {
       return true;
     }
 
-    final RecyclerView.ItemDecoration previous = itemDecoration.getPrevious();
-    final RecyclerView.ItemDecoration next = itemDecoration.getNext();
+    final ItemAnimator previousItemAnimator = itemAnimator.getPrevious();
+    final ItemAnimator nextItemAnimator = itemAnimator.getNext();
+
+    if (previousItemAnimator == null
+        ? nextItemAnimator != null
+        : !previousItemAnimator.getClass().equals(nextItemAnimator.getClass())) {
+      return true;
+    }
+
+    final List<RecyclerView.ItemDecoration> previous = itemDecorations.getPrevious();
+    final List<RecyclerView.ItemDecoration> next = itemDecorations.getNext();
     final boolean itemDecorationIsEqual =
         (previous == null) ? (next == null) : previous.equals(next);
 
@@ -431,8 +459,7 @@ class RecyclerSpec {
   }
 
   @OnCreateInitialState
-  protected static void onCreateInitialState(
-      ComponentContext c, StateValue<Integer> measureVersion) {
+  protected static void onCreateInitialState(StateValue<Integer> measureVersion) {
     measureVersion.set(0);
   }
 

@@ -1,0 +1,140 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.facebook.litho
+
+import android.content.Context
+import android.graphics.Rect
+import androidx.test.core.app.ApplicationProvider.getApplicationContext
+import com.facebook.litho.testing.helper.ComponentTestHelper
+import com.facebook.litho.testing.testrunner.LithoTestRunner
+import org.assertj.core.api.Assertions.assertThat
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+
+/** Unit tests for [getTreeProp] and [createTreeProp]. */
+@Suppress("MagicNumber")
+@RunWith(LithoTestRunner::class)
+class KTreePropsTest {
+
+  private lateinit var context: ComponentContext
+
+  @Before
+  fun setUp() {
+    context = ComponentContext(getApplicationContext<Context>())
+  }
+
+  @Test
+  fun treePropValueIsPropagatedFromParentToChild() {
+    val treeProp1Ref = TreePropHolder()
+    val treeProp2Ref = TreePropHolder()
+    val rect = Rect()
+
+    class ChildComponent : KComponent() {
+      override fun ComponentScope.render(): Component? {
+        treeProp1Ref.prop = getTreeProp<Integer>()
+        treeProp2Ref.prop = getTreeProp<Rect>()
+        return null
+      }
+    }
+
+    class ParentComponent : KComponent() {
+      override fun ComponentScope.render(): Component? {
+        return TreePropProvider(Integer::class.java to 32, Rect::class.java to rect) {
+          ChildComponent()
+        }
+      }
+    }
+
+    ComponentTestHelper.mountComponent(context, ParentComponent())
+
+    assertThat(treeProp1Ref.prop).isEqualTo(32)
+    assertThat(treeProp2Ref.prop).isEqualTo(rect)
+  }
+
+  @Test
+  fun treePropValueIsOverriddenByIntermediate() {
+    val treePropRef = TreePropHolder()
+
+    class ChildComponent : KComponent() {
+      override fun ComponentScope.render(): Component? {
+        treePropRef.prop = getTreeProp<Integer>()
+        return null
+      }
+    }
+
+    // Overrides tree prop from ParentComponent
+    class IntermediateComponent : KComponent() {
+      override fun ComponentScope.render(): Component? {
+        return TreePropProvider(Integer::class.java to 24) { ChildComponent() }
+      }
+    }
+
+    class ParentComponent : KComponent() {
+      override fun ComponentScope.render(): Component? {
+        return TreePropProvider(Integer::class.java to 18) { IntermediateComponent() }
+      }
+    }
+
+    ComponentTestHelper.mountComponent(context, ParentComponent())
+
+    assertThat(treePropRef.prop).isEqualTo(24)
+  }
+
+  @Test
+  fun treePropsAreIsolatedBetweenSiblings() {
+    val child1StringPropRef = TreePropHolder()
+    val child1IntPropRef = TreePropHolder()
+    val child2IntPropRef = TreePropHolder()
+
+    class Child1Component : KComponent() {
+      override fun ComponentScope.render(): Component? {
+        child1StringPropRef.prop = getTreeProp<String>()
+        child1IntPropRef.prop = getTreeProp<Integer>()
+        return null
+      }
+    }
+
+    class Child2Component : KComponent() {
+      override fun ComponentScope.render(): Component? {
+        child2IntPropRef.prop = getTreeProp<Integer>()
+        return null
+      }
+    }
+
+    class ParentComponent : KComponent() {
+      override fun ComponentScope.render(): Component? {
+        return TreePropProvider(String::class.java to "kavabanga") {
+          Row {
+            child(TreePropProvider(Integer::class.java to 42) { Child1Component() })
+            child(Child2Component())
+          }
+        }
+      }
+    }
+
+    ComponentTestHelper.mountComponent(context, ParentComponent())
+
+    assertThat(child1StringPropRef.prop).isEqualTo("kavabanga")
+    assertThat(child1IntPropRef.prop).isEqualTo(42)
+    assertThat(child2IntPropRef.prop).isNull()
+  }
+}
+
+class TreePropHolder {
+  var prop: Any? = null
+}

@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,50 +21,50 @@ import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import androidx.annotation.AttrRes;
 import androidx.annotation.StyleRes;
-import androidx.core.util.Pools;
 import com.facebook.litho.Component;
 import com.facebook.litho.ComponentContext;
 import com.facebook.litho.ComponentLayout;
+import com.facebook.litho.InterStagePropsContainer;
 import com.facebook.litho.Size;
 import com.facebook.litho.SizeSpec;
+import com.facebook.litho.annotations.Comparable;
+import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * @deprecated Use MountSpecLifecycleTester if lifecycle assertions are needed or
+ *     SimpleMountSpecTester if not.
+ */
 public class TestDrawableComponent extends TestComponent {
 
   public interface TestComponentListener {
     void onPrepare();
   }
 
-  private static final Pools.SynchronizedPool<Builder> sBuilderPool =
-      new Pools.SynchronizedPool<>(2);
-
-  private static final long CALLS_SHOULD_UPDATE_ON_MOUNT = 1L << 0;
   private static final long IS_PURE_RENDER = 1L << 1;
   private static final long CAN_MEASURE = 1L << 2;
-  private static final long USES_DISPLAY_LIST = 1L << 3;
   private static final long IMPLEMENTS_ACCESSIBILITY = 1L << 4;
   private static final long IS_MOUNT_SIZE_DEPENDENT = 1L << 5;
 
   private final long mProperties;
 
+  @Comparable(type = Comparable.PRIMITIVE)
   private int color = Color.BLACK;
+
+  @Comparable(type = Comparable.PRIMITIVE)
   private int measuredWidth = -1;
+
+  @Comparable(type = Comparable.PRIMITIVE)
   private int measuredHeight = -1;
+
+  @Comparable(type = Comparable.PRIMITIVE)
   private boolean mReturnSelfInMakeShallowCopy;
+
+  @Comparable(type = Comparable.OTHER)
   private TestComponentListener mTestComponentListener;
 
   private TestDrawableComponent(long properties) {
     super("TestDrawableComponent");
     mProperties = properties;
-  }
-
-  @Override
-  public boolean shouldUpdate(Component previous, Component next) {
-    return !next.equals(previous);
-  }
-
-  @Override
-  protected boolean callsShouldUpdateOnMount() {
-    return (mProperties & CALLS_SHOULD_UPDATE_ON_MOUNT) != 0;
   }
 
   @Override
@@ -78,11 +78,6 @@ public class TestDrawableComponent extends TestComponent {
   }
 
   @Override
-  protected boolean shouldUseDisplayList() {
-    return (mProperties & USES_DISPLAY_LIST) != 0;
-  }
-
-  @Override
   public boolean isMountSizeDependent() {
     return (mProperties & IS_MOUNT_SIZE_DEPENDENT) != 0;
   }
@@ -93,14 +88,20 @@ public class TestDrawableComponent extends TestComponent {
   }
 
   @Override
-  protected void onMount(ComponentContext c, Object convertDrawable) {
+  protected void onMount(
+      ComponentContext c,
+      Object convertDrawable,
+      InterStagePropsContainer interStagePropsContainer) {
     ((ColorDrawable) convertDrawable).setColor(color);
 
     onMountCalled();
   }
 
   @Override
-  protected void onUnmount(ComponentContext c, Object mountedContent) {
+  protected void onUnmount(
+      ComponentContext c,
+      Object mountedContent,
+      InterStagePropsContainer interStagePropsContainer) {
     onUnmountCalled();
   }
 
@@ -111,31 +112,41 @@ public class TestDrawableComponent extends TestComponent {
 
   @Override
   protected void onMeasure(
-      ComponentContext c, ComponentLayout layout, int widthSpec, int heightSpec, Size size) {
+      ComponentContext c,
+      ComponentLayout layout,
+      int widthSpec,
+      int heightSpec,
+      Size size,
+      InterStagePropsContainer interStagePropsContainer) {
     int width = SizeSpec.getSize(widthSpec);
     int height = SizeSpec.getSize(heightSpec);
     onMeasureCalled();
 
-    size.width = (measuredWidth != -1)
-        ? SizeSpec.resolveSize(widthSpec, measuredWidth)
-        : width;
-    size.height = (measuredHeight != -1)
-        ? SizeSpec.resolveSize(heightSpec, measuredHeight)
-        : height;
+    size.width = measuredWidth != -1 ? SizeSpec.resolveSize(widthSpec, measuredWidth) : width;
+    size.height = measuredHeight != -1 ? SizeSpec.resolveSize(heightSpec, measuredHeight) : height;
   }
 
   @Override
-  protected void onBoundsDefined(ComponentContext c, ComponentLayout layout) {
+  protected void onBoundsDefined(
+      ComponentContext c,
+      ComponentLayout layout,
+      InterStagePropsContainer interStagePropsContainer) {
     onDefineBoundsCalled();
   }
 
   @Override
-  protected void onBind(ComponentContext c, Object mountedContent) {
+  protected void onBind(
+      ComponentContext c,
+      Object mountedContent,
+      InterStagePropsContainer interStagePropsContainer) {
     onBindCalled();
   }
 
   @Override
-  protected void onUnbind(ComponentContext c, Object mountedContent) {
+  protected void onUnbind(
+      ComponentContext c,
+      Object mountedContent,
+      InterStagePropsContainer interStagePropsContainer) {
     onUnbindCalled();
   }
 
@@ -166,31 +177,37 @@ public class TestDrawableComponent extends TestComponent {
     mTestComponentListener = listener;
   }
 
+  public static Builder create(ComponentContext context) {
+    return create(context, 0, 0, true, true, false, false);
+  }
+
+  public static Builder create(
+      ComponentContext context, @AttrRes int defStyleAttr, @StyleRes int defStyleRes) {
+    return create(context, defStyleAttr, defStyleRes, true, true, false);
+  }
+
   public static Builder create(
       ComponentContext context,
-      @AttrRes int defStyleAttr,
-      @StyleRes int defStyleRes) {
-    return create(context, defStyleAttr, defStyleRes, true, true, true, false, false);
+      boolean isPureRender,
+      boolean canMeasure,
+      boolean implementsAccessibility) {
+    return create(context, 0, 0, isPureRender, canMeasure, implementsAccessibility);
   }
 
   public static Builder create(
       ComponentContext context,
       @AttrRes int defStyleAttr,
       @StyleRes int defStyleRes,
-      boolean callsShouldUpdateOnMount,
       boolean isPureRender,
       boolean canMeasure,
-      boolean implementsAccessibility,
-      boolean usesDisplayList) {
+      boolean implementsAccessibility) {
     return create(
         context,
         defStyleAttr,
         defStyleRes,
-        callsShouldUpdateOnMount,
         isPureRender,
         canMeasure,
         implementsAccessibility,
-        usesDisplayList,
         false);
   }
 
@@ -198,18 +215,13 @@ public class TestDrawableComponent extends TestComponent {
       ComponentContext context,
       @AttrRes int defStyleAttr,
       @StyleRes int defStyleRes,
-      boolean callsShouldUpdateOnMount,
       boolean isPureRender,
       boolean canMeasure,
       boolean implementsAccessibility,
-      boolean usesDisplayList,
       boolean isMountSizeDependent) {
 
     long properties = 0;
-    
-    if (callsShouldUpdateOnMount) { 
-      properties |= CALLS_SHOULD_UPDATE_ON_MOUNT;
-    }
+
     if (isPureRender) {
       properties |= IS_PURE_RENDER;
     }
@@ -219,9 +231,6 @@ public class TestDrawableComponent extends TestComponent {
     if (implementsAccessibility) {
       properties |= IMPLEMENTS_ACCESSIBILITY;
     }
-    if (usesDisplayList) {
-      properties |= USES_DISPLAY_LIST;
-    }
     if (isMountSizeDependent) {
       properties |= IS_MOUNT_SIZE_DEPENDENT;
     }
@@ -229,68 +238,29 @@ public class TestDrawableComponent extends TestComponent {
     return newBuilder(context, defStyleAttr, defStyleRes, new TestDrawableComponent(properties));
   }
 
-  public static Builder create(ComponentContext context) {
-    return create(context, 0, 0, true, true, true, false, false, false);
-  }
-
-  public static Builder create(
-      ComponentContext context,
-      boolean callsShouldUpdateOnMount,
-      boolean isPureRender,
-      boolean canMeasure,
-      boolean implementsAccessibility,
-      boolean usesDisplayList) {
-    return create(
-        context,
-        0,
-        0,
-        callsShouldUpdateOnMount,
-        isPureRender,
-        canMeasure,
-        implementsAccessibility,
-        usesDisplayList);
-  }
-
   private static Builder newBuilder(
       ComponentContext context,
       @AttrRes int defStyleAttr,
       @StyleRes int defStyleRes,
       TestDrawableComponent state) {
-    final Builder builder = new Builder();
-    builder.init(context, defStyleAttr, defStyleRes, state);
-    return builder;
-  }
-
-  @Override
-  public int hashCode() {
-    return super.hashCode() + color;
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (o == null) {
-      return false;
-    }
-    if (!super.equals(o)) {
-      return false;
-    }
-    if (o instanceof TestDrawableComponent) {
-      TestDrawableComponent s = (TestDrawableComponent) o;
-      return color == s.color;
-    }
-    return false;
+    return new Builder(context, defStyleAttr, defStyleRes, state);
   }
 
   public static class Builder extends com.facebook.litho.Component.Builder<Builder> {
     TestDrawableComponent mComponent;
 
-    private void init(
+    private Builder(
         ComponentContext context,
         @AttrRes int defStyleAttr,
         @StyleRes int defStyleRes,
         TestDrawableComponent component) {
-      super.init(context, defStyleAttr, defStyleRes, component);
+      super(context, defStyleAttr, defStyleRes, component);
       mComponent = component;
+    }
+
+    @Override
+    protected void setComponent(Component component) {
+      mComponent = (TestDrawableComponent) component;
     }
 
     public Builder measuredWidth(int width) {
@@ -308,11 +278,6 @@ public class TestDrawableComponent extends TestComponent {
       return this;
     }
 
-    public Builder unique() {
-      mComponent.mIsUnique = true;
-      return this;
-    }
-
     public Builder returnSelfInMakeShallowCopy() {
       mComponent.mReturnSelfInMakeShallowCopy = true;
       return this;
@@ -326,6 +291,51 @@ public class TestDrawableComponent extends TestComponent {
     @Override
     public Builder getThis() {
       return this;
+    }
+  }
+
+  /**
+   * A listener that will block in prepare until allowPrepareToComplete is called from another
+   * thread.
+   */
+  public static class BlockInPrepareComponentListener implements TestComponentListener {
+
+    private final ThreadLocal<Boolean> mDoNotBlockOnThisThread = new ThreadLocal<>();
+    private final TimeOutSemaphore mOnAsyncPrepareStartSemaphore = new TimeOutSemaphore(0);
+    private final TimeOutSemaphore mAllowPrepareToCompleteSemaphore = new TimeOutSemaphore(0);
+    private final AtomicInteger mPrepareCount = new AtomicInteger(0);
+
+    @Override
+    public void onPrepare() {
+      mPrepareCount.incrementAndGet();
+
+      if (mDoNotBlockOnThisThread.get() != null && mDoNotBlockOnThisThread.get()) {
+        return;
+      }
+
+      mOnAsyncPrepareStartSemaphore.release();
+      mAllowPrepareToCompleteSemaphore.acquire();
+
+      mOnAsyncPrepareStartSemaphore.drainPermits();
+      mAllowPrepareToCompleteSemaphore.drainPermits();
+    }
+
+    /** Blocks from another thread until prepare() is called. */
+    public void awaitPrepareStart() {
+      mOnAsyncPrepareStartSemaphore.acquire();
+    }
+
+    /** Allows prepare to complete. */
+    public void allowPrepareToComplete() {
+      mAllowPrepareToCompleteSemaphore.release();
+    }
+
+    public void setDoNotBlockOnThisThread() {
+      mDoNotBlockOnThisThread.set(true);
+    }
+
+    public int getPrepareCount() {
+      return mPrepareCount.get();
     }
   }
 }

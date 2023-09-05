@@ -1,11 +1,11 @@
 /*
- * Copyright 2018-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.litho;
 
 /** Helper class to access Litho internals for benchmark testing. */
@@ -31,24 +32,22 @@ public class BenchmarkTestHelper {
     return lithoView;
   }
 
+  public static void createLithoViewAndExecLifecycleMethods(
+      ComponentContext c, Component component, int widthSpec, int heightSpec) {
+    final ComponentTree componentTree = ComponentTree.create(c, component).build();
+    final LithoView lithoView = new LithoView(c.getAndroidContext());
+    lithoView.setComponentTree(componentTree);
+    lithoView.onAttachedToWindow();
+    lithoView.measure(widthSpec, heightSpec);
+    lithoView.layout(0, 0, lithoView.getMeasuredWidth(), lithoView.getMeasuredHeight());
+  }
+
   public static void mountLithoView(LithoView lithoView) {
-    lithoView.getComponentTree().mountComponent(null, true);
+    lithoView.mountComponent(null, true);
   }
 
   public static void unmountLithoView(LithoView lithoView) {
     lithoView.unmountAllItems();
-  }
-
-  public static void prepareComponent(ComponentContext c, Component component) {
-    component.onPrepare(c);
-  }
-
-  public static void bindComponent(ComponentContext c, Component component, Object content) {
-    component.bind(c, content);
-  }
-
-  public static void unbindComponent(ComponentContext c, Component component, Object content) {
-    component.unbind(c, content);
   }
 
   public static void ensureMountSpec(Component component) {
@@ -57,11 +56,7 @@ public class BenchmarkTestHelper {
     }
   }
 
-  public static Object getMountContent(ComponentContext c, Component component) {
-    return ComponentsPools.acquireMountContent(c.getAndroidContext(), component);
-  }
-
-  public static void initComponentStateValues(ComponentContext c, Component component) {
-    component.updateInternalChildState(c);
+  public static void setMountStateDirty(LithoView lithoView) {
+    lithoView.setMountStateDirty();
   }
 }

@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,8 +16,9 @@
 
 package com.facebook.litho.widget;
 
+import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.facebook.litho.widget.RecyclerBinder.findInitialComponentPosition;
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -28,24 +29,27 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.OrientationHelper;
 import com.facebook.litho.Component;
 import com.facebook.litho.ComponentContext;
-import com.facebook.litho.LithoHandler;
+import com.facebook.litho.ErrorEventHandler;
+import com.facebook.litho.LithoLifecycleProvider;
 import com.facebook.litho.Size;
-import com.facebook.litho.testing.testrunner.ComponentsTestRunner;
+import com.facebook.litho.config.ComponentsConfiguration;
+import com.facebook.litho.testing.testrunner.LithoTestRunner;
 import com.facebook.litho.viewcompat.SimpleViewBinder;
 import com.facebook.litho.viewcompat.ViewCreator;
+import com.facebook.rendercore.RunnableHandler;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import javax.annotation.Nullable;
 import junit.framework.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.RuntimeEnvironment;
 
 /** Tests for {@link RecyclerBinder.ComponentAsyncInitRangeIterator} */
-@RunWith(ComponentsTestRunner.class)
+@RunWith(LithoTestRunner.class)
 public class RecyclerBinderAsyncInitRangeIteratorTest {
 
   private static final float RANGE_RATIO = 2.0f;
@@ -67,19 +71,26 @@ public class RecyclerBinderAsyncInitRangeIteratorTest {
 
   @Before
   public void setup() throws Exception {
-    mComponentContext = new ComponentContext(RuntimeEnvironment.application);
+    mComponentContext = new ComponentContext(getApplicationContext());
 
     final RecyclerBinder.ComponentTreeHolderFactory componentTreeHolderFactory =
         new RecyclerBinder.ComponentTreeHolderFactory() {
           @Override
           public ComponentTreeHolder create(
               RenderInfo renderInfo,
-              LithoHandler layoutHandler,
+              RunnableHandler resolveHandler,
+              RunnableHandler layoutHandler,
               ComponentTreeHolder.ComponentTreeMeasureListenerFactory
                   componentTreeMeasureListenerFactory,
+              ComponentsConfiguration componentsConfiguration,
               boolean incrementalMountEnabled,
-              boolean canInterruptAndMoveLayoutsBetweenThreads,
-              boolean useCancelableLayoutFutures) {
+              boolean visibilityProcessing,
+              boolean isReconciliationEnabled,
+              boolean isLayoutDiffingEnabled,
+              RunnableHandler preallocateHandler,
+              boolean preallocatePerMountSpec,
+              @Nullable LithoLifecycleProvider lifecycleProvider,
+              @Nullable ErrorEventHandler errorEventHandler) {
             final TestComponentTreeHolder holder = new TestComponentTreeHolder(renderInfo);
             mAllHoldersList.add(holder);
 

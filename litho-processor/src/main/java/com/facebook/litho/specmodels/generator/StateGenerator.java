@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,9 +16,9 @@
 
 package com.facebook.litho.specmodels.generator;
 
-import static com.facebook.litho.specmodels.generator.GeneratorConstants.STATE_CONTAINER_FIELD_NAME;
 import static com.facebook.litho.specmodels.generator.StateContainerGenerator.getStateContainerClassName;
 
+import androidx.annotation.VisibleForTesting;
 import com.facebook.litho.annotations.Param;
 import com.facebook.litho.specmodels.internal.ImmutableList;
 import com.facebook.litho.specmodels.model.ClassNames;
@@ -42,10 +42,9 @@ import javax.lang.model.element.Modifier;
 public class StateGenerator {
   static final int FLAG_LAZY = 1 << 31;
 
-  private static final String STATE_UPDATE_IMPL_NAME_SUFFIX = "StateUpdate";
   private static final String STATE_CONTAINER_NAME = "_stateContainer";
   private static final String LAZY_STATE_UPDATE_VALUE_PARAM = "lazyUpdateValue";
-
+  @VisibleForTesting public static final String STATE_UPDATE_PREFIX = "updateState:";
 
   private enum StateUpdateType {
     DEFAULT,
@@ -83,7 +82,7 @@ public class StateGenerator {
   }
 
   static TypeSpecDataHolder generateTransferState(SpecModel specModel) {
-    if (specModel.getStateValues().isEmpty()) {
+    if (specModel.getStateValues().isEmpty() || !specModel.shouldGenerateTransferState()) {
       return TypeSpecDataHolder.newBuilder().build();
     }
 
@@ -115,18 +114,6 @@ public class StateGenerator {
           stateValue.getName());
     }
 
-    if (hasUpdateStateWithTransition(specModel)) {
-      methodSpec
-          .beginControlFlow(
-              "synchronized (prevStateContainer.$L)",
-              GeneratorConstants.STATE_TRANSITIONS_FIELD_NAME)
-          .addStatement(
-              "nextStateContainer.$L = new ArrayList<>(prevStateContainer.$L)",
-              GeneratorConstants.STATE_TRANSITIONS_FIELD_NAME,
-              GeneratorConstants.STATE_TRANSITIONS_FIELD_NAME)
-          .endControlFlow();
-    }
-
     return TypeSpecDataHolder.newBuilder().addMethod(methodSpec.build()).build();
   }
 
@@ -146,17 +133,25 @@ public class StateGenerator {
             .addParameter(
                 ParameterSpec.builder(specModel.getComponentTypeName(), "component").build())
             .addStatement(
-                "$L $L = new $L()",
+                "$L $L = ($L) getStateContainerImpl(c)",
                 stateContainerClassName,
                 STATE_CONTAINER_NAME,
                 stateContainerClassName)
             .addStatement(
-                "transferState(component.$L, $L)", STATE_CONTAINER_FIELD_NAME, STATE_CONTAINER_NAME)
-            .addStatement("c.applyLazyStateUpdatesForContainer($L)", STATE_CONTAINER_NAME)
-            .addStatement("return $L", STATE_CONTAINER_NAME)
+                "return ($L) c.applyLazyStateUpdatesForContainer($L)",
+                stateContainerClassName,
+                STATE_CONTAINER_NAME)
             .build();
 
     return TypeSpecDataHolder.newBuilder().addMethod(methodSpec).build();
+  }
+
+  static ClassName getStateContainerGetterClassName(SpecModel specModel) {
+    return specModel.getContextClass().equals(ClassNames.SECTION_CONTEXT)
+        ? ClassNames.SECTION
+        : specModel.getContextClass().equals(ClassNames.SURFACE_CONTEXT)
+            ? ClassNames.SURFACE
+            : ClassNames.COMPONENT;
   }
 
   static boolean hasUpdateStateWithTransition(SpecModel specModel) {
@@ -221,14 +216,16 @@ public class StateGenerator {
         throw new RuntimeException("Unhandled state update type: " + stateUpdateType);
     }
 
-    final MethodSpec.Builder builder = MethodSpec.methodBuilder(name)
-        .addModifiers(Modifier.PROTECTED, Modifier.STATIC)
-        .addParameter(specModel.getContextClass(), "c");
+    final MethodSpec.Builder builder =
+        MethodSpec.methodBuilder(name)
+            .addModifiers(Modifier.PROTECTED, Modifier.STATIC)
+            .addParameter(specModel.getContextClass(), "c");
 
-    builder.addStatement(
-        "$T _component = c.get$LScope()",
-        specModel.getComponentClass(),
-        specModel.getComponentClass().simpleName())
+    builder
+        .addStatement(
+            "$T _component = c.get$LScope()",
+            specModel.getComponentClass(),
+            specModel.getComponentClass().simpleName())
         .addCode(
             CodeBlock.builder()
                 .beginControlFlow("if (_component == null)")
@@ -247,7 +244,10 @@ public class StateGenerator {
         final String paramName = methodParam.getName();
 
         builder
-            .addParameter(methodParam.getTypeName(), paramName)
+            .addParameter(
+                ParameterSpec.builder(methodParam.getTypeName(), paramName)
+                    .addAnnotations(methodParam.getExternalAnnotations())
+                    .build())
             .addTypeVariables(MethodParamModelUtils.getTypeVariables(methodParam));
 
         codeBlockBuilder.add(", ").add(paramName);
@@ -255,10 +255,9 @@ public class StateGenerator {
     }
     codeBlockBuilder.add(");\n");
     builder.addCode(codeBlockBuilder.build());
-
-
+    final String methodName = updateStateMethod.name.toString();
     final String stateUpdateAttribution =
-        '"' + specModel.getComponentName() + "." + updateStateMethod.name.toString() + '"';
+        '"' + STATE_UPDATE_PREFIX + specModel.getComponentName() + '.' + methodName + '"';
     final String stateUpdateMethod;
     switch (stateUpdateType) {
       case SYNC:
@@ -303,12 +302,17 @@ public class StateGenerator {
             .addModifiers(Modifier.PROTECTED, Modifier.STATIC)
             .addParameter(specModel.getContextClass(), "c")
             .addTypeVariables(MethodParamModelUtils.getTypeVariables(stateValue))
-            .addParameter(stateValue.getTypeName(), LAZY_STATE_UPDATE_VALUE_PARAM, Modifier.FINAL);
+            .addParameter(
+                ParameterSpec.builder(stateValue.getTypeName(), LAZY_STATE_UPDATE_VALUE_PARAM)
+                    .addModifiers(Modifier.FINAL)
+                    .addAnnotations(stateValue.getExternalAnnotations())
+                    .build());
 
-    builder.addStatement(
-        "$T _component = c.get$LScope()",
-        specModel.getComponentClass(),
-        specModel.getComponentClass().simpleName())
+    builder
+        .addStatement(
+            "$T _component = c.get$LScope()",
+            specModel.getComponentClass(),
+            specModel.getComponentClass().simpleName())
         .addCode(
             CodeBlock.builder()
                 .beginControlFlow("if (_component == null)")
@@ -329,7 +333,7 @@ public class StateGenerator {
     return TypeSpecDataHolder.newBuilder().addMethod(builder.build()).build();
   }
 
-  private static String getStateContainerClassNameWithTypeVars(SpecModel specModel) {
+  static String getStateContainerClassNameWithTypeVars(SpecModel specModel) {
     if (specModel.getStateValues().isEmpty()) {
       return specModel.getStateContainerClass().toString();
     }

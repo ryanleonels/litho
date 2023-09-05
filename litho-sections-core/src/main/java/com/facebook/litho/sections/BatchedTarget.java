@@ -1,11 +1,11 @@
 /*
- * Copyright 2014-present Facebook, Inc.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -73,8 +73,7 @@ class BatchedTarget implements SectionTree.Target {
   }
 
   @Override
-  public void insertRange(
-      int index, int count, List<RenderInfo> renderInfos) {
+  public void insertRange(int index, int count, List<RenderInfo> renderInfos) {
     dispatchLastEvent();
     mTarget.insertRange(index, count, renderInfos);
     if (ENABLE_LOGGER) {
@@ -84,9 +83,8 @@ class BatchedTarget implements SectionTree.Target {
 
   @Override
   public void update(int index, RenderInfo renderInfo) {
-    if (mLastEventType == Change.UPDATE &&
-        !(index > mLastEventPosition + mLastEventCount
-            || index + 1 < mLastEventPosition)) {
+    if (mLastEventType == Change.UPDATE
+        && !(index > mLastEventPosition + mLastEventCount || index + 1 < mLastEventPosition)) {
       // take potential overlap into account
       int previousEnd = mLastEventPosition + mLastEventCount;
       mLastEventPosition = Math.min(index, mLastEventPosition);
@@ -102,8 +100,7 @@ class BatchedTarget implements SectionTree.Target {
   }
 
   @Override
-  public void updateRange(
-      int index, int count, List<RenderInfo> renderInfos) {
+  public void updateRange(int index, int count, List<RenderInfo> renderInfos) {
     dispatchLastEvent();
     mTarget.updateRange(index, count, renderInfos);
     if (ENABLE_LOGGER) {
@@ -161,14 +158,29 @@ class BatchedTarget implements SectionTree.Target {
   }
 
   @Override
+  public void requestSmoothFocus(Object id, int offset, SmoothScrollAlignmentType type) {
+    mTarget.requestSmoothFocus(id, offset, type);
+  }
+
+  @Override
   public void requestFocusWithOffset(int index, int offset) {
     mTarget.requestFocusWithOffset(index, offset);
     maybeLogRequestFocusWithOffset(index, offset);
   }
 
   @Override
+  public void requestFocusWithOffset(Object id, int offset) {
+    mTarget.requestFocusWithOffset(id, offset);
+  }
+
+  @Override
   public boolean supportsBackgroundChangeSets() {
     return mTarget.supportsBackgroundChangeSets();
+  }
+
+  @Override
+  public void changeConfig(DynamicConfig dynamicConfig) {
+    mTarget.changeConfig(dynamicConfig);
   }
 
   private void maybeLogRequestFocusWithOffset(int index, int offset) {
@@ -257,18 +269,13 @@ class BatchedTarget implements SectionTree.Target {
   }
 
   private static List<RenderInfo> collectComponentInfos(
-      int startIndex,
-      int numItems,
-      SparseArray<RenderInfo> componentInfoSparseArray) {
+      int startIndex, int numItems, SparseArray<RenderInfo> componentInfoSparseArray) {
     ArrayList<RenderInfo> renderInfos = new ArrayList<>(numItems);
     for (int i = startIndex; i < startIndex + numItems; i++) {
       RenderInfo renderInfo = componentInfoSparseArray.get(i);
       if (renderInfo == null) {
         throw new IllegalStateException(
-            String.format(
-                Locale.US,
-                "Index %d does not have a corresponding renderInfo",
-                i));
+            String.format(Locale.US, "Index %d does not have a corresponding renderInfo", i));
       }
       renderInfos.add(renderInfo);
     }

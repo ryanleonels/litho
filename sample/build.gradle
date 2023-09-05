@@ -1,22 +1,26 @@
 /*
- * This file provided by Facebook is for non-commercial testing and evaluation
- * purposes only.  Facebook reserves all rights not expressly granted.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * FACEBOOK BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
- * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
+apply plugin: 'kotlin-kapt'
 
 android {
     compileSdkVersion rootProject.compileSdkVersion
     buildToolsVersion rootProject.buildToolsVersion
-
-    useLibrary 'org.apache.http.legacy'
 
     targetCompatibility = targetCompatibilityVersion
     sourceCompatibility = sourceCompatibilityVersion
@@ -36,21 +40,33 @@ android {
 }
 
 dependencies {
+    compileOnly project(':litho-sections-annotations')
+
     implementation project(':litho-core')
-    implementation project(':litho-widget')
+    implementation project(':litho-core-kotlin')
+    implementation project(':litho-coroutines-kotlin')
+    implementation project(':litho-editor-core')
+    implementation project(':litho-editor-flipper')
     implementation project(':litho-fresco')
+    implementation project(':litho-fresco-kotlin')
+    implementation project(':litho-live-data')
     implementation project(':litho-sections-core')
     implementation project(':litho-sections-widget')
-    compileOnly project(':litho-sections-annotations')
-    annotationProcessor project(':litho-processor')
-    annotationProcessor project(':litho-sections-processor')
+    implementation project(':litho-widget')
+    implementation project(':litho-widget-kotlin')
+
+    kapt project(':litho-processor')
+    kapt project(':litho-sections-processor')
 
     // First-party
     implementation deps.soloader
-    implementation(deps.flipper) {
-        exclude group: 'com.facebook.flipper', module: 'fbjni'
-    }
+    implementation deps.flipper
+    implementation deps.flipperLithoPlugin
     implementation deps.fresco
+    implementation deps.frescoVito
+    implementation deps.frescoVitoLitho
+    implementation deps.frescoVitoOptions
+    implementation deps.frescoVitoSource
     implementation deps.guava
 
     // Annotations
@@ -58,8 +74,16 @@ dependencies {
     compileOnly deps.inferAnnotations
 
     // Support Library
+    implementation deps.archLifecycle
+    implementation deps.kotlinCoroutines
+    implementation deps.kotlinStandardLib
+    implementation deps.liveData
     implementation deps.supportAppCompat
+    implementation deps.supportFragment
     implementation deps.supportRecyclerView
+    implementation deps.supportSwipeRefresh
+    implementation deps.supportTransition
+
 
     // Integration test only
     androidTestImplementation project(':litho-espresso')
@@ -70,10 +94,13 @@ dependencies {
     // Unit test only
     testImplementation project(':litho-testing')
     testCompileOnly deps.jsr305
+    testCompileOnly deps.mockitokotlin
     testAnnotationProcessor project(':litho-processor')
+    kaptTest project(':litho-processor')
     testImplementation deps.junit
     testImplementation deps.hamcrestLibrary
     testImplementation deps.robolectric
+    testImplementation deps.supportTestCore
     testImplementation deps.assertjCore
     testImplementation deps.mockitoCore
 }
